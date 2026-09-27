@@ -1,0 +1,211 @@
+"use client";
+
+import {
+  ArrowLeft,
+  ArrowRight,
+  Boxes,
+  Briefcase,
+  Compass,
+  Cpu,
+  Factory,
+  HeartPulse,
+  Landmark,
+  MoreHorizontal,
+  Settings2,
+  ShoppingBag,
+  TrendingUp,
+  Users,
+} from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { Logo } from "@/components/brand/Logo";
+import { Button } from "@/components/ui/Button";
+import { Field, inputClass } from "@/components/ui/Field";
+import { Spinner } from "@/components/ui/Spinner";
+import { saveCompany } from "@/lib/data";
+import { COMPANY_SIZES, FOCUS_AREAS, INDUSTRIES } from "@/lib/options";
+import { routes } from "@/lib/routes";
+import { appActions, useAppState } from "@/lib/store/app-store";
+import type { CompanySize, FocusArea, Industry } from "@/lib/types";
+import { OptionGrid, type Option } from "./OptionGrid";
+import { ProfilePreview } from "./ProfilePreview";
+import { StepIndicator } from "./StepIndicator";
+
+const industryIcons: Record<Industry, Option<Industry>["icon"]> = {
+  Technology: Cpu,
+  Consumer: ShoppingBag,
+  "Financial Services": Landmark,
+  Healthcare: HeartPulse,
+  Manufacturing: Factory,
+  "Professional Services": Briefcase,
+  Other: MoreHorizontal,
+};
+
+const focusIcons: Record<FocusArea, Option<FocusArea>["icon"]> = {
+  Growth: TrendingUp,
+  Product: Boxes,
+  Customers: Users,
+  Operations: Settings2,
+  Strategy: Compass,
+  Other: MoreHorizontal,
+};
+
+const industryOptions = INDUSTRIES.map((value) => ({ value, icon: industryIcons[value] }));
+const sizeOptions = COMPANY_SIZES.map(({ value, label }) => ({ value, label }));
+const focusOptions = FOCUS_AREAS.map(({ value, label }) => ({ value, label, icon: focusIcons[value] }));
+
+const STEPS = [
+  { title: "Tell us about your company", hint: "Just the basics — a sentence is plenty." },
+  { title: "Which industry are you in?", hint: "Helps Veyra choose relevant benchmarks and frameworks." },
+  { title: "How big is your company?", hint: "Number of employees." },
+  { title: "What do you want Veyra to help with?", hint: "Choose all that apply." },
+] as const;
+
+export function OnboardingFlow() {
+  const router = useRouter();
+  const { user } = useAppState();
+
+  const [step, setStep] = useState(0);
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [industry, setIndustry] = useState<Industry | null>(null);
+  const [size, setSize] = useState<CompanySize | null>(null);
+  const [focus, setFocus] = useState<FocusArea[]>([]);
+  const [saving, setSaving] = useState(false);
+
+  const isLast = step === STEPS.length - 1;
+  const canContinue = [
+    name.trim().length > 0 && description.trim().length > 0,
+    industry !== null,
+    size !== null,
+    focus.length > 0,
+  ][step];
+
+  async function next(e?: React.FormEvent) {
+    e?.preventDefault();
+    if (!canContinue || saving) return;
+    if (!isLast) {
+      setStep(step + 1);
+      return;
+    }
+    setSaving(true);
+    const company = await saveCompany({
+      name: name.trim(),
+      description: description.trim(),
+      industry: industry!,
+      size: size!,
+      focusAreas: focus,
+    });
+    appActions.completeOnboarding(company);
+    router.push(routes.dashboard);
+  }
+
+  const firstName = user?.name.split(" ")[0];
+
+  return (
+    <div className="min-h-screen bg-canvas">
+      <header className="border-b border-line bg-white">
+        <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-4 sm:px-6">
+          <Logo href={routes.home} />
+          <StepIndicator step={step + 1} total={STEPS.length} />
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:py-14">
+        <p className="text-sm text-ink-subtle">{firstName ? `Welcome, ${firstName}.` : "Welcome."}</p>
+        <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-[28px]">Let&rsquo;s understand your business.</h1>
+        <p className="mt-2 text-ink-muted">This helps Veyra make your investigations more relevant.</p>
+
+        <div className="mt-8 grid grid-cols-[minmax(0,1fr)] items-start gap-8 lg:grid-cols-[minmax(0,1fr)_300px]">
+          <form onSubmit={next} className="min-w-0">
+            <section className="rounded-2xl border border-line bg-surface p-5 shadow-card sm:p-6" aria-labelledby="step-title">
+              <h2 id="step-title" className="text-lg font-semibold">
+                {STEPS[step].title}
+              </h2>
+              <p className="mt-1 text-sm text-ink-subtle">{STEPS[step].hint}</p>
+
+              <div className="mt-5">
+                {step === 0 && (
+                  <div className="space-y-4">
+                    <Field label="Company name" htmlFor="company-name">
+                      <input
+                        id="company-name"
+                        autoFocus
+                        autoComplete="organization"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder="Acme"
+                        className={inputClass}
+                      />
+                    </Field>
+                    <Field label="What does your company do?" htmlFor="company-description">
+                      <input
+                        id="company-description"
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        placeholder="Consumer subscription app"
+                        className={inputClass}
+                      />
+                    </Field>
+                  </div>
+                )}
+                {step === 1 && (
+                  <OptionGrid
+                    ariaLabel="Industry"
+                    options={industryOptions}
+                    selected={industry ? [industry] : []}
+                    onToggle={setIndustry}
+                  />
+                )}
+                {step === 2 && (
+                  <OptionGrid
+                    ariaLabel="Company size"
+                    options={sizeOptions}
+                    selected={size ? [size] : []}
+                    onToggle={setSize}
+                  />
+                )}
+                {step === 3 && (
+                  <OptionGrid
+                    ariaLabel="Focus areas"
+                    multiple
+                    options={focusOptions}
+                    selected={focus}
+                    onToggle={(v) => setFocus((cur) => (cur.includes(v) ? cur.filter((f) => f !== v) : [...cur, v]))}
+                  />
+                )}
+              </div>
+
+              <div className="mt-6 flex items-center justify-between gap-3 border-t border-line pt-5">
+                {step > 0 ? (
+                  <Button type="button" variant="ghost" onClick={() => setStep(step - 1)} disabled={saving}>
+                    <ArrowLeft className="h-4 w-4" /> Back
+                  </Button>
+                ) : (
+                  <span />
+                )}
+                <Button type="submit" disabled={!canContinue || saving}>
+                  {saving && <Spinner />}
+                  {isLast ? "Enter Veyra" : "Continue"}
+                  {!saving && <ArrowRight className="h-4 w-4" />}
+                </Button>
+              </div>
+            </section>
+          </form>
+
+          <aside className="hidden lg:block">
+            <ProfilePreview
+              rows={[
+                { label: "Company", value: name.trim(), active: step === 0 },
+                { label: "What you do", value: description.trim(), active: step === 0 },
+                { label: "Industry", value: industry ?? undefined, active: step === 1 },
+                { label: "Size", value: size ? `${size} employees` : undefined, active: step === 2 },
+                { label: "Focus", value: focus.join(", "), active: step === 3 },
+              ]}
+            />
+          </aside>
+        </div>
+      </main>
+    </div>
+  );
+}

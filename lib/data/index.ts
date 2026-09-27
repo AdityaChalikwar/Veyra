@@ -18,6 +18,13 @@ export async function getCompany(): Promise<Company> {
   return mockCompany;
 }
 
+export type CompanyInput = Omit<Company, "id">;
+
+/** Saves the business profile collected during onboarding. */
+export async function saveCompany(input: CompanyInput): Promise<Company> {
+  return { ...input, id: mockCompany.id };
+}
+
 export async function listInvestigations(): Promise<InvestigationSummary[]> {
   return mockInvestigations;
 }
