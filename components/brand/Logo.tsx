@@ -8,17 +8,12 @@ type LogoProps = {
   className?: string;
 };
 
+// Solid fills (no gradient ids) so several logos on one page never clash.
 export function LogoMark({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 32 32" aria-hidden="true" className={cn("h-7 w-7", className)}>
-      <defs>
-        <linearGradient id="veyra-mark" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#7f82f7" />
-          <stop offset="100%" stopColor="#4b48e3" />
-        </linearGradient>
-      </defs>
-      <path d="M4 6.5c0-1.4 1.6-2.2 2.7-1.4l8.1 6a2 2 0 0 1 .8 1.6V27L5 15.4A4 4 0 0 1 4 12.7z" fill="url(#veyra-mark)" />
-      <path d="M28 6.5c0-1.4-1.6-2.2-2.7-1.4l-8.1 6a2 2 0 0 0-.8 1.6V27l10.6-11.6a4 4 0 0 0 1-2.7z" fill="url(#veyra-mark)" opacity="0.72" />
+      <path d="M4 6.5c0-1.4 1.6-2.2 2.7-1.4l8.1 6a2 2 0 0 1 .8 1.6V27L5 15.4A4 4 0 0 1 4 12.7z" fill="#7f82f7" />
+      <path d="M28 6.5c0-1.4-1.6-2.2-2.7-1.4l-8.1 6a2 2 0 0 0-.8 1.6V27l10.6-11.6a4 4 0 0 0 1-2.7z" fill="#4b48e3" />
     </svg>
   );
 }
