@@ -1,0 +1,75 @@
+@import "tailwindcss";
+
+/*
+ * Veyra design tokens.
+ * Colour carries meaning: green = confirmed, amber = uncertain, red = genuine problems only.
+ */
+@theme {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  /* Navy — sidebar and dark surfaces */
+  --color-navy-950: #0a0f24;
+  --color-navy-900: #0f1533;
+  --color-navy-800: #172046;
+  --color-navy-700: #222c5a;
+  --color-navy-600: #34407a;
+  --color-navy-300: #a3abcf;
+  --color-navy-200: #c9cee6;
+
+  /* Brand — blue/indigo with a violet lean */
+  --color-brand-50: #f0f1ff;
+  --color-brand-100: #e2e4ff;
+  --color-brand-200: #c9ccff;
+  --color-brand-300: #a5a9fc;
+  --color-brand-400: #7f82f7;
+  --color-brand-500: #5f5ff0;
+  --color-brand-600: #4b48e3;
+  --color-brand-700: #3d39c4;
+  --color-brand-800: #33309e;
+
+  /* Neutrals for the workspace */
+  --color-canvas: #f6f7fb;
+  --color-surface: #ffffff;
+  --color-line: #e6e8f0;
+  --color-line-strong: #d5d9e5;
+  --color-ink: #0f172a;
+  --color-ink-muted: #475569;
+  --color-ink-subtle: #64748b;
+  --color-ink-faint: #94a3b8;
+
+  /* Semantic */
+  --color-confirmed-50: #ecfdf3;
+  --color-confirmed-200: #b7ebcb;
+  --color-confirmed-600: #15803d;
+  --color-uncertain-50: #fff8eb;
+  --color-uncertain-200: #fbdca4;
+  --color-uncertain-600: #b45309;
+  --color-danger-50: #fef2f2;
+  --color-danger-200: #fbcaca;
+  --color-danger-600: #dc2626;
+
+  --shadow-card: 0 1px 2px rgb(15 23 42 / 0.04), 0 1px 3px rgb(15 23 42 / 0.04);
+  --shadow-raised: 0 4px 12px -2px rgb(15 23 42 / 0.08), 0 2px 4px -2px rgb(15 23 42 / 0.04);
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    background: var(--color-canvas);
+    color: var(--color-ink);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-brand-500);
+    outline-offset: 2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}

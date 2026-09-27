@@ -1,0 +1,58 @@
+import type { InvestigationSummary } from "@/lib/types";
+
+export const mockInvestigations: InvestigationSummary[] = [
+  {
+    id: "dau-decline",
+    title: "DAU Decline",
+    status: "investigating",
+    stage: "diagnosis",
+    progress: 72,
+    headline: "Daily active users down 40% since April; concentrated in paid social.",
+    updatedAt: "2026-09-27T10:00:00Z",
+  },
+  {
+    id: "sales-decline",
+    title: "Sales Decline",
+    status: "diagnosing",
+    stage: "analysis",
+    progress: 45,
+    headline: "Monthly sales down 25% over six months; mid-market deals slipping.",
+    updatedAt: "2026-09-26T15:30:00Z",
+  },
+  {
+    id: "customer-churn",
+    title: "Customer Churn",
+    status: "recommendation",
+    stage: "recommendation",
+    progress: 85,
+    headline: "Annual-plan churn up 3.2 pts; recommendation ready for review.",
+    updatedAt: "2026-09-25T09:10:00Z",
+  },
+  {
+    id: "new-market",
+    title: "New Market Opportunity",
+    status: "planning",
+    stage: "setup",
+    progress: 20,
+    headline: "Assessing demand for a small-business tier in the UK.",
+    updatedAt: "2026-09-24T12:00:00Z",
+  },
+  {
+    id: "pricing-analysis",
+    title: "Pricing Analysis",
+    status: "completed",
+    stage: "action",
+    progress: 100,
+    headline: "Annual discount raised from 15% to 20%; conversion +6%.",
+    updatedAt: "2026-08-14T12:00:00Z",
+  },
+  {
+    id: "feature-adoption",
+    title: "Feature Adoption",
+    status: "completed",
+    stage: "action",
+    progress: 100,
+    headline: "Shared playlists adoption doubled after in-app prompts.",
+    updatedAt: "2026-07-02T12:00:00Z",
+  },
+];
