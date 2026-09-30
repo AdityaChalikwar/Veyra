@@ -1,4 +1,4 @@
-import type { CompanySize, FocusArea, Industry } from "@/lib/types";
+import type { CompanySize, Industry } from "@/lib/types";
 
 /** Fixed choice lists used by onboarding and settings. */
 export const INDUSTRIES: Industry[] = [
@@ -19,11 +19,3 @@ export const COMPANY_SIZES: { value: CompanySize; label: string }[] = [
   { value: "500+", label: "Large organisation" },
 ];
 
-export const FOCUS_AREAS: { value: FocusArea; label: string }[] = [
-  { value: "Growth", label: "Acquisition, revenue, conversion" },
-  { value: "Product", label: "Engagement, adoption, activation" },
-  { value: "Customers", label: "Retention, churn, satisfaction" },
-  { value: "Operations", label: "Cost, efficiency, delivery" },
-  { value: "Strategy", label: "Markets, pricing, positioning" },
-  { value: "Other", label: "Something else" },
-];

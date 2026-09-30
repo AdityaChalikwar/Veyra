@@ -45,15 +45,12 @@ export type Industry =
 
 export type CompanySize = "1–10" | "11–50" | "51–200" | "201–500" | "500+";
 
-export type FocusArea = "Growth" | "Product" | "Customers" | "Operations" | "Strategy" | "Other";
-
 export type Company = {
   id: ID;
   name: string;
   description: string;
   industry: Industry;
   size: CompanySize;
-  focusAreas: FocusArea[];
 };
 
 export type BusinessContext = {

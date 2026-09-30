@@ -3,18 +3,13 @@
 import {
   ArrowLeft,
   ArrowRight,
-  Boxes,
   Briefcase,
-  Compass,
   Cpu,
   Factory,
   HeartPulse,
   Landmark,
   MoreHorizontal,
-  Settings2,
   ShoppingBag,
-  TrendingUp,
-  Users,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -23,10 +18,10 @@ import { Button } from "@/components/ui/Button";
 import { Field, inputClass } from "@/components/ui/Field";
 import { Spinner } from "@/components/ui/Spinner";
 import { saveCompany } from "@/lib/data";
-import { COMPANY_SIZES, FOCUS_AREAS, INDUSTRIES } from "@/lib/options";
+import { COMPANY_SIZES, INDUSTRIES } from "@/lib/options";
 import { routes } from "@/lib/routes";
 import { appActions, useAppState } from "@/lib/store/app-store";
-import type { CompanySize, FocusArea, Industry } from "@/lib/types";
+import type { CompanySize, Industry } from "@/lib/types";
 import { OptionGrid, type Option } from "./OptionGrid";
 import { ProfilePreview } from "./ProfilePreview";
 import { StepIndicator } from "./StepIndicator";
@@ -41,24 +36,13 @@ const industryIcons: Record<Industry, Option<Industry>["icon"]> = {
   Other: MoreHorizontal,
 };
 
-const focusIcons: Record<FocusArea, Option<FocusArea>["icon"]> = {
-  Growth: TrendingUp,
-  Product: Boxes,
-  Customers: Users,
-  Operations: Settings2,
-  Strategy: Compass,
-  Other: MoreHorizontal,
-};
-
 const industryOptions = INDUSTRIES.map((value) => ({ value, icon: industryIcons[value] }));
 const sizeOptions = COMPANY_SIZES.map(({ value, label }) => ({ value, label }));
-const focusOptions = FOCUS_AREAS.map(({ value, label }) => ({ value, label, icon: focusIcons[value] }));
 
 const STEPS = [
   { title: "Tell us about your company", hint: "Just the basics — a sentence is plenty." },
   { title: "Which industry are you in?", hint: "Helps Veyra choose relevant benchmarks and frameworks." },
   { title: "How big is your company?", hint: "Number of employees." },
-  { title: "What do you want Veyra to help with?", hint: "Choose all that apply." },
 ] as const;
 
 export function OnboardingFlow() {
@@ -70,7 +54,6 @@ export function OnboardingFlow() {
   const [description, setDescription] = useState("");
   const [industry, setIndustry] = useState<Industry | null>(null);
   const [size, setSize] = useState<CompanySize | null>(null);
-  const [focus, setFocus] = useState<FocusArea[]>([]);
   const [saving, setSaving] = useState(false);
 
   const isLast = step === STEPS.length - 1;
@@ -78,7 +61,6 @@ export function OnboardingFlow() {
     name.trim().length > 0 && description.trim().length > 0,
     industry !== null,
     size !== null,
-    focus.length > 0,
   ][step];
 
   async function next(e?: React.FormEvent) {
@@ -94,7 +76,6 @@ export function OnboardingFlow() {
       description: description.trim(),
       industry: industry!,
       size: size!,
-      focusAreas: focus,
     });
     appActions.completeOnboarding(company);
     router.push(routes.dashboard);
@@ -165,16 +146,7 @@ export function OnboardingFlow() {
                     onToggle={setSize}
                   />
                 )}
-                {step === 3 && (
-                  <OptionGrid
-                    ariaLabel="Focus areas"
-                    multiple
-                    options={focusOptions}
-                    selected={focus}
-                    onToggle={(v) => setFocus((cur) => (cur.includes(v) ? cur.filter((f) => f !== v) : [...cur, v]))}
-                  />
-                )}
-              </div>
+                </div>
 
               <div className="mt-6 flex items-center justify-between gap-3 border-t border-line pt-5">
                 {step > 0 ? (
@@ -200,7 +172,6 @@ export function OnboardingFlow() {
                 { label: "What you do", value: description.trim(), active: step === 0 },
                 { label: "Industry", value: industry ?? undefined, active: step === 1 },
                 { label: "Size", value: size ? `${size} employees` : undefined, active: step === 2 },
-                { label: "Focus", value: focus.join(", "), active: step === 3 },
               ]}
             />
           </aside>

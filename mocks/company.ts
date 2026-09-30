@@ -6,5 +6,4 @@ export const mockCompany: Company = {
   description: "Consumer subscription app",
   industry: "Consumer",
   size: "51–200",
-  focusAreas: ["Growth", "Product"],
 };
