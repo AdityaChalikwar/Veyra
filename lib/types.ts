@@ -45,15 +45,12 @@ export type Industry =
 
 export type CompanySize = "1–10" | "11–50" | "51–200" | "201–500" | "500+";
 
-export type FocusArea = "Growth" | "Product" | "Customers" | "Operations" | "Strategy" | "Other";
-
 export type Company = {
   id: ID;
   name: string;
   description: string;
   industry: Industry;
   size: CompanySize;
-  focusAreas: FocusArea[];
 };
 
 export type BusinessContext = {
@@ -62,9 +59,13 @@ export type BusinessContext = {
   timePeriod: string;
 };
 
+/** Broad problem area. Drives the icon shown next to an investigation. */
+export type InvestigationTopic = "engagement" | "revenue" | "retention" | "market" | "pricing" | "adoption";
+
 export type InvestigationSummary = {
   id: ID;
   title: string;
+  topic: InvestigationTopic;
   status: InvestigationStatus;
   stage: InvestigationStage;
   progress: number; // 0–100
@@ -82,10 +83,22 @@ export type Investigation = InvestigationSummary & {
 
 export type ClarifyingQuestion = {
   id: ID;
-  investigationId: ID;
+  /** Absent while the investigation is still a draft. */
+  investigationId?: ID;
   question: string;
+  /** Empty means unanswered — Veyra treats it as an unknown. */
   answer: string;
+  /** Why Veyra is asking. */
   hint?: string;
+};
+
+/** A new investigation before it's created. */
+export type InvestigationDraft = {
+  problem: string;
+  goal: string;
+  context: BusinessContext;
+  /** Cached once generated, so going back and forth keeps edited answers. */
+  questions?: ClarifyingQuestion[];
 };
 
 export type EvidenceCategory = "company-data" | "research" | "notes" | "other";
@@ -97,9 +110,14 @@ export type EvidenceItem = {
   category: EvidenceCategory;
   source: string; // e.g. "Product Analytics"
   coverage?: string; // e.g. "Jan – Aug 2026"
-  format: "csv" | "xlsx" | "pdf" | "doc" | "link" | "text";
+  format: EvidenceFormat;
   addedAt: string; // ISO
 };
+
+export type EvidenceFormat = "csv" | "xlsx" | "pdf" | "doc" | "link" | "text";
+
+/** Evidence as listed outside its investigation (e.g. on the dashboard). */
+export type EvidenceWithContext = EvidenceItem & { investigationTitle: string };
 
 export type Finding = {
   id: ID;
@@ -171,10 +189,14 @@ export type ResearchItem = {
   addedAt: string; // ISO
 };
 
+export type DecisionStatus = "proposed" | "decided" | "in-experiment" | "validated";
+
 export type DecisionRecord = {
   id: ID;
   investigationId: ID;
+  investigationTitle: string;
   decision: string;
+  status: DecisionStatus;
   decidedAt: string; // ISO
   owner: string;
 };
@@ -194,8 +216,9 @@ export type MemoryEntry = {
   category: MemoryCategory;
   title: string;
   body: string;
-  date?: string;
+  date?: string; // ISO
   sourceInvestigationId?: ID;
+  sourceInvestigationTitle?: string;
 };
 
 export type ChatRole = "user" | "assistant";

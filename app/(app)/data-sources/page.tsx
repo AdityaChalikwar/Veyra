@@ -1,8 +1,7 @@
-import { RouteStub } from "@/components/dev/RouteStub";
-import { routes } from "@/lib/routes";
+import { PagePlaceholder } from "@/components/layout/PagePlaceholder";
 
 export const metadata = { title: "Data Sources" };
 
 export default function DataSourcesPage() {
-  return <RouteStub title="Data Sources" milestone={8} next={{ href: routes.dashboard, label: "Go to dashboard" }} />;
+  return <PagePlaceholder title="Data Sources" description="Connected data and uploaded files used as evidence." milestone={8} />;
 }

@@ -1,8 +1,7 @@
-import { RouteStub } from "@/components/dev/RouteStub";
-import { routes } from "@/lib/routes";
+import { PagePlaceholder } from "@/components/layout/PagePlaceholder";
 
 export const metadata = { title: "Settings" };
 
 export default function SettingsPage() {
-  return <RouteStub title="Settings" milestone={8} next={{ href: routes.dashboard, label: "Go to dashboard" }} />;
+  return <PagePlaceholder title="Settings" description="Account and workspace settings." milestone={8} />;
 }
