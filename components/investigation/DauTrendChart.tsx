@@ -29,7 +29,7 @@ export function DauTrendChart({ points, unit, metric }: Props) {
           {event && (
             <ReferenceArea x1={event.period} x2={last.period} fill={t.declineWash} fillOpacity={0.045} ifOverflow="extendDomain" />
           )}
-          <XAxis dataKey="period" tickLine={false} axisLine={{ stroke: t.grid }} tick={t.tick} dy={6} />
+          <XAxis dataKey="period" tickLine={false} axisLine={{ stroke: t.grid }} tick={t.tick} dy={6} interval="preserveStartEnd" minTickGap={16} />
           <YAxis
             domain={[0, 140]}
             ticks={[0, 40, 80, 120]}
@@ -75,7 +75,7 @@ function TrendTooltip({ active, payload, unit }: TooltipProps & { unit: string }
   const point = payload[0].payload as TrendPoint;
   return (
     <div className="rounded-lg border border-line bg-surface px-3 py-2 text-xs shadow-raised">
-      <p className="font-medium text-ink">{point.period} 2026</p>
+      <p className="font-medium text-ink">Week of {point.period}</p>
       <p className="mt-0.5 text-ink-muted">
         DAU <span className="font-semibold tabular-nums text-ink">{point.value}{unit}</span>
       </p>

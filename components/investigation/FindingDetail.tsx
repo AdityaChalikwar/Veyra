@@ -5,7 +5,8 @@ import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { ConfidenceBadge } from "@/components/ui/ConfidenceBadge";
 import { KindBadge } from "@/components/ui/KindBadge";
-import { EvidenceChip } from "./ArtifactChips";
+import { EvidenceRoleBadge } from "@/components/ui/EvidenceRoleBadge";
+import { EvidenceChip, FindingChip } from "./ArtifactChips";
 import { EvidenceTrail } from "./EvidenceTrail";
 import { useWorkspace } from "./workspace-context";
 
@@ -24,20 +25,43 @@ export function FindingDetail({ id }: { id: string }) {
     <div className="space-y-6 p-5">
       <div>
         <div className="flex flex-wrap items-center gap-2">
-          <KindBadge kind="finding" />
+          <KindBadge kind={finding.kind} />
           <ConfidenceBadge level={finding.confidence} />
+          {finding.kind !== "observation" && <EvidenceRoleBadge role="requires-validation" />}
         </div>
         <p className="mt-3 text-lg font-semibold leading-snug">{finding.statement}</p>
         <p className="mt-1.5 text-[13px] text-ink-subtle">{finding.confidenceReason}</p>
       </div>
 
-      <Section title="Evidence source">
-        <div className="flex flex-wrap gap-1.5">
-          {finding.evidenceIds.map((e) => (
-            <EvidenceChip key={e} id={e} />
-          ))}
-        </div>
+      <Section title="Evidence">
+        <ul className="space-y-1.5">
+          {finding.evidenceIds.map((id) => {
+            const e = workspace.evidence.find((x) => x.id === id);
+            if (!e) return null;
+            return (
+              <li key={id} className="rounded-lg border border-line px-3 py-2">
+                <EvidenceChip id={id} />
+                <p className="mt-1 text-xs text-ink-subtle">
+                  {e.source}
+                  {e.dataset && ` · ${e.dataset}`}
+                  {e.coverage && ` · ${e.coverage}`}
+                </p>
+              </li>
+            );
+          })}
+        </ul>
       </Section>
+
+      {finding.basedOnFindingIds && finding.basedOnFindingIds.length > 0 && (
+        <Section title="Based on">
+          <div className="flex flex-col items-start gap-1.5">
+            {finding.basedOnFindingIds.map((f) => (
+              <FindingChip key={f} id={f} />
+            ))}
+          </div>
+          <p className="mt-2 text-xs text-ink-faint">An {finding.kind} goes beyond what the data shows directly, so it needs validating.</p>
+        </Section>
+      )}
 
       {d && (
         <>
@@ -85,7 +109,7 @@ export function FindingDetail({ id }: { id: string }) {
                   className="w-full rounded-lg border border-line px-3 py-2 text-left text-[13px] hover:border-brand-300"
                 >
                   <KindBadge kind="hypothesis" className="mr-2" />
-                  {h.statement}
+                  {h.label}: {h.statement}
                   <span className="ml-1 text-xs text-ink-faint">
                     ({h.supportingFindingIds.includes(id) ? "supports" : "challenges"})
                   </span>

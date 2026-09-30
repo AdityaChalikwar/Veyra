@@ -31,7 +31,7 @@ export function AddEvidenceModal({ open, onClose }: { open: boolean; onClose: ()
   const { addEvidence } = useWorkspace();
   const [mode, setMode] = useState<Mode>("file");
   const [fileName, setFileName] = useState("");
-  const [category, setCategory] = useState<EvidenceCategory>("company-data");
+  const [category, setCategory] = useState<EvidenceCategory>("uploaded-research");
   const [title, setTitle] = useState("");
   const [url, setUrl] = useState("");
   const [note, setNote] = useState("");
@@ -42,7 +42,7 @@ export function AddEvidenceModal({ open, onClose }: { open: boolean; onClose: ()
     setTitle("");
     setUrl("");
     setNote("");
-    setCategory("company-data");
+    setCategory("uploaded-research");
   }
 
   function close() {
@@ -107,9 +107,9 @@ export function AddEvidenceModal({ open, onClose }: { open: boolean; onClose: ()
             />
             <Field label="What kind of evidence is it?" htmlFor="ev-category">
               <select id="ev-category" value={category} onChange={(e) => setCategory(e.target.value as EvidenceCategory)} className={inputClass}>
-                <option value="company-data">Company data</option>
-                <option value="research">Research</option>
-                <option value="other">Other</option>
+                <option value="company-data">Company data (export from your systems)</option>
+                <option value="customer-evidence">Customer evidence (interviews, surveys, feedback)</option>
+                <option value="uploaded-research">Research report</option>
               </select>
             </Field>
           </>

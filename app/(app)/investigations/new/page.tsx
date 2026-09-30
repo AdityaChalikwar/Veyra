@@ -1,13 +1,16 @@
 import { Suspense } from "react";
-import { ProblemForm } from "@/components/new-investigation/ProblemForm";
+import { NewInvestigationFlow } from "@/components/new-investigation/NewInvestigationFlow";
+import { getBusinessContext, listDataSources } from "@/lib/data";
+import { listExampleProblems } from "@/lib/data/investigations";
 
 export const metadata = { title: "New Investigation" };
 
-export default function NewInvestigationPage() {
+export default async function NewInvestigationPage() {
+  const [dataSources, context] = await Promise.all([listDataSources(), getBusinessContext()]);
   return (
-    // ProblemForm reads ?problem= from the dashboard, which needs a Suspense boundary.
+    // The flow reads ?problem= from the dashboard, which needs a Suspense boundary.
     <Suspense>
-      <ProblemForm />
+      <NewInvestigationFlow dataSources={dataSources} context={context} examples={listExampleProblems()} />
     </Suspense>
   );
 }

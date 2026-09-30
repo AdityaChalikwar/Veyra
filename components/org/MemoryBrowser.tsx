@@ -12,22 +12,24 @@ type Filter = "all" | MemoryCategory;
 
 const filters: { id: Filter; label: string }[] = [
   { id: "all", label: "All" },
-  { id: "company", label: "Company Knowledge" },
-  { id: "products", label: "Products" },
-  { id: "customers", label: "Customers" },
-  { id: "segments", label: "Segments" },
-  { id: "investigations", label: "Previous Investigations" },
+  { id: "company", label: "Business Context" },
+  { id: "segments", label: "Customer Segments" },
+  { id: "validated-problems", label: "Validated Problems" },
+  { id: "rejected-hypotheses", label: "Rejected Hypotheses" },
+  { id: "investigations", label: "Past Investigations" },
+  { id: "research", label: "Research" },
   { id: "decisions", label: "Decisions" },
   { id: "experiments", label: "Experiments" },
   { id: "learnings", label: "Learnings" },
 ];
 
 const categoryLabel: Record<MemoryCategory, string> = {
-  company: "Company",
-  products: "Product",
-  customers: "Customers",
+  company: "Business context",
   segments: "Segment",
+  "validated-problems": "Validated problem",
+  "rejected-hypotheses": "Rejected hypothesis",
   investigations: "Investigation",
+  research: "Research",
   decisions: "Decision",
   experiments: "Experiment",
   learnings: "Learning",
@@ -61,7 +63,7 @@ export function MemoryBrowser({ memory }: { memory: BusinessMemory }) {
       {showStories && (
         <section className="mt-8">
           <h2 className="text-[15px] font-semibold">From problem to learning</h2>
-          <p className="mt-1 text-[13px] text-ink-subtle">What Veyra keeps once an investigation&rsquo;s decision has been tested.</p>
+          <p className="mt-1 text-[13px] text-ink-subtle">Past investigations, from problem to what was learned. New investigations start from here, not from zero.</p>
           <div className="mt-4 space-y-4">
             {memory.stories.map((s) => (
               <StoryCard key={s.id} story={s} />
@@ -73,7 +75,7 @@ export function MemoryBrowser({ memory }: { memory: BusinessMemory }) {
       {entries.length > 0 && (
         <section className="mt-8">
           {filter === "all" && <h2 className="mb-4 text-[15px] font-semibold">Everything Veyra knows</h2>}
-          <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <ul className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
             {entries.map((e) => (
               <li key={e.id} className="flex flex-col rounded-xl border border-line bg-surface p-4 shadow-card">
                 <span className="w-fit rounded bg-canvas px-1.5 py-0.5 text-[10.5px] font-semibold uppercase tracking-wider text-ink-subtle">
@@ -121,10 +123,10 @@ function StoryCard({ story: s }: { story: MemoryStory }) {
           </Link>{" "}
           <span className="font-normal text-ink-subtle">— {new Date(s.date).toLocaleDateString("en-GB", { month: "long", year: "numeric" })}</span>
         </h3>
-        <span className="text-xs text-ink-subtle">Previous investigation</span>
+        <span className="text-xs text-ink-subtle">Past investigation</span>
       </div>
       <p className="mt-1 text-[13px] text-ink-muted">{s.problem}</p>
-      <ol className="mt-4 grid gap-2 lg:grid-cols-[repeat(4,minmax(0,1fr))] lg:gap-6">
+      <ol className="mt-4 grid grid-cols-1 gap-2 lg:grid-cols-[repeat(4,minmax(0,1fr))] lg:gap-6">
         {steps.map((step, i) => (
           <li key={step.label} className="relative">
             <div className={cn("h-full rounded-lg border px-3 py-2.5", step.emphasis ? "border-confirmed-200 bg-confirmed-50/60" : "border-line bg-canvas/60")}>

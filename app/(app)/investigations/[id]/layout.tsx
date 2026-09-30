@@ -29,7 +29,7 @@ export default async function InvestigationLayout({
     return (
       <PagePlaceholder
         title={`${summary.title} Investigation`}
-        description={summary.headline}
+        description={summary.problem}
         milestone={6}
         note="Only the DAU Decline investigation has a full workspace in this preview."
         next={{ href: "/investigations/dau-decline", label: "Open DAU Decline" }}
@@ -40,7 +40,6 @@ export default async function InvestigationLayout({
   return (
     <WorkspaceFrame workspace={workspace}>
       <InvestigationHeader
-        investigation={workspace.investigation}
         actions={
           <>
             <SidePanelToggles />

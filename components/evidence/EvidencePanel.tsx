@@ -5,23 +5,20 @@ import { useState } from "react";
 import { cn } from "@/lib/cn";
 import type { EvidenceCategory, EvidenceItem } from "@/lib/types";
 import { EvidenceCard } from "./EvidenceCard";
+import { categoryAccent, categoryLabel, categoryOrder } from "./evidence-categories";
 
-type Filter = "all" | "company-data" | "research" | "other";
+type Filter = "all" | "company" | "customer" | "research" | "other";
 
-const sections: { title: string; filter: Exclude<Filter, "all">; categories: EvidenceCategory[] }[] = [
-  { title: "Company Data", filter: "company-data", categories: ["company-data"] },
-  { title: "Related Research", filter: "research", categories: ["research"] },
-  { title: "Notes & Links", filter: "other", categories: ["notes", "other"] },
-];
-
-const filterLabels: Record<Filter, string> = {
-  all: "All",
-  "company-data": "Company Data",
-  research: "Research",
-  other: "Other",
+const filterCategories: Record<Exclude<Filter, "all">, EvidenceCategory[]> = {
+  company: ["company-data"],
+  customer: ["customer-evidence"],
+  research: ["uploaded-research", "public-research"],
+  other: ["notes"],
 };
 
-/** The right-hand "Evidence & Data" panel: everything this investigation draws on. */
+const filterLabels: Record<Filter, string> = { all: "All", company: "Company", customer: "Customer", research: "Research", other: "Other" };
+
+/** The side panel's evidence list, grouped by provenance so sources never blend together. */
 export function EvidencePanel({
   evidence,
   onSelect,
@@ -32,18 +29,15 @@ export function EvidencePanel({
   onAdd?: () => void;
 }) {
   const [filter, setFilter] = useState<Filter>("all");
-
-  const itemsFor = (categories: EvidenceCategory[]) => evidence.filter((e) => categories.includes(e.category));
-  const count = (f: Filter) =>
-    f === "all" ? evidence.length : itemsFor(sections.find((s) => s.filter === f)!.categories).length;
-  const visible = sections.filter((s) => filter === "all" || s.filter === filter);
+  const visibleCategories = filter === "all" ? categoryOrder : filterCategories[filter];
+  const count = (f: Filter) => (f === "all" ? evidence.length : evidence.filter((e) => filterCategories[f].includes(e.category)).length);
 
   return (
     <div className="px-3.5 pb-6 pt-4">
       {onAdd && (
         <div className="mb-3 flex items-center justify-between px-1">
           <p className="text-xs text-ink-subtle">
-            {evidence.length} item{evidence.length === 1 ? "" : "s"} in this investigation
+            {evidence.length} source{evidence.length === 1 ? "" : "s"} in this investigation
           </p>
           <button
             type="button"
@@ -63,7 +57,7 @@ export function EvidencePanel({
             aria-selected={filter === f}
             onClick={() => setFilter(f)}
             className={cn(
-              "relative whitespace-nowrap px-[5px] pb-2 text-[11.5px] transition-colors",
+              "relative whitespace-nowrap px-[6px] pb-2 text-[11.5px] transition-colors",
               filter === f ? "font-medium text-brand-700" : "text-ink-subtle hover:text-ink",
             )}
           >
@@ -73,25 +67,26 @@ export function EvidencePanel({
         ))}
       </div>
 
-      <div className="mt-2 space-y-5">
-        {visible.map((section) => {
-          const items = itemsFor(section.categories);
+      <div className="mt-2 space-y-4">
+        {visibleCategories.map((category) => {
+          const items = evidence.filter((e) => e.category === category);
+          if (!items.length) {
+            return filter === "all" ? null : (
+              <p key={category} className="px-2 py-3 text-xs text-ink-faint">
+                No {categoryLabel[category].toLowerCase()} yet.
+              </p>
+            );
+          }
           return (
-            <section key={section.title}>
-              {filter === "all" && (
-                <h3 className="mb-1 mt-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-ink-faint">{section.title}</h3>
-              )}
-              {items.length ? (
-                <ul className="space-y-0.5">
-                  {items.map((item) => (
-                    <li key={item.id}>
-                      <EvidenceCard item={item} onSelect={onSelect} />
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="px-2 py-3 text-xs text-ink-faint">Nothing here yet.</p>
-              )}
+            <section key={category}>
+              <h3 className="mb-1 mt-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-ink-faint">{categoryLabel[category]}</h3>
+              <ul className={cn("space-y-0.5 border-l-2 pl-1", categoryAccent[category])}>
+                {items.map((item) => (
+                  <li key={item.id}>
+                    <EvidenceCard item={item} onSelect={onSelect} />
+                  </li>
+                ))}
+              </ul>
             </section>
           );
         })}

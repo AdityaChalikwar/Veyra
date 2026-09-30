@@ -17,7 +17,7 @@ type Rule = {
 
 const rules: Rule[] = [
   {
-    match: /onboard|sign.?up|register|forced|too many steps|first session/i,
+    match: /onboard|sign.?up|register|forced|too many steps|first session|configur|setup|set up/i,
     action: "supports-hypothesis",
     targetId: "h-onboarding",
     because: "It describes friction in the new onboarding",
@@ -25,19 +25,19 @@ const rules: Rule[] = [
   {
     match: /paid|campaign|\bads?\b|creative|targeting|acquisition|\bcac\b|install/i,
     action: "supports-hypothesis",
-    targetId: "h-acquisition-quality",
+    targetId: "h-channel",
     because: "It covers paid acquisition, including who campaigns are reaching",
   },
   {
     match: /competit|rival|market share/i,
     action: "supports-hypothesis",
-    targetId: "h-competition",
+    targetId: "h-competitor",
     because: "It concerns competitors and their effect on the market",
   },
   {
     match: /funnel|activation|retention|cohort|completion/i,
     action: "supports-finding",
-    targetId: "f-onboarding",
+    targetId: "f-activation",
     because: "It covers activation or onboarding funnel data",
   },
 ];

@@ -6,7 +6,7 @@ export const metadata = { title: "Welcome" };
 
 export default function AuthPage() {
   return (
-    <div className="grid min-h-screen bg-white lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
+    <div className="grid grid-cols-1 min-h-screen bg-white lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
       <AuthShowcase />
       {/* AuthForm reads ?mode= from the URL, which needs a Suspense boundary. */}
       <Suspense>

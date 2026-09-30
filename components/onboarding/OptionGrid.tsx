@@ -1,7 +1,8 @@
 import { Check, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/cn";
 
-export type Option<T extends string> = { value: T; label?: string; icon?: LucideIcon };
+/** `title` is the main text (defaults to `value`); `label` is a secondary line. */
+export type Option<T extends string> = { value: T; title?: string; label?: string; icon?: LucideIcon };
 
 type Props<T extends string> = {
   options: Option<T>[];
@@ -20,7 +21,7 @@ export function OptionGrid<T extends string>({ options, selected, onToggle, mult
       aria-label={ariaLabel}
       className={cn("grid gap-2.5 sm:grid-cols-2", columns === 3 && "lg:grid-cols-3")}
     >
-      {options.map(({ value, label, icon: Icon }) => {
+      {options.map(({ value, title, label, icon: Icon }) => {
         const isSelected = selected.includes(value);
         return (
           <button
@@ -47,7 +48,7 @@ export function OptionGrid<T extends string>({ options, selected, onToggle, mult
               </span>
             )}
             <span className="min-w-0 flex-1">
-              <span className="block text-sm font-medium text-ink">{value}</span>
+              <span className="block text-sm font-medium text-ink">{title ?? value}</span>
               {label && <span className="block text-xs text-ink-subtle">{label}</span>}
             </span>
             <span

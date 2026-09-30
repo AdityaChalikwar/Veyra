@@ -6,6 +6,9 @@ const categoryStyle: Partial<Record<MemoryCategory, { label: string; className: 
   experiments: { label: "Experiment", className: "bg-violet-50 text-violet-700" },
   segments: { label: "Segment", className: "bg-brand-50 text-brand-700" },
   decisions: { label: "Decision", className: "bg-brand-50 text-brand-700" },
+  "validated-problems": { label: "Validated problem", className: "bg-confirmed-50 text-confirmed-600" },
+  "rejected-hypotheses": { label: "Rejected hypothesis", className: "bg-slate-100 text-slate-600" },
+  research: { label: "Research", className: "bg-slate-100 text-slate-600" },
 };
 
 export function MemoryPreview({ entries }: { entries: MemoryEntry[] }) {

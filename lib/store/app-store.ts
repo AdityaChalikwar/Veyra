@@ -39,6 +39,8 @@ function load() {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (raw) state = { ...initialState, ...JSON.parse(raw) };
+    // Drafts saved by an older version of the New Investigation flow have a different shape.
+    if (state.draft && !Array.isArray(state.draft.dataSourceIds)) state = { ...state, draft: null };
   } catch {
     // Storage unavailable (private mode, blocked) — run without persistence.
   }

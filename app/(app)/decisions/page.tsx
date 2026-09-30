@@ -29,7 +29,7 @@ export default async function DecisionLogPage() {
               · {d.owner} · {formatDate(d.decidedAt)}
             </p>
             {(d.rationale || d.outcome) && (
-              <dl className="mt-4 grid gap-3 border-t border-line pt-4 sm:grid-cols-2">
+              <dl className="mt-4 grid grid-cols-1 gap-3 border-t border-line pt-4 sm:grid-cols-2">
                 {d.rationale && (
                   <div>
                     <dt className="text-[11px] font-semibold uppercase tracking-wider text-ink-faint">Why</dt>

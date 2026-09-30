@@ -3,29 +3,28 @@
 import { ArrowLeft, ArrowRight, Pencil } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { LogoMark } from "@/components/brand/Logo";
 import { QuestionCard } from "@/components/investigation/QuestionCard";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/Spinner";
-import { createInvestigation, generateClarifyingQuestions, isDemoProblem } from "@/lib/data/investigations";
+import { generateClarifyingQuestions, isDemoProblem } from "@/lib/data/investigations";
+import { outcomeLabel, triggerLabel } from "@/lib/options";
 import { routes } from "@/lib/routes";
 import { appActions, useAppState, useHydrated } from "@/lib/store/app-store";
 import type { InvestigationDraft } from "@/lib/types";
 import { NewInvestigationSteps } from "./NewInvestigationSteps";
 
-export function ClarifyingQuestions() {
+export function ClarifyingQuestions({ sourceNames }: { sourceNames: Record<string, string> }) {
   const hydrated = useHydrated();
   const { draft } = useAppState();
-  const [creating, setCreating] = useState(false);
 
   if (!hydrated) return <div className="min-h-[60vh]" />;
-  if (creating) return <CreatingState />;
   if (!draft) return <NoDraft />;
-  return <QuestionsView draft={draft} onCreating={() => setCreating(true)} />;
+  return <QuestionsView draft={draft} sourceNames={sourceNames} />;
 }
 
-function QuestionsView({ draft, onCreating }: { draft: InvestigationDraft; onCreating: () => void }) {
+function QuestionsView({ draft, sourceNames }: { draft: InvestigationDraft; sourceNames: Record<string, string> }) {
   const router = useRouter();
   const questions = draft.questions;
 
@@ -45,12 +44,9 @@ function QuestionsView({ draft, onCreating }: { draft: InvestigationDraft; onCre
     appActions.saveDraft({ ...draft, questions: questions.map((q) => (q.id === id ? { ...q, answer } : q)) });
   }
 
-  async function start() {
+  function toPlan() {
     if (!questions) return;
-    onCreating();
-    const { id } = await createInvestigation(draft, questions);
-    router.push(routes.investigation(id));
-    appActions.clearDraft();
+    router.push(routes.investigationPlan);
   }
 
   const answered = questions?.filter((q) => q.answer.trim()).length ?? 0;
@@ -61,7 +57,7 @@ function QuestionsView({ draft, onCreating }: { draft: InvestigationDraft; onCre
         <Link href={routes.newInvestigation} className="inline-flex items-center gap-1.5 text-sm text-ink-subtle hover:text-ink">
           <ArrowLeft className="h-4 w-4" /> Back
         </Link>
-        <NewInvestigationSteps current={1} />
+        <NewInvestigationSteps current={3} />
       </div>
 
       <div className="mt-6 flex items-start gap-3.5">
@@ -69,14 +65,14 @@ function QuestionsView({ draft, onCreating }: { draft: InvestigationDraft; onCre
           <LogoMark className="h-5 w-5" />
         </span>
         <div>
-          <p className="text-xs font-medium text-brand-600">Veyra AI</p>
+          <p className="text-xs font-medium text-brand-600">Contextual questions</p>
           <h1 className="mt-0.5 text-xl font-semibold leading-snug tracking-tight sm:text-2xl">
-            Before I investigate, I need to understand a few things.
+            Before investigating, Veyra needs to understand a few things.
           </h1>
         </div>
       </div>
 
-      <ProblemSummary draft={draft} />
+      <ProblemSummary draft={draft} sourceNames={sourceNames} />
 
       <div className="mt-6 space-y-3" aria-busy={!questions}>
         {questions
@@ -88,7 +84,7 @@ function QuestionsView({ draft, onCreating }: { draft: InvestigationDraft; onCre
 
       {questions && !isDemoProblem(draft.problem) && (
         <p className="mt-4 text-xs text-ink-faint">
-          Preview build: the investigation workspace shows the DAU demo investigation for any problem.
+          Preview build: the workspace shows the DAU Decline demo for any problem, though the plan adapts to what you entered.
         </p>
       )}
 
@@ -106,8 +102,8 @@ function QuestionsView({ draft, onCreating }: { draft: InvestigationDraft; onCre
               "Preparing questions…"
             )}
           </p>
-          <Button size="lg" onClick={start} disabled={!questions}>
-            Start Investigation <ArrowRight className="h-4 w-4" />
+          <Button size="lg" onClick={toPlan} disabled={!questions}>
+            Continue to plan <ArrowRight className="h-4 w-4" />
           </Button>
         </div>
       </div>
@@ -115,8 +111,12 @@ function QuestionsView({ draft, onCreating }: { draft: InvestigationDraft; onCre
   );
 }
 
-function ProblemSummary({ draft }: { draft: InvestigationDraft }) {
-  const context = [draft.context.product, draft.context.businessModel, draft.context.timePeriod].filter(Boolean);
+function ProblemSummary({ draft, sourceNames }: { draft: InvestigationDraft; sourceNames: Record<string, string> }) {
+  const chips = [
+    draft.trigger && `Trigger: ${triggerLabel(draft.trigger)}`,
+    draft.outcome && `Outcome: ${outcomeLabel(draft.outcome)}`,
+  ].filter(Boolean) as string[];
+  const sources = draft.dataSourceIds.map((id) => sourceNames[id]).filter(Boolean);
   return (
     <section className="mt-6 rounded-xl border border-line bg-surface p-4 shadow-card sm:ml-[54px]">
       <div className="flex items-start justify-between gap-3">
@@ -125,21 +125,22 @@ function ProblemSummary({ draft }: { draft: InvestigationDraft }) {
             <p className="text-[11px] font-medium uppercase tracking-wider text-ink-faint">Problem</p>
             <p className="text-sm text-ink">{draft.problem}</p>
           </div>
-          {draft.goal && (
+          {draft.knownContext && (
             <div>
-              <p className="text-[11px] font-medium uppercase tracking-wider text-ink-faint">Goal</p>
-              <p className="text-sm text-ink-muted">{draft.goal}</p>
+              <p className="text-[11px] font-medium uppercase tracking-wider text-ink-faint">What you already know</p>
+              <p className="text-sm text-ink-muted">{draft.knownContext}</p>
             </div>
           )}
-          {context.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 pt-1">
-              {context.map((c) => (
-                <span key={c} className="rounded-full bg-canvas px-2 py-0.5 text-xs text-ink-subtle">
-                  {c}
-                </span>
-              ))}
-            </div>
-          )}
+          <div className="flex flex-wrap gap-1.5 pt-1">
+            {chips.map((c) => (
+              <span key={c} className="rounded-full bg-canvas px-2 py-0.5 text-xs text-ink-subtle">
+                {c}
+              </span>
+            ))}
+            {sources.length > 0 && (
+              <span className="rounded-full bg-brand-50 px-2 py-0.5 text-xs text-brand-700">Data: {sources.join(", ")}</span>
+            )}
+          </div>
         </div>
         <Link
           href={routes.newInvestigation}
@@ -171,18 +172,6 @@ function QuestionsLoading() {
         </div>
       ))}
     </>
-  );
-}
-
-function CreatingState() {
-  return (
-    <div className="grid min-h-[70vh] place-items-center px-4">
-      <div className="text-center">
-        <Spinner className="mx-auto h-6 w-6 text-brand-600" />
-        <p className="mt-4 font-medium">Setting up your investigation…</p>
-        <p className="mt-1 text-sm text-ink-subtle">Building the investigation plan from your answers.</p>
-      </div>
-    </div>
   );
 }
 

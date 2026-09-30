@@ -29,7 +29,7 @@ export function CompanyProfileCard({ fallback }: { fallback: Company }) {
           <Pencil className="h-3 w-3" /> Update
         </Link>
       </div>
-      <dl className="mt-4 grid gap-4 sm:grid-cols-4">
+      <dl className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-4">
         {rows.map(([label, value]) => (
           <div key={label}>
             <dt className="text-[11px] text-ink-subtle">{label}</dt>

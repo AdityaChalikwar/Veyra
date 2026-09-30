@@ -19,8 +19,9 @@ export function Hero() {
             <span className="text-ink-muted">We&rsquo;ll figure out what to do next.</span>
           </h1>
           <p className="mt-5 max-w-lg text-[17px] leading-relaxed text-ink-muted">
-            Veyra helps businesses investigate problems, understand what&rsquo;s really happening, and decide
-            what to do next.
+            Veyra does the investigative work of product discovery. It reads your company data and customer
+            evidence, separates what&rsquo;s known from what isn&rsquo;t, and helps your team define the real problem
+            before deciding what to build.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <ButtonLink href={routes.signup} size="lg">
@@ -31,7 +32,7 @@ export function Hero() {
             </ButtonLink>
           </div>
           <p className="mt-6 text-[13px] text-ink-subtle">
-            Built for small and mid-sized teams. Every conclusion traces back to evidence.
+            Veyra investigates. You make the decision. Every conclusion traces back to evidence.
           </p>
         </div>
         <FlowVisual className="mx-auto max-w-md lg:ml-auto" />

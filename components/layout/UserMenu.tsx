@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronsUpDown, LogIn, LogOut } from "lucide-react";
+import { ChevronsUpDown, LogIn, LogOut, Settings } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -35,6 +35,13 @@ export function UserMenu() {
           <button type="button" aria-label="Close menu" className="fixed inset-0 z-10 cursor-default" onClick={() => setOpen(false)} />
           <div className="absolute bottom-full left-0 right-0 z-20 mb-2 rounded-lg border border-navy-700 bg-navy-800 p-1 shadow-raised">
             <p className="truncate px-2.5 py-2 text-xs text-navy-300">{user.email}</p>
+            <Link
+              href={routes.settings}
+              onClick={() => setOpen(false)}
+              className="flex h-9 w-full items-center gap-2 rounded-md px-2.5 text-sm text-navy-200 hover:bg-navy-700 hover:text-white"
+            >
+              <Settings className="h-4 w-4" /> Settings
+            </Link>
             <button
               type="button"
               onClick={signOut}

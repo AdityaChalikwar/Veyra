@@ -11,8 +11,8 @@ import { ChatInput } from "./ChatInput";
 import { ChatMessage } from "./ChatMessage";
 
 /**
- * Veyra AI. A supporting panel, not the main surface: every answer links back
- * to findings, hypotheses or the diagnosis in the investigation.
+ * Ask Veyra: a supporting panel, not the main surface. Every answer links back
+ * to evidence, findings, hypotheses or the problem definition.
  */
 export function AiAssistant({ onNavigate }: { onNavigate?: () => void }) {
   const router = useRouter();
@@ -28,7 +28,7 @@ export function AiAssistant({ onNavigate }: { onNavigate?: () => void }) {
       openDetail({ type: ref.kind, id: ref.id });
       return;
     }
-    const tab = ref.kind === "diagnosis" ? "diagnosis" : ref.kind === "recommendation" ? "recommendations" : "action-plan";
+    const tab = ref.kind;
     router.push(routes.investigation(workspace.investigation.id, tab));
     onNavigate?.();
   }

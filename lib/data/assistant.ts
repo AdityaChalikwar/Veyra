@@ -11,49 +11,61 @@ type Reply = Pick<ChatMessage, "text" | "list" | "refs">;
 
 const replies: { match: RegExp; reply: Reply }[] = [
   {
-    match: /onboard|redesign|release/i,
+    match: /why do you think|onboard|redesign|release|friction/i,
     reply: {
-      text: "Possibly. The current evidence supports this as a medium-high confidence hypothesis. Onboarding completion fell from 71% to 53% after the April redesign, and the decline is concentrated in new paid-social users. It isn't confirmed yet — we still need to compare cohorts from before and after the release.",
-      refs: [{ kind: "hypothesis", id: "h-onboarding", label: "View Hypothesis" }],
-    },
-  },
-  {
-    match: /missing|gap|unknown|don.?t know|need/i,
-    reply: {
-      text: "The biggest gap is a cohort comparison. Without it, we can't separate the effect of the onboarding redesign from a change in who paid social is bringing in.",
-      list: [
-        "Activation and 30-day retention by signup week",
-        "The same, split by acquisition source",
-        "Paid-social targeting or creative changes since March",
+      text: "The onboarding change is the leading explanation (H1, high confidence, strong evidence): activation fell from 42% to 29% the week after it shipped, onboarding tickets doubled, and existing users weren't affected. It isn't settled — the July shift to paid search (H2) could also lower activation.",
+      refs: [
+        { kind: "hypothesis", id: "h-onboarding", label: "View H1" },
+        { kind: "hypothesis", id: "h-channel", label: "View H2" },
       ],
-      refs: [{ kind: "diagnosis", id: "diagnosis", label: "View Diagnosis" }],
     },
   },
   {
-    match: /segment|paid|social|channel|who|organic|users|affected/i,
+    match: /don.?t know|unknown|missing|gap|research|next/i,
     reply: {
-      text: "Paid-social users account for about 90% of the drop: they fell from 70K to 27K daily actives (−61%), while organic fell 11%. That's a high-confidence finding.",
-      refs: [{ kind: "finding", id: "f-paid-social", label: "View Finding" }],
+      text: "Two things matter most right now: whether activation fell in every channel (which would weaken H2), and why new users stall (which only interviews can tell us).",
+      list: ["Analyze activation by acquisition channel", "Interview 5–8 recently acquired users"],
+      refs: [
+        { kind: "research", id: "research", label: "View Research Needed" },
+        { kind: "next-step", id: "next-step", label: "View next step" },
+      ],
     },
   },
   {
-    match: /competit/i,
+    match: /problem|who|affected|segment|new users|existing/i,
     reply: {
-      text: "It's possible but currently the weakest explanation. A competitor launched in May, but our paid-social installs haven't fallen — users are still arriving, they're just not sticking.",
-      refs: [{ kind: "hypothesis", id: "h-competition", label: "View Hypothesis" }],
+      text: "The evidence suggests the original problem (“DAU dropped 40%”) is too broad. Existing users are behaving as before; the decline comes from newly acquired users who don't reach activation.",
+      refs: [{ kind: "problem", id: "problem", label: "View refined problem" }],
     },
   },
   {
-    match: /what (should|do) we do|recommend|next|fix/i,
+    match: /channel|paid|search|acquisition|mix/i,
     reply: {
-      text: "Before deciding, I'd close the cohort-analysis gap — it's cheap and it's the one result that could change the recommendation. If it confirms the onboarding effect, fixing onboarding for paid-social users comes before any increase in acquisition spend.",
-      refs: [{ kind: "diagnosis", id: "diagnosis", label: "View Diagnosis" }],
+      text: "Paid search grew from 31% to 49% of new signups in July. That's H2 — moderate evidence, medium confidence. We haven't yet checked whether activation fell only in paid search.",
+      refs: [{ kind: "hypothesis", id: "h-channel", label: "View H2" }],
+    },
+  },
+  {
+    match: /competit|market/i,
+    reply: {
+      text: "Nothing in your internal data points to competitors — existing users are staying. It's H3 (low confidence, weak evidence). A public competitor scan would help rule it out, but it's secondary.",
+      refs: [{ kind: "hypothesis", id: "h-competitor", label: "View H3" }],
+    },
+  },
+  {
+    match: /build|solution|fix|what should we do|opportunit/i,
+    reply: {
+      text: "It's too early to pick a solution. Veyra recommends validating the onboarding hypothesis first; the opportunity areas are provisional until then.",
+      refs: [
+        { kind: "next-step", id: "next-step", label: "View next step" },
+        { kind: "opportunities", id: "opportunities", label: "View opportunities" },
+      ],
     },
   },
 ];
 
 const fallback: Reply = {
-  text: "I can't answer that from the evidence in this investigation yet. I can help with the onboarding redesign, which users are affected, competition, or what evidence is still missing.",
+  text: "I can't answer that from the evidence in this investigation yet. I can explain the findings, the hypotheses, what we don't know, or the recommended next step.",
 };
 
 export async function askVeyra(investigationId: string, question: string): Promise<ChatMessage> {
@@ -64,7 +76,7 @@ export async function askVeyra(investigationId: string, question: string): Promi
 }
 
 export const suggestedPrompts = [
-  "Could the onboarding redesign be responsible?",
-  "What evidence is missing?",
-  "Which users are most affected?",
+  "Why do you think onboarding is the cause?",
+  "What don't we know yet?",
+  "Who is actually affected?",
 ];

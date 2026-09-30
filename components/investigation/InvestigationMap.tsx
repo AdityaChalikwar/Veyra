@@ -33,7 +33,7 @@ export function InvestigationMap({ map }: { map: MapData }) {
           <div className="mx-[16.667%] h-px bg-line-strong" />
         </div>
 
-        <ul className="mt-4 grid gap-5 md:mt-0 md:grid-cols-3 md:gap-0">
+        <ul className="mt-4 grid grid-cols-1 gap-5 md:mt-0 md:grid-cols-3 md:gap-0">
           {map.branches.map((branch) => (
             <li key={branch.id} className="md:px-2">
               <div className="mx-auto hidden h-5 w-px bg-line-strong md:block" aria-hidden="true" />
