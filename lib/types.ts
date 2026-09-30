@@ -218,14 +218,46 @@ export type ActionItem = {
   status: ActionStatus;
   expectedOutcome: string;
   measurement: string;
+  /** What this step is for, in a sentence. */
+  detail?: string;
 };
 
-export type ResearchItem = {
+export type InvestigationNote = {
   id: ID;
-  title: string;
-  kind: "uploaded" | "industry" | "public";
-  sourceLabel: string;
-  addedAt: string; // ISO
+  investigationId: ID;
+  author: string;
+  text: string;
+  createdAt: string; // ISO
+};
+
+export type DataSourceStatus = "connected" | "not-connected";
+
+export type DataSource = {
+  id: ID;
+  name: string;
+  kind: "Product analytics" | "Marketing" | "CRM" | "Payments" | "Web analytics" | "Files";
+  description: string;
+  status: DataSourceStatus;
+  lastSyncedAt?: string; // ISO
+  itemCount?: number;
+};
+
+/** An investigation's journey from problem to learning, as kept in Business Memory. */
+export type MemoryStory = {
+  id: ID;
+  investigationId: ID;
+  investigationTitle: string;
+  date: string; // ISO
+  problem: string;
+  decision: string;
+  experiment: string;
+  result: string;
+  learning: string;
+};
+
+export type BusinessMemory = {
+  entries: MemoryEntry[];
+  stories: MemoryStory[];
 };
 
 export type DecisionStatus = "proposed" | "decided" | "in-experiment" | "validated";
@@ -238,6 +270,8 @@ export type DecisionRecord = {
   status: DecisionStatus;
   decidedAt: string; // ISO
   owner: string;
+  rationale?: string;
+  outcome?: string;
 };
 
 export type MemoryCategory =
@@ -336,4 +370,7 @@ export type InvestigationWorkspace = {
   conversation: ChatMessage[];
   /** Suggested changes from analysing new evidence. */
   proposals: EvidenceProposal[];
+  recommendations: Recommendation[];
+  actions: ActionItem[];
+  notes: InvestigationNote[];
 };

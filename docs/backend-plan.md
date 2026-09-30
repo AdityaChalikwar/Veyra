@@ -33,10 +33,15 @@ the frontend grows.
 | `createInvestigation` (`investigations.ts`) | Persist the draft and answers; start the first analysis. |
 | `analyseEvidence` (`evidence.ts`) | Upload to storage, parse (CSV/Excel/PDF/links), run AI analysis against the investigation, return a summary and proposals. Asynchronous: the UI already shows an "Analysing" state. |
 | `reviewProposal` (`evidence.ts`) | Record accept/dismiss and apply accepted changes (link evidence to a finding or hypothesis). |
+| `listDecisions` (`index.ts`) | Decision log with rationale and measured outcome. Accepting a recommendation in a workspace must create a record. |
+| `getBusinessMemory` (`index.ts`) | Memory entries plus "problem → decision → experiment → result → learning" stories, written when investigations close. |
+| `listDataSources` (`index.ts`) | Connector registry (OAuth to analytics, ads, payments, CRM) with sync status. |
+| `listAllEvidence` (`index.ts`) | Evidence across investigations (Data Sources and Research Library pages). |
+| Workspace recommendations, actions, notes (`getInvestigationWorkspace`) | Recommendations with impact/effort/risk/confidence and supporting findings; action plan items with owner, status, outcome and measurement; team notes. Needs write endpoints for accepting a recommendation, updating action status and adding notes. |
 | `askVeyra` (`assistant.ts`) | AI chat grounded in the investigation's records; replies carry `refs` to the artifacts they discuss. Store the conversation. |
 
 ## Still local-only in the preview
 
 - Evidence added, proposals and chat messages live in browser memory and reset on refresh.
-- Edited clarifying-question answers inside the workspace aren't saved.
+- Edited clarifying-question answers, action statuses, notes and accepted recommendations inside the workspace aren't saved.
 - Only the DAU Decline investigation has full workspace data.

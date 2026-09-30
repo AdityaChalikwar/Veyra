@@ -1,6 +1,7 @@
 import { ago } from "@/lib/time";
 import type { InvestigationMap, InvestigationWorkspace, Kpi, SegmentComparison, TrendPoint } from "@/lib/types";
 import { buildDauConversation, dauDiagnosis, dauFindings, dauHypotheses } from "./dau-analysis";
+import { buildDauNotes, dauActions, dauRecommendations } from "./dau-plan";
 import { demoDraft, demoQuestions } from "./new-investigation";
 
 const kpis: Kpi[] = [
@@ -103,5 +104,8 @@ export function buildDauWorkspace(evidence: InvestigationWorkspace["evidence"]):
     diagnosis: dauDiagnosis,
     conversation: buildDauConversation(),
     proposals: [],
+    recommendations: dauRecommendations,
+    actions: dauActions,
+    notes: buildDauNotes(),
   };
 }

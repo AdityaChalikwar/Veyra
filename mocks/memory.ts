@@ -1,4 +1,4 @@
-import type { MemoryEntry } from "@/lib/types";
+import type { MemoryEntry, MemoryStory } from "@/lib/types";
 
 export const mockMemory: MemoryEntry[] = [
   {
@@ -27,5 +27,74 @@ export const mockMemory: MemoryEntry[] = [
     date: "2026-07-02T12:00:00Z",
     sourceInvestigationId: "feature-adoption",
     sourceInvestigationTitle: "Feature Adoption",
+  },
+  {
+    id: "mem-4",
+    category: "company",
+    title: "Acme is a freemium consumer subscription app",
+    body: "Around 120K daily active users at peak (April 2026). Revenue comes from Premium subscriptions, monthly or annual.",
+  },
+  {
+    id: "mem-5",
+    category: "products",
+    title: "Acme app — iOS and Android",
+    body: "Free tier with limited playlists; Premium unlocks offline listening and shared playlists. Onboarding redesigned 14 April 2026.",
+  },
+  {
+    id: "mem-6",
+    category: "customers",
+    title: "Most paying customers are 25–40 and join through paid social or referral",
+    body: "Paid social brings the most signups; referral brings the most loyal customers.",
+  },
+  {
+    id: "mem-7",
+    category: "segments",
+    title: "Paid-social signups: high volume, lower activation",
+    body: "Around 60% of new users; historically about 8 points lower onboarding completion than organic.",
+    sourceInvestigationId: "dau-decline",
+    sourceInvestigationTitle: "DAU Decline",
+  },
+  {
+    id: "mem-8",
+    category: "decisions",
+    title: "Hold paid-social spend increase until onboarding is fixed",
+    body: "Decided while the DAU Decline investigation is open, to avoid paying for users who don't activate.",
+    date: "2026-09-29T12:00:00Z",
+    sourceInvestigationId: "dau-decline",
+    sourceInvestigationTitle: "DAU Decline",
+  },
+  {
+    id: "mem-9",
+    category: "learnings",
+    title: "In-app prompts beat email for feature discovery",
+    body: "Shared-playlist adoption doubled after in-app prompts; the earlier email campaign moved it by 4%.",
+    date: "2026-07-02T12:00:00Z",
+    sourceInvestigationId: "feature-adoption",
+    sourceInvestigationTitle: "Feature Adoption",
+  },
+];
+
+export const mockStories: MemoryStory[] = [
+  {
+    id: "story-dau",
+    investigationId: "dau-decline",
+    investigationTitle: "DAU Decline",
+    date: "2026-09-01T12:00:00Z",
+    problem: "Daily active users fell 40% in four months.",
+    decision: "Redesign onboarding.",
+    experiment: "A/B test completed.",
+    result: "Activation +11%.",
+    learning: "Paid-social users had significantly lower activation with the old onboarding.",
+  },
+  {
+    id: "story-pricing",
+    investigationId: "pricing-analysis",
+    investigationTitle: "Pricing Analysis",
+    date: "2026-08-01T12:00:00Z",
+    problem: "Too few customers were choosing the annual plan.",
+    decision: "Raise the annual discount from 15% to 20%.",
+    experiment: "4-week A/B test at checkout.",
+    result: "Annual-plan conversion +6%.",
+    learning: "Annual buyers respond to the headline discount; monthly buyers don't.",
   },
 ];

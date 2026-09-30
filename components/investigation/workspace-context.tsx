@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext } from "react";
-import type { ChatMessage, EvidenceItem, EvidenceProposal, InvestigationWorkspace } from "@/lib/types";
+import type { ActionStatus, ChatMessage, EvidenceItem, EvidenceProposal, InvestigationWorkspace } from "@/lib/types";
 
 export type DetailTarget = { type: "finding" | "hypothesis" | "evidence"; id: string };
 export type SideView = "evidence" | "assistant";
@@ -22,6 +22,11 @@ export type WorkspaceContextValue = {
   messages: ChatMessage[];
   /** Accept or dismiss a change Veyra suggested after analysing new evidence. */
   resolveProposal: (id: string, decision: Exclude<EvidenceProposal["status"], "pending">) => void;
+  setActionStatus: (id: string, status: ActionStatus) => void;
+  addNote: (text: string) => void;
+  /** The recommendation the team has accepted, if any. */
+  decision: { recommendationId: string; decidedAt: string } | null;
+  acceptRecommendation: (id: string) => void;
 };
 
 export const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);

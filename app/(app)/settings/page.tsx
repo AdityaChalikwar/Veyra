@@ -1,7 +1,13 @@
-import { PagePlaceholder } from "@/components/layout/PagePlaceholder";
+import { PageContainer, PageHeader } from "@/components/org/PageHeader";
+import { SettingsView } from "@/components/org/SettingsView";
 
 export const metadata = { title: "Settings" };
 
 export default function SettingsPage() {
-  return <PagePlaceholder title="Settings" description="Account and workspace settings." milestone={8} />;
+  return (
+    <PageContainer>
+      <PageHeader title="Settings" description="Your profile, workspace and preview data." />
+      <SettingsView />
+    </PageContainer>
+  );
 }

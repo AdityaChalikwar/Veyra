@@ -11,7 +11,18 @@ import { Drawer } from "@/components/ui/Drawer";
 import { cn } from "@/lib/cn";
 import { askVeyra } from "@/lib/data/assistant";
 import { analyseEvidence, reviewProposal } from "@/lib/data/evidence";
-import type { ChatMessage, EvidenceItem, EvidenceProposal, Finding, Hypothesis, InvestigationWorkspace } from "@/lib/types";
+import { useAppState } from "@/lib/store/app-store";
+import type {
+  ActionItem,
+  ActionStatus,
+  ChatMessage,
+  EvidenceItem,
+  EvidenceProposal,
+  Finding,
+  Hypothesis,
+  InvestigationNote,
+  InvestigationWorkspace,
+} from "@/lib/types";
 import { FindingDetail } from "./FindingDetail";
 import { HypothesisDetail } from "./HypothesisDetail";
 import {
@@ -38,6 +49,10 @@ export function WorkspaceFrame({ workspace: initial, children }: { workspace: In
   const [findings, setFindings] = useState<Finding[]>(initial.findings);
   const [hypotheses, setHypotheses] = useState<Hypothesis[]>(initial.hypotheses);
   const [proposals, setProposals] = useState<EvidenceProposal[]>(initial.proposals);
+  const [actions, setActions] = useState<ActionItem[]>(initial.actions);
+  const [notes, setNotes] = useState<InvestigationNote[]>(initial.notes);
+  const [decision, setDecision] = useState<{ recommendationId: string; decidedAt: string } | null>(null);
+  const { user } = useAppState();
   const [messages, setMessages] = useState<ChatMessage[]>(initial.conversation);
   const [thinking, setThinking] = useState(false);
   const [detail, setDetail] = useState<DetailTarget | null>(null);
@@ -121,9 +136,27 @@ export function WorkspaceFrame({ workspace: initial, children }: { workspace: In
     [initial.investigation.id],
   );
 
+  const setActionStatus = useCallback((id: string, status: ActionStatus) => {
+    setActions((list) => list.map((a) => (a.id === id ? { ...a, status } : a)));
+  }, []);
+
+  const addNote = useCallback(
+    (text: string) => {
+      setNotes((list) => [
+        { id: `n-${Date.now()}`, investigationId: initial.investigation.id, author: user?.name ?? "You", text, createdAt: new Date().toISOString() },
+        ...list,
+      ]);
+    },
+    [initial.investigation.id, user?.name],
+  );
+
+  const acceptRecommendation = useCallback((id: string) => {
+    setDecision({ recommendationId: id, decidedAt: new Date().toISOString() });
+  }, []);
+
   const value = useMemo(
     () => ({
-      workspace: { ...initial, evidence, findings, hypotheses, proposals, conversation: messages },
+      workspace: { ...initial, evidence, findings, hypotheses, proposals, actions, notes, conversation: messages },
       openDetail: setDetail,
       openAddEvidence: () => setAddOpen(true),
       addEvidence,
@@ -132,8 +165,30 @@ export function WorkspaceFrame({ workspace: initial, children }: { workspace: In
       assistantThinking: thinking,
       messages,
       resolveProposal,
+      setActionStatus,
+      addNote,
+      decision,
+      acceptRecommendation,
     }),
-    [initial, evidence, findings, hypotheses, proposals, messages, addEvidence, openSide, sendMessage, thinking, resolveProposal],
+    [
+      initial,
+      evidence,
+      findings,
+      hypotheses,
+      proposals,
+      actions,
+      notes,
+      messages,
+      addEvidence,
+      openSide,
+      sendMessage,
+      thinking,
+      resolveProposal,
+      setActionStatus,
+      addNote,
+      decision,
+      acceptRecommendation,
+    ],
   );
 
   const closeDetail = useCallback(() => setDetail(null), []);

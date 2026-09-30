@@ -13,7 +13,7 @@ const config: Record<Confidence, { steps: number; label: string; tone: string; b
   low: { steps: 1, label: "Low", tone: "bg-uncertain-50 text-uncertain-600", bar: "bg-uncertain-600" },
 };
 
-export function ConfidenceBadge({ level, className }: { level: Confidence; className?: string }) {
+export function ConfidenceBadge({ level, bare, className }: { level: Confidence; /** Omit the word "confidence" where a label already says it. */ bare?: boolean; className?: string }) {
   const c = config[level];
   return (
     <span className={cn("inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[11px] font-medium", c.tone, className)}>
@@ -22,7 +22,8 @@ export function ConfidenceBadge({ level, className }: { level: Confidence; class
           <span key={i} className={cn("h-2 w-[3px] rounded-full", i < c.steps ? c.bar : "bg-current opacity-20")} />
         ))}
       </span>
-      {c.label} confidence
+      {c.label}
+      {!bare && " confidence"}
     </span>
   );
 }

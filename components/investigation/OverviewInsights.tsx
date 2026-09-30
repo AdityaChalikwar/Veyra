@@ -1,16 +1,19 @@
 "use client";
 
+import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { ConfidenceBadge } from "@/components/ui/ConfidenceBadge";
 import { KindBadge } from "@/components/ui/KindBadge";
 import { routes } from "@/lib/routes";
+import { LevelTiles } from "./LevelTiles";
 import { useWorkspace } from "./workspace-context";
 
-/** Overview row: key findings, top hypotheses and the current diagnosis at a glance. */
+/** Overview row: key findings, top hypotheses and the recommended next step at a glance. */
 export function OverviewInsights() {
   const { workspace, openDetail } = useWorkspace();
   const id = workspace.investigation.id;
   const d = workspace.diagnosis;
+  const primary = workspace.recommendations.find((r) => r.isPrimary);
 
   return (
     <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
@@ -58,21 +61,28 @@ export function OverviewInsights() {
         </ol>
       </Card>
 
-      <Card title="Current Diagnosis" href={routes.investigation(id, "diagnosis")} linkLabel="View diagnosis" className="lg:col-span-2 2xl:col-span-1">
-        <div className="space-y-4 px-2 py-1">
-          <div>
-            <KindBadge kind="hypothesis" />
-            <p className="mt-1.5 text-[13px] leading-relaxed text-ink">{d.suspected[0]?.text}</p>
+      <Card
+        title="Recommended Next Steps"
+        href={routes.investigation(id, "recommendations")}
+        linkLabel="View details"
+        className="lg:col-span-2 2xl:col-span-1"
+      >
+        {primary ? (
+          <div className="space-y-3 px-2 py-1">
+            <KindBadge kind="recommendation" />
+            <p className="text-[14px] font-semibold leading-snug text-ink">{primary.title}</p>
+            <p className="text-[13px] leading-relaxed text-ink-muted">{d.summary}</p>
+            <LevelTiles impact={primary.impact} effort={primary.effort} risk={primary.risk} confidence={primary.confidence} compact />
+            <Link
+              href={routes.investigation(id, "recommendations")}
+              className="flex h-9 items-center justify-center gap-1.5 rounded-lg bg-brand-600 text-[13px] font-medium text-white hover:bg-brand-700"
+            >
+              View full recommendation <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
           </div>
-          <div>
-            <KindBadge kind="unknown" />
-            <p className="mt-1.5 text-[13px] leading-relaxed text-ink">{d.unknown[0]?.text}</p>
-          </div>
-          <div className="rounded-lg bg-canvas px-3 py-2">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-faint">Biggest evidence gap</p>
-            <p className="mt-0.5 text-[13px] text-ink">{d.evidenceGaps[0]?.text}</p>
-          </div>
-        </div>
+        ) : (
+          <p className="px-2 text-[13px] text-ink-subtle">No recommendation yet.</p>
+        )}
       </Card>
     </div>
   );
