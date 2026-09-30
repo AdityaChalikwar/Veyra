@@ -137,7 +137,7 @@ export function AddEvidenceModal({ open, onClose }: { open: boolean; onClose: ()
           </>
         )}
 
-        <p className="text-xs text-ink-faint">Preview build: nothing leaves your browser, and new evidence isn&rsquo;t analysed.</p>
+        <p className="text-xs text-ink-faint">Veyra analyses new evidence and suggests changes for you to review. Preview build: nothing leaves your browser.</p>
 
         <div className="flex justify-end gap-2">
           <Button type="button" variant="ghost" onClick={close}>

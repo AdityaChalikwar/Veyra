@@ -3,7 +3,7 @@
 import { FlaskConical, Info } from "lucide-react";
 import { ConfidenceBadge } from "@/components/ui/ConfidenceBadge";
 import { KindBadge } from "@/components/ui/KindBadge";
-import { FindingChip } from "./ArtifactChips";
+import { EvidenceChip, FindingChip } from "./ArtifactChips";
 import { useWorkspace } from "./workspace-context";
 
 export function HypothesisDetail({ id }: { id: string }) {
@@ -38,6 +38,15 @@ export function HypothesisDetail({ id }: { id: string }) {
           <p className="text-[13px] text-ink-faint">No findings support this yet.</p>
         )}
       </Block>
+      {h.supportingEvidenceIds && h.supportingEvidenceIds.length > 0 && (
+        <Block title="Supporting evidence">
+          <div className="flex flex-wrap gap-1.5">
+            {h.supportingEvidenceIds.map((e) => (
+              <EvidenceChip key={e} id={e} />
+            ))}
+          </div>
+        </Block>
+      )}
       <Block title="Challenging findings">
         {h.contradictingFindingIds.length ? (
           <div className="flex flex-col items-start gap-1.5">

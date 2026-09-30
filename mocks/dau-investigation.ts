@@ -102,5 +102,6 @@ export function buildDauWorkspace(evidence: InvestigationWorkspace["evidence"]):
     hypotheses: dauHypotheses,
     diagnosis: dauDiagnosis,
     conversation: buildDauConversation(),
+    proposals: [],
   };
 }

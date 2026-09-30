@@ -116,8 +116,28 @@ export type EvidenceItem = {
   url?: string;
   /** A few rows so people can see what the file contains. */
   preview?: { columns: string[]; rows: (string | number)[][] };
-  /** False for evidence added but not yet analysed by Veyra. */
-  analysed?: boolean;
+  /** Present for evidence added during the investigation; absent means already analysed. */
+  analysis?: EvidenceAnalysis;
+};
+
+export type EvidenceAnalysis = {
+  status: "analysing" | "analysed";
+  /** What Veyra concluded about this evidence. */
+  summary?: string;
+};
+
+/**
+ * A change Veyra suggests after analysing new evidence. Nothing changes in the
+ * investigation until a person accepts it.
+ */
+export type EvidenceProposal = {
+  id: ID;
+  investigationId: ID;
+  evidenceId: ID;
+  action: "supports-hypothesis" | "supports-finding";
+  targetId: ID;
+  summary: string;
+  status: "pending" | "accepted" | "dismissed";
 };
 
 export type EvidenceFormat = "csv" | "xlsx" | "pdf" | "doc" | "link" | "text";
@@ -156,6 +176,8 @@ export type Hypothesis = {
   rationale: string;
   supportingFindingIds: ID[];
   contradictingFindingIds: ID[];
+  /** Evidence linked directly (e.g. accepted from a suggestion). */
+  supportingEvidenceIds?: ID[];
   /** What would confirm or rule it out. */
   nextTest?: string;
 };
@@ -312,4 +334,6 @@ export type InvestigationWorkspace = {
   diagnosis: Diagnosis;
   /** The conversation so far with Veyra AI. */
   conversation: ChatMessage[];
+  /** Suggested changes from analysing new evidence. */
+  proposals: EvidenceProposal[];
 };

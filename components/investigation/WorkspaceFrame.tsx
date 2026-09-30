@@ -10,7 +10,8 @@ import { Button } from "@/components/ui/Button";
 import { Drawer } from "@/components/ui/Drawer";
 import { cn } from "@/lib/cn";
 import { askVeyra } from "@/lib/data/assistant";
-import type { ChatMessage, EvidenceItem, InvestigationWorkspace } from "@/lib/types";
+import { analyseEvidence, reviewProposal } from "@/lib/data/evidence";
+import type { ChatMessage, EvidenceItem, EvidenceProposal, Finding, Hypothesis, InvestigationWorkspace } from "@/lib/types";
 import { FindingDetail } from "./FindingDetail";
 import { HypothesisDetail } from "./HypothesisDetail";
 import {
@@ -34,6 +35,9 @@ const detailTitles: Record<DetailTarget["type"], string> = {
  */
 export function WorkspaceFrame({ workspace: initial, children }: { workspace: InvestigationWorkspace; children: React.ReactNode }) {
   const [evidence, setEvidence] = useState<EvidenceItem[]>(initial.evidence);
+  const [findings, setFindings] = useState<Finding[]>(initial.findings);
+  const [hypotheses, setHypotheses] = useState<Hypothesis[]>(initial.hypotheses);
+  const [proposals, setProposals] = useState<EvidenceProposal[]>(initial.proposals);
   const [messages, setMessages] = useState<ChatMessage[]>(initial.conversation);
   const [thinking, setThinking] = useState(false);
   const [detail, setDetail] = useState<DetailTarget | null>(null);
@@ -47,14 +51,62 @@ export function WorkspaceFrame({ workspace: initial, children }: { workspace: In
     if (!window.matchMedia("(min-width: 1280px)").matches) setSideDrawerOpen(true);
   }, []);
 
+  // New evidence is analysed in the background. Veyra then suggests changes;
+  // nothing in the investigation changes until someone accepts one.
   const addEvidence = useCallback(
-    (item: NewEvidence) => {
-      setEvidence((list) => [
-        { ...item, id: `ev-new-${Date.now()}`, investigationId: initial.investigation.id, addedAt: new Date().toISOString(), analysed: false },
-        ...list,
+    async (input: NewEvidence) => {
+      const item: EvidenceItem = {
+        ...input,
+        id: `ev-new-${Date.now()}`,
+        investigationId: initial.investigation.id,
+        addedAt: new Date().toISOString(),
+        analysis: { status: "analysing" },
+      };
+      setEvidence((list) => [item, ...list]);
+
+      const result = await analyseEvidence(item, { findings, hypotheses });
+      setEvidence((list) =>
+        list.map((e) => (e.id === item.id ? { ...e, analysis: { status: "analysed", summary: result.summary } } : e)),
+      );
+      setProposals((p) => [...p, ...result.proposals]);
+      setMessages((m) => [
+        ...m,
+        {
+          id: `a-analysis-${item.id}`,
+          role: "assistant",
+          createdAt: new Date().toISOString(),
+          text: result.proposals.length
+            ? `I've analysed “${item.name}”. ${result.summary} I've suggested a change for you to review.`
+            : `I've analysed “${item.name}”. ${result.summary}`,
+          refs: [{ kind: "evidence", id: item.id, label: result.proposals.length ? "Review suggestion" : "View evidence" }],
+        },
       ]);
     },
-    [initial.investigation.id],
+    [initial.investigation.id, findings, hypotheses],
+  );
+
+  const resolveProposal = useCallback(
+    (id: string, decision: "accepted" | "dismissed") => {
+      const proposal = proposals.find((p) => p.id === id);
+      if (!proposal || proposal.status !== "pending") return;
+      setProposals((list) => list.map((p) => (p.id === id ? { ...p, status: decision } : p)));
+      void reviewProposal(id, decision);
+      if (decision !== "accepted") return;
+      if (proposal.action === "supports-hypothesis") {
+        setHypotheses((list) =>
+          list.map((h) =>
+            h.id === proposal.targetId
+              ? { ...h, supportingEvidenceIds: [...(h.supportingEvidenceIds ?? []), proposal.evidenceId] }
+              : h,
+          ),
+        );
+      } else {
+        setFindings((list) =>
+          list.map((f) => (f.id === proposal.targetId ? { ...f, evidenceIds: [...f.evidenceIds, proposal.evidenceId] } : f)),
+        );
+      }
+    },
+    [proposals],
   );
 
   const sendMessage = useCallback(
@@ -71,7 +123,7 @@ export function WorkspaceFrame({ workspace: initial, children }: { workspace: In
 
   const value = useMemo(
     () => ({
-      workspace: { ...initial, evidence, conversation: messages },
+      workspace: { ...initial, evidence, findings, hypotheses, proposals, conversation: messages },
       openDetail: setDetail,
       openAddEvidence: () => setAddOpen(true),
       addEvidence,
@@ -79,8 +131,9 @@ export function WorkspaceFrame({ workspace: initial, children }: { workspace: In
       sendMessage,
       assistantThinking: thinking,
       messages,
+      resolveProposal,
     }),
-    [initial, evidence, messages, addEvidence, openSide, sendMessage, thinking],
+    [initial, evidence, findings, hypotheses, proposals, messages, addEvidence, openSide, sendMessage, thinking, resolveProposal],
   );
 
   const closeDetail = useCallback(() => setDetail(null), []);

@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { PagePlaceholder } from "@/components/layout/PagePlaceholder";
 import { InvestigationHeader } from "@/components/investigation/InvestigationHeader";
 import { ShareButton } from "@/components/investigation/ShareButton";
+import { SuggestionsBanner } from "@/components/investigation/SuggestionsBanner";
 import { SidePanelToggles, WorkspaceFrame } from "@/components/investigation/WorkspaceFrame";
 import { WorkspaceTabs } from "@/components/investigation/WorkspaceTabs";
 import { getInvestigationSummary, getInvestigationWorkspace } from "@/lib/data";
@@ -50,6 +51,7 @@ export default async function InvestigationLayout({
       <div className="mt-6">
         <WorkspaceTabs investigationId={id} />
       </div>
+      <SuggestionsBanner />
       {children}
     </WorkspaceFrame>
   );

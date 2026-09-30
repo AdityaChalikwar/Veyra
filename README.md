@@ -31,4 +31,4 @@ mocks/          Mock data used by lib/data until the backend exists.
 ```
 
 To connect the real backend, reimplement the functions in `lib/data/` so they call the
-API. Components shouldn't need to change.
+API. Components shouldn't need to change. See `docs/backend-plan.md`.

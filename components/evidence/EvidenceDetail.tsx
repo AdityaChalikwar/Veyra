@@ -1,7 +1,9 @@
 "use client";
 
-import { ExternalLink, Info } from "lucide-react";
+import { Check, ExternalLink, Loader2, Sparkles, X } from "lucide-react";
 import { FindingChip } from "@/components/investigation/ArtifactChips";
+import { Button } from "@/components/ui/Button";
+import { KindBadge } from "@/components/ui/KindBadge";
 import { useWorkspace } from "@/components/investigation/workspace-context";
 import { formatRelative } from "@/lib/time";
 import { EvidenceFormatIcon } from "./EvidenceFormatIcon";
@@ -9,10 +11,12 @@ import { EvidenceFormatIcon } from "./EvidenceFormatIcon";
 const categoryLabel = { "company-data": "Company data", research: "Research", notes: "Notes & links", other: "Other" };
 
 export function EvidenceDetail({ id }: { id: string }) {
-  const { workspace } = useWorkspace();
+  const { workspace, resolveProposal, openDetail } = useWorkspace();
   const item = workspace.evidence.find((e) => e.id === id);
   if (!item) return <p className="p-5 text-sm text-ink-subtle">This evidence no longer exists.</p>;
   const usedBy = workspace.findings.filter((f) => f.evidenceIds.includes(id) || f.trail.some((s) => s.evidenceId === id));
+  const supports = workspace.hypotheses.filter((h) => h.supportingEvidenceIds?.includes(id));
+  const proposals = workspace.proposals.filter((p) => p.evidenceId === id);
 
   return (
     <div className="space-y-6 p-5">
@@ -26,11 +30,42 @@ export function EvidenceDetail({ id }: { id: string }) {
         </div>
       </div>
 
-      {item.analysed === false && (
-        <p className="flex gap-2 rounded-lg bg-uncertain-50 px-3 py-2 text-xs text-uncertain-600">
-          <Info className="mt-px h-3.5 w-3.5 shrink-0" />
-          Added, but not analysed yet. Findings don&rsquo;t use it until it has been analysed.
-        </p>
+      {item.analysis && (
+        <section className="rounded-xl border border-brand-200 bg-brand-50/40 p-4">
+          <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-brand-700">
+            <Sparkles className="h-3.5 w-3.5" /> Veyra&rsquo;s analysis
+          </h3>
+          {item.analysis.status === "analysing" ? (
+            <p className="mt-2 flex items-center gap-2 text-[13px] text-ink-muted">
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-brand-600" /> Analysing this evidence against the investigation…
+            </p>
+          ) : (
+            <>
+              <p className="mt-2 text-[13px] leading-relaxed text-ink">{item.analysis.summary}</p>
+              {proposals.map((p) => (
+                <div key={p.id} className="mt-3 rounded-lg border border-line bg-surface p-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-faint">Suggested change</p>
+                  <p className="mt-1 text-[13px] text-ink">{p.summary}</p>
+                  {p.status === "pending" ? (
+                    <div className="mt-3 flex gap-2">
+                      <Button type="button" size="sm" onClick={() => resolveProposal(p.id, "accepted")}>
+                        <Check className="h-3.5 w-3.5" /> Accept
+                      </Button>
+                      <Button type="button" size="sm" variant="ghost" onClick={() => resolveProposal(p.id, "dismissed")}>
+                        <X className="h-3.5 w-3.5" /> Dismiss
+                      </Button>
+                    </div>
+                  ) : (
+                    <p className={p.status === "accepted" ? "mt-2 text-xs font-medium text-confirmed-600" : "mt-2 text-xs text-ink-subtle"}>
+                      {p.status === "accepted" ? "Accepted — linked to the investigation." : "Dismissed — the investigation is unchanged."}
+                    </p>
+                  )}
+                </div>
+              ))}
+              <p className="mt-3 text-[11px] text-ink-faint">Simulated in this preview. Confidence levels aren&rsquo;t changed automatically.</p>
+            </>
+          )}
+        </section>
       )}
 
       <dl className="grid grid-cols-2 gap-3 text-[13px]">
@@ -89,6 +124,25 @@ export function EvidenceDetail({ id }: { id: string }) {
           <p className="text-[13px] text-ink-faint">Not used by any finding yet.</p>
         )}
       </section>
+
+      {supports.length > 0 && (
+        <section>
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-ink-faint">Supports hypotheses</h3>
+          <div className="flex flex-col items-start gap-1.5">
+            {supports.map((h) => (
+              <button
+                key={h.id}
+                type="button"
+                onClick={() => openDetail({ type: "hypothesis", id: h.id })}
+                className="w-full rounded-lg border border-line px-3 py-2 text-left text-[13px] hover:border-brand-300"
+              >
+                <KindBadge kind="hypothesis" className="mr-2" />
+                {h.statement}
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }
