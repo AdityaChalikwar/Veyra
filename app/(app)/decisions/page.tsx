@@ -1,8 +1,7 @@
-import { RouteStub } from "@/components/dev/RouteStub";
-import { routes } from "@/lib/routes";
+import { PagePlaceholder } from "@/components/layout/PagePlaceholder";
 
 export const metadata = { title: "Decision Log" };
 
 export default function DecisionLogPage() {
-  return <RouteStub title="Decision Log" milestone={8} next={{ href: routes.dashboard, label: "Go to dashboard" }} />;
+  return <PagePlaceholder title="Decision Log" description="Every decision, why it was made, and what happened next." milestone={8} />;
 }

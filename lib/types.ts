@@ -59,9 +59,13 @@ export type BusinessContext = {
   timePeriod: string;
 };
 
+/** Broad problem area. Drives the icon shown next to an investigation. */
+export type InvestigationTopic = "engagement" | "revenue" | "retention" | "market" | "pricing" | "adoption";
+
 export type InvestigationSummary = {
   id: ID;
   title: string;
+  topic: InvestigationTopic;
   status: InvestigationStatus;
   stage: InvestigationStage;
   progress: number; // 0–100
@@ -94,9 +98,14 @@ export type EvidenceItem = {
   category: EvidenceCategory;
   source: string; // e.g. "Product Analytics"
   coverage?: string; // e.g. "Jan – Aug 2026"
-  format: "csv" | "xlsx" | "pdf" | "doc" | "link" | "text";
+  format: EvidenceFormat;
   addedAt: string; // ISO
 };
+
+export type EvidenceFormat = "csv" | "xlsx" | "pdf" | "doc" | "link" | "text";
+
+/** Evidence as listed outside its investigation (e.g. on the dashboard). */
+export type EvidenceWithContext = EvidenceItem & { investigationTitle: string };
 
 export type Finding = {
   id: ID;
@@ -168,10 +177,14 @@ export type ResearchItem = {
   addedAt: string; // ISO
 };
 
+export type DecisionStatus = "proposed" | "decided" | "in-experiment" | "validated";
+
 export type DecisionRecord = {
   id: ID;
   investigationId: ID;
+  investigationTitle: string;
   decision: string;
+  status: DecisionStatus;
   decidedAt: string; // ISO
   owner: string;
 };
@@ -191,8 +204,9 @@ export type MemoryEntry = {
   category: MemoryCategory;
   title: string;
   body: string;
-  date?: string;
+  date?: string; // ISO
   sourceInvestigationId?: ID;
+  sourceInvestigationTitle?: string;
 };
 
 export type ChatRole = "user" | "assistant";
