@@ -7,15 +7,20 @@
  */
 import { mockCompany } from "@/mocks/company";
 import { buildDecisions } from "@/mocks/decisions";
+import { buildDauWorkspace } from "@/mocks/dau-investigation";
 import { buildEvidence } from "@/mocks/evidence";
 import { buildInvestigations } from "@/mocks/investigations";
-import { mockMemory } from "@/mocks/memory";
+import { buildDataSources } from "@/mocks/data-sources";
+import { mockMemory, mockStories } from "@/mocks/memory";
 import { mockUser } from "@/mocks/user";
 import type {
+  BusinessMemory,
   Company,
+  DataSource,
   DecisionRecord,
   EvidenceWithContext,
   InvestigationSummary,
+  InvestigationWorkspace,
   MemoryEntry,
   User,
 } from "@/lib/types";
@@ -67,4 +72,33 @@ export async function listRecentEvidence(limit = 4): Promise<EvidenceWithContext
 
 export async function listMemoryHighlights(limit = 3): Promise<MemoryEntry[]> {
   return mockMemory.slice(0, limit);
+}
+
+/**
+ * Everything the investigation workspace shows. Only the DAU demo has full
+ * workspace data in the preview; other investigations return undefined.
+ */
+export async function getInvestigationWorkspace(id: string): Promise<InvestigationWorkspace | undefined> {
+  if (id !== "dau-decline") return undefined;
+  return buildDauWorkspace(buildEvidence().filter((e) => e.investigationId === id));
+}
+
+export async function listDecisions(): Promise<DecisionRecord[]> {
+  return buildDecisions().sort((a, b) => b.decidedAt.localeCompare(a.decidedAt));
+}
+
+export async function getBusinessMemory(): Promise<BusinessMemory> {
+  return { entries: mockMemory, stories: mockStories };
+}
+
+export async function listDataSources(): Promise<DataSource[]> {
+  return buildDataSources();
+}
+
+/** Every piece of evidence across investigations, newest first. */
+export async function listAllEvidence(): Promise<EvidenceWithContext[]> {
+  const titles = new Map(buildInvestigations().map((i) => [i.id, i.title]));
+  return buildEvidence()
+    .sort((a, b) => b.addedAt.localeCompare(a.addedAt))
+    .map((e) => ({ ...e, investigationTitle: titles.get(e.investigationId) ?? "Investigation" }));
 }

@@ -2,14 +2,9 @@ import Link from "next/link";
 import { cn } from "@/lib/cn";
 import { routes } from "@/lib/routes";
 import { formatRelative } from "@/lib/time";
-import type { DecisionRecord, DecisionStatus } from "@/lib/types";
+import { decisionStatus as status } from "@/components/org/decision-status";
+import type { DecisionRecord } from "@/lib/types";
 
-const status: Record<DecisionStatus, { label: string; className: string }> = {
-  proposed: { label: "Proposed", className: "bg-slate-100 text-slate-600" },
-  decided: { label: "Decided", className: "bg-brand-50 text-brand-700" },
-  "in-experiment": { label: "In experiment", className: "bg-violet-50 text-violet-700" },
-  validated: { label: "Validated", className: "bg-confirmed-50 text-confirmed-600" },
-};
 
 export function DecisionList({ decisions }: { decisions: DecisionRecord[] }) {
   return (

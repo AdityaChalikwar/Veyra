@@ -112,6 +112,32 @@ export type EvidenceItem = {
   coverage?: string; // e.g. "Jan – Aug 2026"
   format: EvidenceFormat;
   addedAt: string; // ISO
+  description?: string;
+  url?: string;
+  /** A few rows so people can see what the file contains. */
+  preview?: { columns: string[]; rows: (string | number)[][] };
+  /** Present for evidence added during the investigation; absent means already analysed. */
+  analysis?: EvidenceAnalysis;
+};
+
+export type EvidenceAnalysis = {
+  status: "analysing" | "analysed";
+  /** What Veyra concluded about this evidence. */
+  summary?: string;
+};
+
+/**
+ * A change Veyra suggests after analysing new evidence. Nothing changes in the
+ * investigation until a person accepts it.
+ */
+export type EvidenceProposal = {
+  id: ID;
+  investigationId: ID;
+  evidenceId: ID;
+  action: "supports-hypothesis" | "supports-finding";
+  targetId: ID;
+  summary: string;
+  status: "pending" | "accepted" | "dismissed";
 };
 
 export type EvidenceFormat = "csv" | "xlsx" | "pdf" | "doc" | "link" | "text";
@@ -119,11 +145,16 @@ export type EvidenceFormat = "csv" | "xlsx" | "pdf" | "doc" | "link" | "text";
 /** Evidence as listed outside its investigation (e.g. on the dashboard). */
 export type EvidenceWithContext = EvidenceItem & { investigationTitle: string };
 
+/** One step in how Veyra reached a conclusion — shown when someone asks "Why?". */
+export type TrailStep = { text: string; evidenceId?: ID };
+
 export type Finding = {
   id: ID;
   investigationId: ID;
   statement: string;
   confidence: Confidence;
+  /** Why the confidence is what it is. */
+  confidenceReason: string;
   evidenceIds: ID[];
   detail?: {
     metricLabel: string;
@@ -134,6 +165,7 @@ export type Finding = {
     contradicting: string[];
     unknowns: string[];
   };
+  trail: TrailStep[];
 };
 
 export type Hypothesis = {
@@ -141,17 +173,24 @@ export type Hypothesis = {
   investigationId: ID;
   statement: string;
   confidence: Confidence;
+  rationale: string;
   supportingFindingIds: ID[];
   contradictingFindingIds: ID[];
+  /** Evidence linked directly (e.g. accepted from a suggestion). */
+  supportingEvidenceIds?: ID[];
+  /** What would confirm or rule it out. */
   nextTest?: string;
 };
 
+export type DiagnosisItem = { text: string; findingIds?: ID[]; evidenceIds?: ID[] };
+
 export type Diagnosis = {
   investigationId: ID;
-  known: string[];
-  suspected: string[];
-  unknown: string[];
-  evidenceGaps: string[];
+  summary: string;
+  known: DiagnosisItem[];
+  suspected: DiagnosisItem[];
+  unknown: DiagnosisItem[];
+  evidenceGaps: (DiagnosisItem & { howToClose: string })[];
 };
 
 export type Recommendation = {
@@ -179,14 +218,46 @@ export type ActionItem = {
   status: ActionStatus;
   expectedOutcome: string;
   measurement: string;
+  /** What this step is for, in a sentence. */
+  detail?: string;
 };
 
-export type ResearchItem = {
+export type InvestigationNote = {
   id: ID;
-  title: string;
-  kind: "uploaded" | "industry" | "public";
-  sourceLabel: string;
-  addedAt: string; // ISO
+  investigationId: ID;
+  author: string;
+  text: string;
+  createdAt: string; // ISO
+};
+
+export type DataSourceStatus = "connected" | "not-connected";
+
+export type DataSource = {
+  id: ID;
+  name: string;
+  kind: "Product analytics" | "Marketing" | "CRM" | "Payments" | "Web analytics" | "Files";
+  description: string;
+  status: DataSourceStatus;
+  lastSyncedAt?: string; // ISO
+  itemCount?: number;
+};
+
+/** An investigation's journey from problem to learning, as kept in Business Memory. */
+export type MemoryStory = {
+  id: ID;
+  investigationId: ID;
+  investigationTitle: string;
+  date: string; // ISO
+  problem: string;
+  decision: string;
+  experiment: string;
+  result: string;
+  learning: string;
+};
+
+export type BusinessMemory = {
+  entries: MemoryEntry[];
+  stories: MemoryStory[];
 };
 
 export type DecisionStatus = "proposed" | "decided" | "in-experiment" | "validated";
@@ -199,6 +270,8 @@ export type DecisionRecord = {
   status: DecisionStatus;
   decidedAt: string; // ISO
   owner: string;
+  rationale?: string;
+  outcome?: string;
 };
 
 export type MemoryCategory =
@@ -225,7 +298,7 @@ export type ChatRole = "user" | "assistant";
 
 /** A link from a chat message to a structured artifact. Chat always points back to the investigation. */
 export type ArtifactRef = {
-  kind: ArtifactKind | "evidence" | "action";
+  kind: "finding" | "hypothesis" | "evidence" | "diagnosis" | "recommendation" | "action";
   id: ID;
   label: string;
 };
@@ -237,4 +310,67 @@ export type ChatMessage = {
   list?: string[];
   refs?: ArtifactRef[];
   createdAt: string;
+};
+
+/* ── Investigation workspace ─────────────────────────────────────────── */
+
+export type Kpi = {
+  id: ID;
+  label: string;
+  value: string;
+  detail: string;
+  /** "decline" = a real drop worth flagging; "neutral" = context; "status" = investigation state. */
+  kind: "decline" | "neutral" | "status";
+  icon: "users" | "funnel" | "segment" | "status";
+  progress?: number;
+  sourceEvidenceId?: ID;
+};
+
+export type TrendPoint = { period: string; value: number; annotation?: string };
+
+export type SegmentComparison = {
+  segment: string;
+  before: number;
+  after: number;
+  /** Relative change, e.g. -0.61. */
+  change: number;
+};
+
+/** How a node on the investigation map reads. Colour follows meaning, not decoration. */
+export type MapSignal = "problem" | "minor" | "stable" | "event" | "unknown";
+
+export type MapNode = { id: ID; label: string; value: string; signal: MapSignal };
+
+export type MapBranch = {
+  id: ID;
+  label: string;
+  /** Where Veyra is on this line of enquiry. */
+  assessment: string;
+  uncertain: boolean;
+  children: MapNode[];
+};
+
+export type InvestigationMap = {
+  root: { label: string; value: string };
+  branches: MapBranch[];
+};
+
+export type InvestigationWorkspace = {
+  investigation: Investigation;
+  kpis: Kpi[];
+  trend: { title: string; metric: string; unit: string; points: TrendPoint[]; sourceEvidenceId?: ID };
+  segments: { title: string; beforeLabel: string; afterLabel: string; rows: SegmentComparison[]; sourceEvidenceId?: ID };
+  map: InvestigationMap;
+  questions: ClarifyingQuestion[];
+  evidence: EvidenceItem[];
+  findings: Finding[];
+  hypotheses: Hypothesis[];
+  diagnosis: Diagnosis;
+  /** The conversation so far with Veyra AI. */
+  conversation: ChatMessage[];
+  /** Suggested changes from analysing new evidence. */
+  proposals: EvidenceProposal[];
+  recommendations: Recommendation[];
+  actions: ActionItem[];
+  notes: InvestigationNote[];
 };
