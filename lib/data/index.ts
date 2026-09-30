@@ -7,6 +7,7 @@
  */
 import { mockCompany } from "@/mocks/company";
 import { buildDecisions } from "@/mocks/decisions";
+import { buildDauWorkspace } from "@/mocks/dau-investigation";
 import { buildEvidence } from "@/mocks/evidence";
 import { buildInvestigations } from "@/mocks/investigations";
 import { mockMemory } from "@/mocks/memory";
@@ -16,6 +17,7 @@ import type {
   DecisionRecord,
   EvidenceWithContext,
   InvestigationSummary,
+  InvestigationWorkspace,
   MemoryEntry,
   User,
 } from "@/lib/types";
@@ -67,4 +69,13 @@ export async function listRecentEvidence(limit = 4): Promise<EvidenceWithContext
 
 export async function listMemoryHighlights(limit = 3): Promise<MemoryEntry[]> {
   return mockMemory.slice(0, limit);
+}
+
+/**
+ * Everything the investigation workspace shows. Only the DAU demo has full
+ * workspace data in the preview; other investigations return undefined.
+ */
+export async function getInvestigationWorkspace(id: string): Promise<InvestigationWorkspace | undefined> {
+  if (id !== "dau-decline") return undefined;
+  return buildDauWorkspace(buildEvidence().filter((e) => e.investigationId === id));
 }

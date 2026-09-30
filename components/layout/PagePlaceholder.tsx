@@ -9,11 +9,14 @@ export function PagePlaceholder({
   title,
   description,
   milestone,
+  note,
   next,
 }: {
   title: string;
   description?: string;
   milestone: number;
+  /** Replaces the "built in Milestone N" line. */
+  note?: string;
   next?: { href: string; label: string };
 }) {
   return (
@@ -24,7 +27,7 @@ export function PagePlaceholder({
         <span className="grid h-10 w-10 place-items-center rounded-lg bg-canvas text-ink-subtle">
           <Hammer className="h-5 w-5" />
         </span>
-        <p className="mt-4 font-medium">This screen is built in Milestone {milestone}.</p>
+        <p className="mt-4 font-medium">{note ?? `This screen is built in Milestone ${milestone}.`}</p>
         {next && (
           <ButtonLink href={next.href} className="mt-5">
             {next.label} <ArrowRight className="h-4 w-4" />

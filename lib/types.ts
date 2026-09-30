@@ -238,3 +238,56 @@ export type ChatMessage = {
   refs?: ArtifactRef[];
   createdAt: string;
 };
+
+/* ── Investigation workspace ─────────────────────────────────────────── */
+
+export type Kpi = {
+  id: ID;
+  label: string;
+  value: string;
+  detail: string;
+  /** "decline" = a real drop worth flagging; "neutral" = context; "status" = investigation state. */
+  kind: "decline" | "neutral" | "status";
+  icon: "users" | "funnel" | "segment" | "status";
+  progress?: number;
+  sourceEvidenceId?: ID;
+};
+
+export type TrendPoint = { period: string; value: number; annotation?: string };
+
+export type SegmentComparison = {
+  segment: string;
+  before: number;
+  after: number;
+  /** Relative change, e.g. -0.61. */
+  change: number;
+};
+
+/** How a node on the investigation map reads. Colour follows meaning, not decoration. */
+export type MapSignal = "problem" | "minor" | "stable" | "event" | "unknown";
+
+export type MapNode = { id: ID; label: string; value: string; signal: MapSignal };
+
+export type MapBranch = {
+  id: ID;
+  label: string;
+  /** Where Veyra is on this line of enquiry. */
+  assessment: string;
+  uncertain: boolean;
+  children: MapNode[];
+};
+
+export type InvestigationMap = {
+  root: { label: string; value: string };
+  branches: MapBranch[];
+};
+
+export type InvestigationWorkspace = {
+  investigation: Investigation;
+  kpis: Kpi[];
+  trend: { title: string; metric: string; unit: string; points: TrendPoint[]; sourceEvidenceId?: ID };
+  segments: { title: string; beforeLabel: string; afterLabel: string; rows: SegmentComparison[]; sourceEvidenceId?: ID };
+  map: InvestigationMap;
+  questions: ClarifyingQuestion[];
+  evidence: EvidenceItem[];
+};
