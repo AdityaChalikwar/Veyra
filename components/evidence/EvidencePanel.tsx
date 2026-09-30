@@ -1,5 +1,6 @@
 "use client";
 
+import { Plus } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/cn";
 import type { EvidenceCategory, EvidenceItem } from "@/lib/types";
@@ -21,7 +22,15 @@ const filterLabels: Record<Filter, string> = {
 };
 
 /** The right-hand "Evidence & Data" panel: everything this investigation draws on. */
-export function EvidencePanel({ evidence, onSelect }: { evidence: EvidenceItem[]; onSelect?: (item: EvidenceItem) => void }) {
+export function EvidencePanel({
+  evidence,
+  onSelect,
+  onAdd,
+}: {
+  evidence: EvidenceItem[];
+  onSelect?: (item: EvidenceItem) => void;
+  onAdd?: () => void;
+}) {
   const [filter, setFilter] = useState<Filter>("all");
 
   const itemsFor = (categories: EvidenceCategory[]) => evidence.filter((e) => categories.includes(e.category));
@@ -30,7 +39,21 @@ export function EvidencePanel({ evidence, onSelect }: { evidence: EvidenceItem[]
   const visible = sections.filter((s) => filter === "all" || s.filter === filter);
 
   return (
-    <div className="px-3.5 pb-6 pt-5">
+    <div className="px-3.5 pb-6 pt-4">
+      {onAdd && (
+        <div className="mb-3 flex items-center justify-between px-1">
+          <p className="text-xs text-ink-subtle">
+            {evidence.length} item{evidence.length === 1 ? "" : "s"} in this investigation
+          </p>
+          <button
+            type="button"
+            onClick={onAdd}
+            className="inline-flex items-center gap-1 rounded-md border border-line px-2 py-1 text-xs font-medium text-brand-700 hover:bg-brand-50"
+          >
+            <Plus className="h-3.5 w-3.5" /> Add Evidence
+          </button>
+        </div>
+      )}
       <div role="tablist" aria-label="Evidence type" className="flex overflow-x-auto border-b border-line">
         {(Object.keys(filterLabels) as Filter[]).map((f) => (
           <button

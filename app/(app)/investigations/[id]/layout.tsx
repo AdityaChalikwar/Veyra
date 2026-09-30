@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { PagePlaceholder } from "@/components/layout/PagePlaceholder";
 import { InvestigationHeader } from "@/components/investigation/InvestigationHeader";
 import { ShareButton } from "@/components/investigation/ShareButton";
-import { EvidenceToggle, WorkspaceFrame } from "@/components/investigation/WorkspaceFrame";
+import { SidePanelToggles, WorkspaceFrame } from "@/components/investigation/WorkspaceFrame";
 import { WorkspaceTabs } from "@/components/investigation/WorkspaceTabs";
 import { getInvestigationSummary, getInvestigationWorkspace } from "@/lib/data";
 
@@ -37,12 +37,12 @@ export default async function InvestigationLayout({
   }
 
   return (
-    <WorkspaceFrame evidence={workspace.evidence}>
+    <WorkspaceFrame workspace={workspace}>
       <InvestigationHeader
         investigation={workspace.investigation}
         actions={
           <>
-            <EvidenceToggle />
+            <SidePanelToggles />
             <ShareButton />
           </>
         }

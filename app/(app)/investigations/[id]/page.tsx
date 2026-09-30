@@ -3,6 +3,7 @@ import { ChartCard } from "@/components/investigation/ChartCard";
 import { DauTrendChart } from "@/components/investigation/DauTrendChart";
 import { InvestigationMap } from "@/components/investigation/InvestigationMap";
 import { KpiCard } from "@/components/investigation/KpiCard";
+import { OverviewInsights } from "@/components/investigation/OverviewInsights";
 import { SegmentChart, SegmentLegend } from "@/components/investigation/SegmentChart";
 import { getInvestigationWorkspace } from "@/lib/data";
 import { formatChange } from "@/lib/format";
@@ -51,6 +52,8 @@ export default async function InvestigationOverviewPage({ params }: { params: Pr
       </div>
 
       <InvestigationMap map={map} />
+
+      <OverviewInsights />
     </div>
   );
 }

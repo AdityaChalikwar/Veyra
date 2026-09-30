@@ -112,6 +112,12 @@ export type EvidenceItem = {
   coverage?: string; // e.g. "Jan – Aug 2026"
   format: EvidenceFormat;
   addedAt: string; // ISO
+  description?: string;
+  url?: string;
+  /** A few rows so people can see what the file contains. */
+  preview?: { columns: string[]; rows: (string | number)[][] };
+  /** False for evidence added but not yet analysed by Veyra. */
+  analysed?: boolean;
 };
 
 export type EvidenceFormat = "csv" | "xlsx" | "pdf" | "doc" | "link" | "text";
@@ -119,11 +125,16 @@ export type EvidenceFormat = "csv" | "xlsx" | "pdf" | "doc" | "link" | "text";
 /** Evidence as listed outside its investigation (e.g. on the dashboard). */
 export type EvidenceWithContext = EvidenceItem & { investigationTitle: string };
 
+/** One step in how Veyra reached a conclusion — shown when someone asks "Why?". */
+export type TrailStep = { text: string; evidenceId?: ID };
+
 export type Finding = {
   id: ID;
   investigationId: ID;
   statement: string;
   confidence: Confidence;
+  /** Why the confidence is what it is. */
+  confidenceReason: string;
   evidenceIds: ID[];
   detail?: {
     metricLabel: string;
@@ -134,6 +145,7 @@ export type Finding = {
     contradicting: string[];
     unknowns: string[];
   };
+  trail: TrailStep[];
 };
 
 export type Hypothesis = {
@@ -141,17 +153,22 @@ export type Hypothesis = {
   investigationId: ID;
   statement: string;
   confidence: Confidence;
+  rationale: string;
   supportingFindingIds: ID[];
   contradictingFindingIds: ID[];
+  /** What would confirm or rule it out. */
   nextTest?: string;
 };
 
+export type DiagnosisItem = { text: string; findingIds?: ID[]; evidenceIds?: ID[] };
+
 export type Diagnosis = {
   investigationId: ID;
-  known: string[];
-  suspected: string[];
-  unknown: string[];
-  evidenceGaps: string[];
+  summary: string;
+  known: DiagnosisItem[];
+  suspected: DiagnosisItem[];
+  unknown: DiagnosisItem[];
+  evidenceGaps: (DiagnosisItem & { howToClose: string })[];
 };
 
 export type Recommendation = {
@@ -225,7 +242,7 @@ export type ChatRole = "user" | "assistant";
 
 /** A link from a chat message to a structured artifact. Chat always points back to the investigation. */
 export type ArtifactRef = {
-  kind: ArtifactKind | "evidence" | "action";
+  kind: "finding" | "hypothesis" | "evidence" | "diagnosis" | "recommendation" | "action";
   id: ID;
   label: string;
 };
@@ -290,4 +307,9 @@ export type InvestigationWorkspace = {
   map: InvestigationMap;
   questions: ClarifyingQuestion[];
   evidence: EvidenceItem[];
+  findings: Finding[];
+  hypotheses: Hypothesis[];
+  diagnosis: Diagnosis;
+  /** The conversation so far with Veyra AI. */
+  conversation: ChatMessage[];
 };

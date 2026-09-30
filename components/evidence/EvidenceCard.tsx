@@ -7,7 +7,14 @@ export function EvidenceCard({ item, onSelect }: { item: EvidenceItem; onSelect?
     <>
       <EvidenceFormatIcon format={item.format} />
       <div className="min-w-0 flex-1">
-        <p className="line-clamp-2 text-[13.5px] font-medium leading-snug text-ink">{item.name}</p>
+        <p className="line-clamp-2 text-[13.5px] font-medium leading-snug text-ink">
+          {item.name}
+          {item.analysed === false && (
+            <span className="ml-1.5 inline-block rounded bg-uncertain-50 px-1 align-[1px] text-[10px] font-semibold uppercase tracking-wide text-uncertain-600">
+              Not analysed
+            </span>
+          )}
+        </p>
         <p className="mt-0.5 truncate text-xs text-ink-subtle">{item.source}</p>
         <p className="truncate text-xs text-ink-faint">
           {item.coverage ? `${item.coverage} · ` : ""}
