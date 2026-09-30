@@ -3,6 +3,9 @@ import { cn } from "@/lib/cn";
 export const inputClass =
   "h-10 w-full rounded-lg border border-line-strong bg-surface px-3 text-sm text-ink placeholder:text-ink-faint outline-none transition-colors focus:border-brand-500 focus:ring-2 focus:ring-brand-100";
 
+export const textareaClass =
+  "block w-full resize-none rounded-lg border border-line-strong bg-surface px-3 py-2.5 text-sm leading-relaxed text-ink placeholder:text-ink-faint outline-none transition-colors focus:border-brand-500 focus:ring-2 focus:ring-brand-100";
+
 export function Field({
   label,
   htmlFor,

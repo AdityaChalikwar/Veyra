@@ -21,7 +21,7 @@ export function AppShell({
   const close = () => setDrawerOpen(false);
 
   return (
-    <div className="min-h-screen bg-canvas">
+    <div data-app-shell className="min-h-screen bg-canvas">
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-[248px] lg:block">
         <Sidebar investigations={investigations} />
       </aside>

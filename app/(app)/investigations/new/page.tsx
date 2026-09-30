@@ -1,14 +1,13 @@
-import { PagePlaceholder } from "@/components/layout/PagePlaceholder";
-import { routes } from "@/lib/routes";
+import { Suspense } from "react";
+import { ProblemForm } from "@/components/new-investigation/ProblemForm";
 
 export const metadata = { title: "New Investigation" };
 
 export default function NewInvestigationPage() {
   return (
-    <PagePlaceholder
-      title="What are you trying to solve?"
-      milestone={5}
-      next={{ href: routes.clarifyingQuestions, label: "Continue" }}
-    />
+    // ProblemForm reads ?problem= from the dashboard, which needs a Suspense boundary.
+    <Suspense>
+      <ProblemForm />
+    </Suspense>
   );
 }

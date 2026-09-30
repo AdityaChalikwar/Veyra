@@ -1,14 +1,7 @@
-import { PagePlaceholder } from "@/components/layout/PagePlaceholder";
-import { routes } from "@/lib/routes";
+import { ClarifyingQuestions } from "@/components/new-investigation/ClarifyingQuestions";
 
 export const metadata = { title: "Clarifying Questions" };
 
 export default function ClarifyingQuestionsPage() {
-  return (
-    <PagePlaceholder
-      title="Before I investigate, I need to understand a few things."
-      milestone={5}
-      next={{ href: routes.investigation("dau-decline"), label: "Start Investigation" }}
-    />
-  );
+  return <ClarifyingQuestions />;
 }

@@ -83,10 +83,22 @@ export type Investigation = InvestigationSummary & {
 
 export type ClarifyingQuestion = {
   id: ID;
-  investigationId: ID;
+  /** Absent while the investigation is still a draft. */
+  investigationId?: ID;
   question: string;
+  /** Empty means unanswered — Veyra treats it as an unknown. */
   answer: string;
+  /** Why Veyra is asking. */
   hint?: string;
+};
+
+/** A new investigation before it's created. */
+export type InvestigationDraft = {
+  problem: string;
+  goal: string;
+  context: BusinessContext;
+  /** Cached once generated, so going back and forth keeps edited answers. */
+  questions?: ClarifyingQuestion[];
 };
 
 export type EvidenceCategory = "company-data" | "research" | "notes" | "other";
