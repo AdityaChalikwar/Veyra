@@ -22,14 +22,17 @@ export function HypothesisCard({ hypothesis: h, compact }: { hypothesis: Hypothe
       onClick={open}
       onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), open())}
       className={cn(
-        "group flex cursor-pointer flex-col rounded-xl border border-l-[3px] border-line border-l-uncertain-200 bg-surface shadow-card transition-shadow hover:shadow-raised",
+        "group flex cursor-pointer flex-col rounded-xl border border-l-[3px] border-line bg-surface shadow-card transition-shadow hover:shadow-raised",
         compact ? "p-4" : "p-5",
+        h.status === "confirmed" ? "border-l-confirmed-600" : h.status === "rejected" ? "border-l-slate-300 opacity-75" : "border-l-uncertain-200",
       )}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2">
           <span className="rounded-md border border-dashed border-uncertain-600/50 px-1.5 text-[13px] font-semibold text-uncertain-600">{h.label}</span>
           <KindBadge kind="hypothesis" />
+          {h.status === "confirmed" && <span className="rounded bg-confirmed-50 px-1.5 py-0.5 text-[11px] font-medium text-confirmed-600">Confirmed</span>}
+          {h.status === "rejected" && <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600">Rejected</span>}
         </div>
         <ChevronRight className="h-4 w-4 shrink-0 text-ink-faint transition-transform group-hover:translate-x-0.5 group-hover:text-brand-600" />
       </div>

@@ -6,6 +6,7 @@
  */
 import { ago } from "@/lib/time";
 import type {
+  ValidationResult,
   ChatMessage,
   CustomerUnderstanding,
   DiscoveryStage,
@@ -670,3 +671,41 @@ export function buildDauWorkspace(evidence: EvidenceItem[]): InvestigationWorksp
     ],
   };
 }
+
+/** Simulated results for each validation, returned when the team asks for results. */
+export const validationResults: Record<string, ValidationResult> = {
+  "v-h1": {
+    summary: "7 of 8 recently acquired merchants stalled at the payment and shipping steps added on 4 Aug, before ever seeing their store.",
+    details: [
+      "7 of 8 interviewees got stuck on payment and shipping configuration; 5 said they planned to “finish setup later” and none had.",
+      "Before/after comparison: 61% of new merchants now drop at the configuration step, up from 18% before 4 Aug.",
+      "Merchants who skipped configuration (support-assisted) activated at 44% — the pre-change rate.",
+    ],
+    signalMet: true,
+    signal: "7 of 8 users hit the same friction (target: at least 5 of 8).",
+    suggestedOutcome: "confirmed",
+    answers: ["oq-why", "oq-primary", "oq-step"],
+  },
+  "v-h2": {
+    summary: "Activation fell in every acquisition channel by a similar amount, so the channel mix doesn't explain the decline.",
+    details: [
+      "Paid search activation fell 36%; organic fell 27%; partners fell 27%.",
+      "Re-weighting signups to the July channel mix recovers only 2 points of activation.",
+    ],
+    signalMet: false,
+    signal: "Paid search fell 1.3× as much as other channels (target: at least 2×).",
+    suggestedOutcome: "rejected",
+    answers: ["oq-channel"],
+  },
+  "v-h3": {
+    summary: "No major competitor change coincides with early August, and competitor-related loss reasons are flat.",
+    details: [
+      "Two competitors changed pricing in June and September — neither in the August window.",
+      "3% of CRM loss reasons cite a competitor, unchanged since spring.",
+    ],
+    signalMet: false,
+    signal: "No competitor change in the August window.",
+    suggestedOutcome: "rejected",
+    answers: [],
+  },
+};

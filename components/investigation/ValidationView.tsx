@@ -1,7 +1,8 @@
 "use client";
 
-import { Gauge, Play, ShieldX, Target, TestTube2 } from "lucide-react";
+import { Check, CircleCheck, CircleX, Gauge, Inbox, Play, ShieldX, Target, TestTube2, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { Spinner } from "@/components/ui/Spinner";
 import { ConfidenceBadge } from "@/components/ui/ConfidenceBadge";
 import { cn } from "@/lib/cn";
 import { formatRelative } from "@/lib/time";
@@ -11,8 +12,16 @@ import { useWorkspace } from "./workspace-context";
 const statusStyle = {
   "not-started": { label: "Not started", className: "bg-slate-100 text-slate-600" },
   running: { label: "In progress", className: "bg-brand-50 text-brand-700" },
-  completed: { label: "Completed", className: "bg-confirmed-50 text-confirmed-600" },
+  results: { label: "Results in", className: "bg-uncertain-50 text-uncertain-600" },
+  confirmed: { label: "Confirmed", className: "bg-confirmed-50 text-confirmed-600" },
+  rejected: { label: "Rejected", className: "bg-slate-100 text-slate-600" },
 } as const;
+
+function statusKey(v: ValidationPlan): keyof typeof statusStyle {
+  if (v.status === "completed") return v.outcome ?? "confirmed";
+  if (v.status === "running" && v.result) return "results";
+  return v.status;
+}
 
 /** For each important hypothesis: what we believe, what would disprove it, and the test that would settle it. */
 export function ValidationView() {
@@ -33,9 +42,10 @@ export function ValidationView() {
 }
 
 function ValidationCard({ plan: v }: { plan: ValidationPlan }) {
-  const { workspace, startValidation, openDetail } = useWorkspace();
+  const { workspace, startValidation, openDetail, running, fetchValidationResult, recordValidationOutcome } = useWorkspace();
   const h = workspace.hypotheses.find((x) => x.id === v.hypothesisId);
-  const s = statusStyle[v.status];
+  const s = statusStyle[statusKey(v)];
+  const label = h?.label ?? "the hypothesis";
 
   return (
     <article className="rounded-xl border border-line bg-surface shadow-card">
@@ -85,17 +95,75 @@ function ValidationCard({ plan: v }: { plan: ValidationPlan }) {
         </Item>
       </dl>
 
+      {v.result && (
+        <div className="border-t border-line p-5">
+          <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-ink-faint">
+            <Inbox className="h-3.5 w-3.5" /> Results
+          </p>
+          <p className="mt-1 text-[14.5px] font-semibold leading-snug">{v.result.summary}</p>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-[13px] text-ink-muted">
+            {v.result.details.map((d) => (
+              <li key={d}>{d}</li>
+            ))}
+          </ul>
+          <p
+            className={cn(
+              "mt-3 flex items-start gap-2 rounded-lg px-3 py-2 text-[13px]",
+              v.result.signalMet ? "bg-confirmed-50 text-confirmed-600" : "bg-slate-100 text-slate-600",
+            )}
+          >
+            {v.result.signalMet ? <CircleCheck className="mt-0.5 h-4 w-4 shrink-0" /> : <CircleX className="mt-0.5 h-4 w-4 shrink-0" />}
+            <span>
+              <b className="font-semibold">{v.result.signalMet ? "Success signal met." : "Success signal not met."}</b> {v.result.signal}
+            </span>
+          </p>
+        </div>
+      )}
+
       <div className="flex flex-col gap-3 border-t border-line bg-canvas/50 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-[13px] text-ink-muted">
-          {v.status === "running" && v.startedAt
-            ? `Started ${formatRelative(v.startedAt).toLowerCase()}. Results will update ${h?.label ?? "the hypothesis"} when they come in.`
-            : "Starting a validation records the plan and tracks it until results come in."}
+          {v.status === "completed"
+            ? `${v.outcome === "confirmed" ? "Confirmed" : "Rejected"} by the team ${formatRelative(v.completedAt ?? "").toLowerCase()}.${
+                v.outcome === "confirmed" ? " The problem is validated." : ""
+              }`
+            : v.result
+              ? `Veyra suggests the results ${v.result.suggestedOutcome === "confirmed" ? "confirm" : "reject"} ${label}. You decide.`
+              : v.status === "running" && v.startedAt
+                ? `Started ${formatRelative(v.startedAt).toLowerCase()}. Preview: results are simulated — collect them when you're ready.`
+                : "Starting a validation records the plan and tracks it until results come in."}
         </p>
-        {v.status === "not-started" && (
-          <Button type="button" size="sm" onClick={() => startValidation(v.id)}>
-            <Play className="h-3.5 w-3.5" /> Start Validation
-          </Button>
-        )}
+        <div className="flex shrink-0 flex-wrap gap-2">
+          {v.status === "not-started" && (
+            <Button type="button" size="sm" onClick={() => startValidation(v.id)}>
+              <Play className="h-3.5 w-3.5" /> Start Validation
+            </Button>
+          )}
+          {v.status === "running" && !v.result && (
+            <Button type="button" size="sm" onClick={() => fetchValidationResult(v.id)} disabled={running[v.id]}>
+              {running[v.id] ? <Spinner /> : <Inbox className="h-3.5 w-3.5" />} {running[v.id] ? "Collecting results…" : "Get results"}
+            </Button>
+          )}
+          {v.status === "running" && v.result && (
+            <>
+              <Button
+                type="button"
+                size="sm"
+                variant={v.result.suggestedOutcome === "rejected" ? "primary" : "secondary"}
+                onClick={() => recordValidationOutcome(v.id, "rejected")}
+              >
+                <X className="h-3.5 w-3.5" /> Reject {label}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={v.result.suggestedOutcome === "confirmed" ? "primary" : "secondary"}
+                onClick={() => recordValidationOutcome(v.id, "confirmed")}
+              >
+                <Check className="h-3.5 w-3.5" /> Confirm {label}
+              </Button>
+            </>
+          )}
+        </div>
       </div>
     </article>
   );

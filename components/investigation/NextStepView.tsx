@@ -72,8 +72,8 @@ export function NextStepView() {
           <p className="flex items-center gap-2 text-[13px] text-ink-muted">
             <UserCheck className="h-4 w-4 shrink-0 text-ink-subtle" />
             {nextStepAcceptedAt
-              ? `Accepted ${formatRelative(nextStepAcceptedAt).toLowerCase()} and added to the Decision Log.`
-              : "Veyra recommends. You decide — accepting records the decision and why."}
+              ? `Accepted ${formatRelative(nextStepAcceptedAt).toLowerCase()} and added to the Decision Log. The H1 validation has started.`
+              : "Veyra recommends. You decide — accepting records the decision and starts the validation."}
           </p>
           {!nextStepAcceptedAt ? (
             <Button type="button" onClick={acceptNextStep}>

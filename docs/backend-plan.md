@@ -50,6 +50,9 @@ next step, validation) and to run analysis over company data, not to host a chat
 | `runResearchTask` (`research.ts`) | Run an analysis task against connected data (e.g. activation by channel, before/after a release) or a public-research scan. Returns new evidence, a finding, answered questions and proposals. Asynchronous. |
 | `analyseExistingFeedback` (`research.ts`) | Cluster support tickets and feedback into themes with counts and quotes; return an insight and proposals. |
 | `getInterviewGuide` (`research.ts`) | Generate an interview guide from the open questions and active hypotheses. |
+| `getValidationResult` (`validation.ts`) | Collect a running validation's results (interview notes, a before/after analysis) and say whether the success signal was met. The team records the verdict: confirming a hypothesis validates the problem and opens opportunity discovery; the result is stored as a finding and answers its open questions. |
+| Discovery progress (`deriveProgress` in `WorkspaceFrame`) | Today worked out in the browser from what the team did. The backend should store stage changes and the opportunity choice, so progress and the report survive a refresh. |
+| Investigation report (Report tab) | Built from the investigation's records. Today "Download PDF" uses the browser's print-to-PDF; a server-rendered PDF can come later for sharing by link or email. |
 | `analyseEvidence` (`evidence.ts`) | Upload to storage, parse (CSV/Excel/PDF/links), run AI analysis against the investigation, return a summary and proposals. |
 | `reviewProposal` (`evidence.ts`) | Record accept/dismiss and apply accepted changes (link evidence to a finding, support or contradict a hypothesis). |
 | Workspace next step, validation, notes (`getInvestigationWorkspace`) | Replaces the old recommendations / action plan. Next step with type, reasoning, "why not build yet", what would change it and alternatives; validation plans per hypothesis with method, success signal and status. Needs write endpoints for accepting the next step, starting a validation and adding notes. |
@@ -58,5 +61,5 @@ next step, validation) and to run analysis over company data, not to host a chat
 ## Still local-only in the preview
 
 - Evidence added, research results, feedback themes, proposals and chat messages live in browser memory and reset on refresh.
-- Accepted next steps, started validations and notes inside the workspace aren't saved.
+- Accepted next steps, validation results and verdicts, the chosen opportunity and notes inside the workspace aren't saved.
 - Only the DAU Decline investigation has full workspace data. Other problems get a generic plan based on their trigger.

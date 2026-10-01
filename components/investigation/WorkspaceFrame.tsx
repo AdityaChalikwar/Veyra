@@ -12,9 +12,12 @@ import { cn } from "@/lib/cn";
 import { askVeyra } from "@/lib/data/assistant";
 import { analyseEvidence, reviewProposal } from "@/lib/data/evidence";
 import { analyseExistingFeedback, runResearchTask } from "@/lib/data/research";
+import { getValidationResult } from "@/lib/data/validation";
 import { useAppState } from "@/lib/store/app-store";
 import type {
   ChatMessage,
+  DiscoveryStage,
+  InvestigationStatus,
   CustomerUnderstanding,
   EvidenceItem,
   EvidenceProposal,
@@ -24,6 +27,7 @@ import type {
   InvestigationWorkspace,
   MarketContext,
   OpenQuestion,
+  OpportunityChoice,
   ResearchTask,
   ValidationPlan,
 } from "@/lib/types";
@@ -34,6 +38,7 @@ import {
   WorkspaceContext,
   useWorkspace,
   type DetailTarget,
+  type DiscoveryProgress,
   type NewEvidence,
   type SideView,
 } from "./workspace-context";
@@ -70,6 +75,7 @@ export function WorkspaceFrame({ workspace: initial, children }: { workspace: In
   const [messages, setMessages] = useState<ChatMessage[]>(initial.conversation);
   const [nextStepAcceptedAt, setNextStepAcceptedAt] = useState<string | null>(null);
   const [running, setRunning] = useState<Record<string, boolean>>({});
+  const [choice, setChoice] = useState<OpportunityChoice | null>(null);
 
   const [thinking, setThinking] = useState(false);
   const [detail, setDetail] = useState<DetailTarget | null>(null);
@@ -183,10 +189,88 @@ export function WorkspaceFrame({ workspace: initial, children }: { workspace: In
   );
 
   const startValidation = useCallback((id: string) => {
-    setValidations((list) => list.map((v) => (v.id === id ? { ...v, status: "running", startedAt: now() } : v)));
+    setValidations((list) => list.map((v) => (v.id === id && v.status === "not-started" ? { ...v, status: "running", startedAt: now() } : v)));
   }, []);
 
-  const acceptNextStep = useCallback(() => setNextStepAcceptedAt(now()), []);
+  // The recommended next step is to validate the leading hypothesis, so accepting it starts that validation.
+  const acceptNextStep = useCallback(() => {
+    setNextStepAcceptedAt(now());
+    const lead = validations.find((v) => v.hypothesisId === hypotheses[0]?.id);
+    if (lead) startValidation(lead.id);
+  }, [validations, hypotheses, startValidation]);
+
+  // Results arrive while the validation is running; the team then records the verdict.
+  const fetchValidationResult = useCallback(
+    async (id: string) => {
+      setRunning((r) => ({ ...r, [id]: true }));
+      const result = await getValidationResult(id);
+      setRunning((r) => ({ ...r, [id]: false }));
+      if (!result) return;
+      setValidations((list) => list.map((v) => (v.id === id ? { ...v, result } : v)));
+      const v = validations.find((x) => x.id === id);
+      const h = hypotheses.find((x) => x.id === v?.hypothesisId);
+      say(`Results are in for ${h?.label ?? "the validation"}: ${result.summary} Record whether this confirms or rejects ${h?.label ?? "it"}.`, [
+        { kind: "validation", id, label: "Review results" },
+      ]);
+    },
+    [validations, hypotheses, say],
+  );
+
+  const recordValidationOutcome = useCallback(
+    (id: string, outcome: "confirmed" | "rejected") => {
+      const v = validations.find((x) => x.id === id);
+      if (!v) return;
+      setValidations((list) => list.map((x) => (x.id === id ? { ...x, status: "completed", outcome, completedAt: now() } : x)));
+      setHypotheses((list) =>
+        list.map((h) =>
+          h.id === v.hypothesisId
+            ? { ...h, status: outcome, confidence: outcome === "confirmed" ? "high" : "low", evidenceStrength: outcome === "confirmed" ? "strong" : h.evidenceStrength }
+            : h,
+        ),
+      );
+      const h = hypotheses.find((x) => x.id === v.hypothesisId);
+      // The result becomes part of the record and answers the questions it covers.
+      if (v.result) {
+        const findingId = `f-${v.id}`;
+        const result = v.result;
+        setFindings((list) => [
+          ...list.filter((f) => f.id !== findingId),
+          {
+            id: findingId,
+            investigationId,
+            kind: "observation",
+            statement: result.summary,
+            confidence: "high",
+            confidenceReason: `Validation of ${h?.label}: ${v.test}`,
+            evidenceIds: [],
+            basedOnFindingIds: h?.supportingFindingIds,
+            trail: result.details.map((text) => ({ text })),
+          },
+        ]);
+        setOpenQuestions((qs) => qs.map((q) => (result.answers.includes(q.id) && !q.answeredByFindingId ? { ...q, answeredByFindingId: findingId } : q)));
+      }
+      say(
+        outcome === "confirmed"
+          ? `${h?.label} confirmed. The problem is validated — opportunity discovery is now open. Choose the opportunity worth pursuing.`
+          : `${h?.label} rejected. It stays in the record so the team doesn't revisit it. Validate the next hypothesis to keep going.`,
+        [{ kind: outcome === "confirmed" ? "opportunities" : "validation", id: outcome === "confirmed" ? "opportunities" : id, label: outcome === "confirmed" ? "View opportunities" : "View validation" }],
+      );
+    },
+    [validations, hypotheses, investigationId, say],
+  );
+
+  const chooseOpportunity = useCallback(
+    (opportunityId: string) => {
+      setChoice({ opportunityId, decidedAt: now() });
+      const o = initial.opportunities.find((x) => x.id === opportunityId);
+      say(`Decision recorded: pursue “${o?.title}”. The investigation is complete — the report is ready to download.`, [
+        { kind: "report", id: "report", label: "View report" },
+      ]);
+    },
+    [initial.opportunities, say],
+  );
+
+  const chooseIdea = useCallback((ideaId: string) => setChoice((c) => (c ? { ...c, ideaId } : c)), []);
 
   const addNote = useCallback(
     (text: string) => {
@@ -195,10 +279,20 @@ export function WorkspaceFrame({ workspace: initial, children }: { workspace: In
     [investigationId, user?.name],
   );
 
+  const progress = useMemo(() => deriveProgress(initial.stages, { market, validations, hypotheses, choice }), [initial.stages, market, validations, hypotheses, choice]);
+
   const workspace = useMemo<InvestigationWorkspace>(
     () => ({
       ...initial,
-      investigation: { ...initial.investigation, evidenceCount: evidence.length, openQuestionCount: openQuestions.filter((q) => !q.answeredByFindingId).length },
+      investigation: {
+        ...initial.investigation,
+        status: progress.status,
+        confidence: progress.problemValidated ? "high" : initial.investigation.confidence,
+        evidenceCount: evidence.length,
+        openQuestionCount: openQuestions.filter((q) => !q.answeredByFindingId).length,
+      },
+      stages: progress.stages,
+      problem: progress.problemValidated ? { ...initial.problem, confidence: "high" } : initial.problem,
       evidence,
       findings,
       hypotheses,
@@ -211,7 +305,7 @@ export function WorkspaceFrame({ workspace: initial, children }: { workspace: In
       notes,
       conversation: messages,
     }),
-    [initial, evidence, findings, hypotheses, openQuestions, researchTasks, customers, market, validations, proposals, notes, messages],
+    [initial, progress, evidence, findings, hypotheses, openQuestions, researchTasks, customers, market, validations, proposals, notes, messages],
   );
 
   const value = useMemo(
@@ -232,9 +326,36 @@ export function WorkspaceFrame({ workspace: initial, children }: { workspace: In
       startValidation,
       nextStepAcceptedAt,
       acceptNextStep,
+      fetchValidationResult,
+      recordValidationOutcome,
+      choice,
+      chooseOpportunity,
+      chooseIdea,
+      progress,
       addNote,
     }),
-    [workspace, addEvidence, openSide, sendMessage, thinking, messages, resolveProposal, running, runResearch, analyzeFeedback, startValidation, nextStepAcceptedAt, acceptNextStep, addNote],
+    [
+      workspace,
+      addEvidence,
+      openSide,
+      sendMessage,
+      thinking,
+      messages,
+      resolveProposal,
+      running,
+      runResearch,
+      analyzeFeedback,
+      startValidation,
+      nextStepAcceptedAt,
+      acceptNextStep,
+      fetchValidationResult,
+      recordValidationOutcome,
+      choice,
+      chooseOpportunity,
+      chooseIdea,
+      progress,
+      addNote,
+    ],
   );
 
   const closeDetail = useCallback(() => setDetail(null), []);
@@ -267,6 +388,43 @@ export function WorkspaceFrame({ workspace: initial, children }: { workspace: In
       <InterviewGuideModal open={guideOpen} onClose={closeGuide} />
     </WorkspaceContext.Provider>
   );
+}
+
+/**
+ * Where the investigation is on its discovery path, worked out from what the
+ * team has done — not a fixed list. Earlier stages come from the plan.
+ *  - Market context is done once market research has finished.
+ *  - Problem validation starts after that (or when a validation starts) and
+ *    is done once a validation confirms a hypothesis.
+ *  - Opportunity discovery then opens, and is done once an opportunity is chosen.
+ */
+function deriveProgress(
+  base: DiscoveryStage[],
+  s: { market: MarketContext; validations: ValidationPlan[]; hypotheses: Hypothesis[]; choice: OpportunityChoice | null },
+): DiscoveryProgress {
+  const marketDone = s.market.status === "done";
+  const validationStarted = s.validations.some((v) => v.status !== "not-started");
+  const problemValidated = s.hypotheses.some((h) => h.status === "confirmed");
+  const complete = problemValidated && s.choice !== null;
+  const allRejected = s.validations.length > 0 && s.validations.every((v) => v.outcome === "rejected");
+
+  const statusOf: Record<string, DiscoveryStage["status"]> = {
+    "s-market": marketDone ? "done" : "in-progress",
+    "s-validation": problemValidated ? "done" : marketDone || validationStarted ? "in-progress" : "pending",
+    "s-opportunity": complete ? "done" : problemValidated ? "in-progress" : "pending",
+  };
+  const stages = base.map((st) => (statusOf[st.id] ? { ...st, status: statusOf[st.id] } : st));
+  const current = stages.find((st) => st.status === "in-progress")?.id ?? null;
+
+  const status: InvestigationStatus = complete
+    ? "completed"
+    : problemValidated
+      ? "opportunity-discovery"
+      : current === "s-validation"
+        ? "validating"
+        : "investigating";
+
+  return { stages, current, problemValidated, complete, allRejected, status };
 }
 
 function SidePanel({

@@ -5,6 +5,7 @@ import { ConfidenceBadge } from "@/components/ui/ConfidenceBadge";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { formatDate, formatRelative } from "@/lib/time";
 import { DiscoveryStages } from "./DiscoveryStages";
+import { NextActionBar } from "./NextActionBar";
 import { useWorkspace } from "./workspace-context";
 
 export function InvestigationHeader({ actions }: { actions?: React.ReactNode }) {
@@ -54,6 +55,7 @@ export function InvestigationHeader({ actions }: { actions?: React.ReactNode }) 
       <div className="mt-4">
         <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-ink-faint">Investigation progress</p>
         <DiscoveryStages stages={workspace.stages} />
+        <NextActionBar />
       </div>
     </header>
   );

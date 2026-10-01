@@ -288,6 +288,8 @@ export type Hypothesis = {
   openQuestions: string[];
   /** How Veyra suggests testing it. */
   validationMethod: string;
+  /** Set once a validation settles it. Untested hypotheses stay "open". */
+  status?: "open" | "confirmed" | "rejected";
 };
 
 /* ── Research, customers, market ─────────────────────────────────────── */
@@ -418,6 +420,29 @@ export type ValidationPlan = {
   metric: string;
   status: "not-started" | "running" | "completed";
   startedAt?: string; // ISO
+  /** What the test found. Arrives while running; the team then records a verdict. */
+  result?: ValidationResult;
+  /** The team's verdict, recorded when the validation completes. */
+  outcome?: "confirmed" | "rejected";
+  completedAt?: string; // ISO
+};
+
+export type ValidationResult = {
+  summary: string;
+  details: string[];
+  /** Whether the success signal was met — Veyra suggests, the team decides. */
+  signalMet: boolean;
+  signal: string;
+  suggestedOutcome: "confirmed" | "rejected";
+  /** Open questions this result answers, once the team records a verdict. */
+  answers: ID[];
+};
+
+/** The opportunity (and optionally the first solution direction) the team chose to pursue. */
+export type OpportunityChoice = {
+  opportunityId: ID;
+  ideaId?: ID;
+  decidedAt: string; // ISO
 };
 
 export type InvestigationNote = {
@@ -504,7 +529,7 @@ export type ChatRole = "user" | "assistant";
 
 /** A link from a chat message to a structured artifact. Chat always points back to the investigation. */
 export type ArtifactRef = {
-  kind: "finding" | "hypothesis" | "evidence" | "problem" | "next-step" | "research" | "opportunities";
+  kind: "finding" | "hypothesis" | "evidence" | "problem" | "next-step" | "research" | "opportunities" | "validation" | "report";
   id: ID;
   label: string;
 };
