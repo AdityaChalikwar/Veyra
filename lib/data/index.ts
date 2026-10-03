@@ -2,10 +2,14 @@
  * Data access layer.
  *
  * Every screen reads data through these functions — never from `/mocks` directly.
- * To connect the real backend, replace these implementations with API calls;
- * the signatures (and `lib/types.ts`) are the contract the UI depends on.
+ * Functions are moving from mock data to Supabase one area at a time; the
+ * signatures (and `lib/types.ts`) are the contract the UI depends on.
+ *
+ * Real today: the signed-in user, their company (workspace) and business context.
  */
-import { mockBusinessContext, mockCompany } from "@/mocks/company";
+import "server-only";
+import { getSession, getWorkspace } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
 import { buildDataSources } from "@/mocks/data-sources";
 import { buildDauWorkspace, dauOpenQuestions } from "@/mocks/dau-investigation";
 import { buildDecisions } from "@/mocks/decisions";
@@ -13,7 +17,6 @@ import { buildEvidence } from "@/mocks/evidence";
 import { buildInvestigations } from "@/mocks/investigations";
 import { mockMemory, mockStories } from "@/mocks/memory";
 import { otherOpenQuestions, otherOpportunities, otherProblems, otherValidations } from "@/mocks/portfolio";
-import { mockUser } from "@/mocks/user";
 import type {
   BusinessContext,
   BusinessMemory,
@@ -30,24 +33,44 @@ import type {
   User,
 } from "@/lib/types";
 
-export async function getCurrentUser(): Promise<User> {
-  return mockUser;
+export async function getCurrentUser(): Promise<User | null> {
+  return (await getSession())?.user ?? null;
 }
 
-export async function getCompany(): Promise<Company> {
-  return mockCompany;
+/** The signed-in user's company (workspace), or null before onboarding. */
+export async function getCompany(): Promise<Company | null> {
+  return getWorkspace();
 }
 
-export type CompanyInput = Omit<Company, "id">;
-
-/** Saves the business profile collected during onboarding. */
-export async function saveCompany(input: CompanyInput): Promise<Company> {
-  return { ...input, id: mockCompany.id };
-}
-
-/** Persistent business context shared by every investigation. */
+/** Persistent business context shared by every investigation. Empty fields until the team fills them in. */
 export async function getBusinessContext(): Promise<BusinessContext> {
-  return mockBusinessContext;
+  const company = await getWorkspace();
+  const empty: BusinessContext = {
+    company: company?.name ?? "",
+    product: "",
+    businessModel: "",
+    targetCustomers: "",
+    goals: [],
+    priorities: [],
+    keyMetrics: [],
+  };
+  if (!company) return empty;
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("business_contexts")
+    .select("product, business_model, target_customers, goals, priorities, key_metrics")
+    .eq("workspace_id", company.id)
+    .maybeSingle();
+  if (!data) return empty;
+  return {
+    company: company.name,
+    product: data.product,
+    businessModel: data.business_model,
+    targetCustomers: data.target_customers,
+    goals: data.goals,
+    priorities: data.priorities,
+    keyMetrics: data.key_metrics,
+  };
 }
 
 export async function listInvestigations(): Promise<InvestigationSummary[]> {

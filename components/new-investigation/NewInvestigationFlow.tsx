@@ -223,11 +223,22 @@ function EvidenceStep({ draft, update, dataSources, context }: StepProps & { dat
         <div className="mt-4 flex items-start gap-2.5 rounded-lg bg-canvas px-3.5 py-3">
           <Building2 className="mt-0.5 h-4 w-4 shrink-0 text-brand-600" />
           <p className="text-[13px] text-ink-muted">
-            <span className="font-medium text-ink">Business context is included automatically:</span> {context.product} · {context.businessModel} ·{" "}
-            {context.targetCustomers}.{" "}
-            <Link href={routes.context} className="font-medium text-brand-600 hover:text-brand-700">
-              View
-            </Link>
+            {[context.product, context.businessModel, context.targetCustomers].some(Boolean) ? (
+              <>
+                <span className="font-medium text-ink">Business context is included automatically:</span>{" "}
+                {[context.product, context.businessModel, context.targetCustomers].filter(Boolean).join(" · ")}.{" "}
+                <Link href={routes.context} className="font-medium text-brand-600 hover:text-brand-700">
+                  View
+                </Link>
+              </>
+            ) : (
+              <>
+                <span className="font-medium text-ink">No business context yet.</span> Adding it makes every investigation more relevant.{" "}
+                <Link href={routes.context} className="font-medium text-brand-600 hover:text-brand-700">
+                  Add it
+                </Link>
+              </>
+            )}
           </p>
         </div>
       </section>

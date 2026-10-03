@@ -21,7 +21,17 @@ export default async function CustomersPage() {
       />
       <section className="mt-8 rounded-xl border border-line bg-surface p-5 shadow-card">
         <h2 className="text-xs font-semibold uppercase tracking-wider text-ink-faint">Target customers</h2>
-        <p className="mt-1 text-[15px] font-medium">{context.targetCustomers}</p>
+        {context.targetCustomers ? (
+          <p className="mt-1 text-[15px] font-medium">{context.targetCustomers}</p>
+        ) : (
+          <p className="mt-1 text-[13px] text-ink-faint">
+            Not set yet —{" "}
+            <Link href={routes.context} className="font-medium text-brand-600 hover:text-brand-700">
+              add it in Business Context
+            </Link>
+            .
+          </p>
+        )}
       </section>
 
       <section className="mt-8">

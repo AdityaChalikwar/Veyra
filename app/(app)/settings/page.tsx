@@ -6,7 +6,7 @@ export const metadata = { title: "Settings" };
 export default function SettingsPage() {
   return (
     <PageContainer>
-      <PageHeader title="Settings" description="Your profile, workspace and preview data." />
+      <PageHeader title="Settings" description="Your profile and workspace." />
       <SettingsView />
     </PageContainer>
   );

@@ -1,54 +1,37 @@
 "use client";
 
-import { LogOut, RotateCcw } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { LogOut } from "lucide-react";
+import Link from "next/link";
+import { signOut } from "@/app/auth/actions";
+import { useSession } from "@/components/layout/SessionProvider";
 import { Button } from "@/components/ui/Button";
 import { routes } from "@/lib/routes";
-import { appActions, useAppState, useHydrated } from "@/lib/store/app-store";
 
 export function SettingsView() {
-  const router = useRouter();
-  const hydrated = useHydrated();
-  const { user, company, authMethod } = useAppState();
-
-  function signOut() {
-    appActions.signOut();
-    router.push(routes.home);
-  }
-
-  function resetPreview() {
-    appActions.signOut();
-    router.push(routes.signup);
-  }
-
-  if (!hydrated) return <div className="min-h-[40vh]" />;
+  const { user, company, method } = useSession();
 
   return (
     <div className="mt-8 max-w-2xl space-y-4">
       <Section title="Profile">
-        <Row label="Name" value={user?.name ?? "Not signed in"} />
-        <Row label="Email" value={user?.email ?? "—"} />
-        <Row label="Signed in with" value={authMethod === "google" ? "Google" : authMethod === "email" ? "Email" : "—"} />
+        <Row label="Name" value={user.name} />
+        <Row label="Email" value={user.email} />
+        <Row label="Signed in with" value={method === "google" ? "Google" : "Email and password"} />
       </Section>
       <Section title="Workspace">
-        <Row label="Company" value={company?.name ?? "Not set up"} />
-        <Row label="Members" value="Just you — team members and roles arrive with the backend." />
-      </Section>
-      <Section title="Preview data">
-        <p className="text-[13px] text-ink-muted">
-          This preview keeps your sign-in and company profile in this browser only. Resetting clears them so you can walk through
-          sign-up and onboarding again.
+        <Row label="Company" value={company.name} />
+        <Row label="Members" value="Just you — inviting teammates comes later." />
+        <p className="mt-3 text-[13px]">
+          <Link href={routes.onboarding} className="font-medium text-brand-600 hover:text-brand-700">
+            Update company profile
+          </Link>
         </p>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <Button type="button" variant="secondary" size="sm" onClick={resetPreview}>
-            <RotateCcw className="h-3.5 w-3.5" /> Reset and start again
+      </Section>
+      <Section title="Session">
+        <form action={signOut}>
+          <Button type="submit" variant="secondary" size="sm">
+            <LogOut className="h-3.5 w-3.5" /> Sign out
           </Button>
-          {user && (
-            <Button type="button" variant="ghost" size="sm" onClick={signOut}>
-              <LogOut className="h-3.5 w-3.5" /> Sign out
-            </Button>
-          )}
-        </div>
+        </form>
       </Section>
     </div>
   );

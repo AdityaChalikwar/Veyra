@@ -12,6 +12,22 @@ solve before deciding what to build. The backend's job is to store the investiga
 structured records (evidence, findings, hypotheses, research, problem, opportunities,
 next step, validation) and to run analysis over company data, not to host a chat.
 
+## Status
+
+| Milestone | State |
+|---|---|
+| 1. Foundation — Supabase Auth (email + password; Google when enabled), protected pages, profiles, workspaces, membership, business context, RLS | **Done** (`supabase/migrations/20261003*`) |
+| 2. Investigations, clarifying questions, plan | Next |
+| 3. CSV upload and profiling → evidence | |
+| 4. AI analysis pipeline (Claude) | |
+| 5. Decisions, validation, Decision Brief | |
+| 6. Business Memory, clean-up of mocks | |
+
+Architecture: everything server-side runs in the Next.js app (server components, server
+actions, `app/auth/callback`). The server acts as the signed-in user, so Row Level
+Security applies to every query; no secret key is used. Membership checks live in the
+`private` schema so they aren't exposed through the API.
+
 ## Principles the backend must preserve
 
 - **Traceability.** Every finding, hypothesis, problem statement and opportunity
@@ -34,9 +50,9 @@ next step, validation) and to run analysis over company data, not to host a chat
 
 | Function (file) | Real implementation |
 |---|---|
-| `signInWithGoogle`, `signInWithEmail` (`auth.ts`) | OAuth and email sign-in; session cookie. The client store (`lib/store/app-store.ts`) becomes a cache of the session. |
-| `getCurrentUser`, `getCompany`, `saveCompany` (`index.ts`) | Users, organisations and company profile tables. |
-| `getBusinessContext` (`index.ts`) | Product, business model, target customers, goals, priorities and key metrics. Editable by admins; fed into every AI call. |
+| ✅ Sign-up, log-in, Google, sign-out (`app/auth/actions.ts`, `app/auth/callback`) | Supabase Auth with cookie sessions (`@supabase/ssr`). |
+| ✅ `getCurrentUser`, `getCompany` (`index.ts`, via `lib/auth.ts`); `saveCompany` (`app/onboarding/actions.ts`) | `profiles`, `workspaces`, `workspace_members`; onboarding calls the `save_workspace` database function. |
+| ✅ `getBusinessContext` (`index.ts`); `saveBusinessContext` (`app/(app)/context/actions.ts`) | `business_contexts`, editable by workspace members; to be fed into every AI call. |
 | `listInvestigations`, `listActiveInvestigations`, `getInvestigationSummary` (`index.ts`) | Investigations table with status (planning → completed), counts of evidence, hypotheses and open questions, and overall confidence. |
 | `listOpenQuestions`, `listProblems`, `listOpportunities`, `listValidations` (`index.ts`) | Cross-investigation views over the same records, for the dashboard and the Problems / Opportunities / Validation pages. |
 | `listRecentDecisions`, `listDecisions` (`index.ts`) | Decision log with rationale and measured outcome. Accepting a next step or a proposal creates a record. |

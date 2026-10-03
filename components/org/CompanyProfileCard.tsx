@@ -3,13 +3,11 @@
 import { Building2, Pencil } from "lucide-react";
 import Link from "next/link";
 import { routes } from "@/lib/routes";
-import { useAppState } from "@/lib/store/app-store";
-import type { Company } from "@/lib/types";
+import { useSession } from "@/components/layout/SessionProvider";
 
-/** The business profile from onboarding (falls back to the demo company). */
-export function CompanyProfileCard({ fallback }: { fallback: Company }) {
-  const { company } = useAppState();
-  const c = company ?? fallback;
+/** The company profile from onboarding. */
+export function CompanyProfileCard() {
+  const { company: c } = useSession();
   const rows: [string, string][] = [
     ["Company", c.name],
     ["What it does", c.description],

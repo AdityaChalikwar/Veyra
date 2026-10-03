@@ -4,6 +4,7 @@ import { Files, MessageSquare } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { AiAssistant } from "@/components/assistant/AiAssistant";
 import { AddEvidenceModal } from "@/components/evidence/AddEvidenceModal";
+import { useSession } from "@/components/layout/SessionProvider";
 import { EvidenceDetail } from "@/components/evidence/EvidenceDetail";
 import { EvidencePanel } from "@/components/evidence/EvidencePanel";
 import { Button } from "@/components/ui/Button";
@@ -13,7 +14,6 @@ import { askVeyra } from "@/lib/data/assistant";
 import { analyseEvidence, reviewProposal } from "@/lib/data/evidence";
 import { analyseExistingFeedback, runResearchTask } from "@/lib/data/research";
 import { getValidationResult } from "@/lib/data/validation";
-import { useAppState } from "@/lib/store/app-store";
 import type {
   ChatMessage,
   DiscoveryStage,
@@ -60,7 +60,7 @@ const now = () => new Date().toISOString();
  */
 export function WorkspaceFrame({ workspace: initial, children }: { workspace: InvestigationWorkspace; children: React.ReactNode }) {
   const investigationId = initial.investigation.id;
-  const { user } = useAppState();
+  const { user } = useSession();
 
   const [evidence, setEvidence] = useState<EvidenceItem[]>(initial.evidence);
   const [findings, setFindings] = useState<Finding[]>(initial.findings);
@@ -274,9 +274,9 @@ export function WorkspaceFrame({ workspace: initial, children }: { workspace: In
 
   const addNote = useCallback(
     (text: string) => {
-      setNotes((list) => [{ id: `n-${Date.now()}`, investigationId, author: user?.name ?? "You", text, createdAt: now() }, ...list]);
+      setNotes((list) => [{ id: `n-${Date.now()}`, investigationId, author: user.name, text, createdAt: now() }, ...list]);
     },
-    [investigationId, user?.name],
+    [investigationId, user.name],
   );
 
   const progress = useMemo(() => deriveProgress(initial.stages, { market, validations, hypotheses, choice }), [initial.stages, market, validations, hypotheses, choice]);

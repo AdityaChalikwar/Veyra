@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, ArrowRight, Info, Mail } from "lucide-react";
+import { ArrowLeft, ArrowRight, Mail, MailCheck } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
@@ -9,16 +9,19 @@ import { Button } from "@/components/ui/Button";
 import { Field, inputClass } from "@/components/ui/Field";
 import { Spinner } from "@/components/ui/Spinner";
 import { cn } from "@/lib/cn";
-import { signInWithEmail, signInWithGoogle } from "@/lib/data/auth";
+import { signInWithEmail, signInWithGoogle, signUpWithEmail, type AuthResult } from "@/app/auth/actions";
+import { MIN_PASSWORD_LENGTH } from "@/lib/options";
 import { routes } from "@/lib/routes";
-import { appActions, useAppState, type AuthMethod } from "@/lib/store/app-store";
-import type { User } from "@/lib/types";
 import { GoogleIcon } from "./GoogleIcon";
 
 type Mode = "login" | "signup";
-type Pending = AuthMethod | null;
+type Pending = "google" | "email" | null;
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const urlErrors: Record<string, string> = {
+  link: "That sign-in link has expired or was already used. Log in, or sign up again to get a new one.",
+};
 
 const copy: Record<Mode, { subheading: string; emailCta: string; switchPrompt: string; switchCta: string }> = {
   signup: {
@@ -38,14 +41,15 @@ const copy: Record<Mode, { subheading: string; emailCta: string; switchPrompt: s
 export function AuthForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { onboardingComplete } = useAppState();
 
   const [mode, setMode] = useState<Mode>(searchParams.get("mode") === "login" ? "login" : "signup");
-  const [showEmail, setShowEmail] = useState(false);
+  const [showEmail, setShowEmail] = useState(searchParams.has("error"));
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(urlErrors[searchParams.get("error") ?? ""] ?? null);
   const [pending, setPending] = useState<Pending>(null);
+  const [sentTo, setSentTo] = useState<string | null>(null);
 
   const text = copy[mode];
 
@@ -55,17 +59,27 @@ export function AuthForm() {
     router.replace(next === "login" ? routes.login : routes.signup, { scroll: false });
   }
 
-  function finish(user: User, method: AuthMethod) {
-    appActions.signIn(user, method);
-    // New accounts always onboard; returning users skip it once it's done.
-    const destination = mode === "login" && onboardingComplete ? routes.dashboard : routes.onboarding;
-    router.push(destination);
+  function handle(result: AuthResult) {
+    if ("redirectTo" in result) {
+      router.push(result.redirectTo);
+      router.refresh();
+      return;
+    }
+    setPending(null);
+    if ("checkEmail" in result) setSentTo(result.checkEmail);
+    else setError(result.error);
   }
 
   async function handleGoogle() {
     setError(null);
     setPending("google");
-    finish(await signInWithGoogle(), "google");
+    const result = await signInWithGoogle();
+    if ("url" in result) {
+      window.location.assign(result.url);
+      return;
+    }
+    setPending(null);
+    setError(result.error);
   }
 
   async function handleEmail(e: React.FormEvent) {
@@ -74,9 +88,46 @@ export function AuthForm() {
       setError("Enter a valid work email address.");
       return;
     }
+    if (mode === "signup" && password.length < MIN_PASSWORD_LENGTH) {
+      setError(`Use at least ${MIN_PASSWORD_LENGTH} characters for your password.`);
+      return;
+    }
     setError(null);
     setPending("email");
-    finish(await signInWithEmail({ email, name: mode === "signup" ? name : undefined }), "email");
+    try {
+      handle(mode === "signup" ? await signUpWithEmail({ name, email, password }) : await signInWithEmail({ email, password }));
+    } catch {
+      setPending(null);
+      setError("Couldn't reach Veyra. Check your connection and try again.");
+    }
+  }
+
+  if (sentTo) {
+    return (
+      <div className="flex min-h-screen flex-col px-4 py-8 sm:px-6">
+        <div className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center py-10">
+          <span className="grid h-11 w-11 place-items-center rounded-xl bg-brand-50 text-brand-600">
+            <MailCheck className="h-5 w-5" />
+          </span>
+          <h1 className="mt-4 text-2xl font-semibold tracking-tight">Check your email</h1>
+          <p className="mt-2 text-sm text-ink-muted">
+            We sent a confirmation link to <span className="font-medium text-ink">{sentTo}</span>. Open it on this device to finish
+            creating your account.
+          </p>
+          <p className="mt-4 text-xs text-ink-subtle">Nothing arrived after a few minutes? Check your spam folder.</p>
+          <button
+            type="button"
+            onClick={() => {
+              setSentTo(null);
+              switchMode("login");
+            }}
+            className="mt-6 self-start text-sm font-medium text-brand-600 hover:text-brand-700"
+          >
+            Back to log in
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -179,6 +230,18 @@ export function AuthForm() {
                 />
               </Field>
 
+              <Field label="Password" htmlFor="auth-password">
+                <input
+                  id="auth-password"
+                  type="password"
+                  autoComplete={mode === "signup" ? "new-password" : "current-password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder={mode === "signup" ? `At least ${MIN_PASSWORD_LENGTH} characters` : ""}
+                  className={inputClass}
+                />
+              </Field>
+
               {error && (
                 <p id="auth-error" className="text-xs text-danger-600">
                   {error}
@@ -192,6 +255,11 @@ export function AuthForm() {
               </Button>
             </form>
           )}
+          {error && !showEmail && (
+            <p role="alert" className="text-xs text-danger-600">
+              {error}
+            </p>
+          )}
         </div>
 
         <p className="mt-6 text-center text-sm text-ink-subtle">
@@ -203,11 +271,6 @@ export function AuthForm() {
           >
             {text.switchCta}
           </button>
-        </p>
-
-        <p className="mt-8 flex items-start gap-2 rounded-lg bg-canvas px-3 py-2.5 text-xs leading-relaxed text-ink-subtle">
-          <Info className="mt-px h-3.5 w-3.5 shrink-0" />
-          Preview build: sign-in is simulated and no account is created. Your details stay in this browser.
         </p>
       </div>
     </div>

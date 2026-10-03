@@ -42,3 +42,6 @@ export const OUTCOMES: { value: InvestigationOutcome; label: string }[] = [
 
 export const triggerLabel = (t: InvestigationTrigger) => TRIGGERS.find((x) => x.value === t)?.label ?? t;
 export const outcomeLabel = (o: InvestigationOutcome) => OUTCOMES.find((x) => x.value === o)?.label ?? o;
+
+/** Minimum password length for email sign-up (Supabase Auth enforces its own minimum too). */
+export const MIN_PASSWORD_LENGTH = 8;

@@ -17,11 +17,10 @@ import { Logo } from "@/components/brand/Logo";
 import { Button } from "@/components/ui/Button";
 import { Field, inputClass } from "@/components/ui/Field";
 import { Spinner } from "@/components/ui/Spinner";
-import { saveCompany } from "@/lib/data";
+import { saveCompany } from "@/app/onboarding/actions";
 import { COMPANY_SIZES, INDUSTRIES } from "@/lib/options";
 import { routes } from "@/lib/routes";
-import { appActions, useAppState } from "@/lib/store/app-store";
-import type { CompanySize, Industry } from "@/lib/types";
+import type { Company, CompanySize, Industry } from "@/lib/types";
 import { OptionGrid, type Option } from "./OptionGrid";
 import { ProfilePreview } from "./ProfilePreview";
 import { StepIndicator } from "./StepIndicator";
@@ -45,16 +44,16 @@ const STEPS = [
   { title: "How big is your company?", hint: "Number of employees." },
 ] as const;
 
-export function OnboardingFlow() {
+export function OnboardingFlow({ firstName, initial }: { firstName?: string; initial: Company | null }) {
   const router = useRouter();
-  const { user } = useAppState();
 
   const [step, setStep] = useState(0);
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [industry, setIndustry] = useState<Industry | null>(null);
-  const [size, setSize] = useState<CompanySize | null>(null);
+  const [name, setName] = useState(initial?.name ?? "");
+  const [description, setDescription] = useState(initial?.description ?? "");
+  const [industry, setIndustry] = useState<Industry | null>(initial?.industry ?? null);
+  const [size, setSize] = useState<CompanySize | null>(initial?.size ?? null);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const isLast = step === STEPS.length - 1;
   const canContinue = [
@@ -71,17 +70,21 @@ export function OnboardingFlow() {
       return;
     }
     setSaving(true);
-    const company = await saveCompany({
-      name: name.trim(),
-      description: description.trim(),
-      industry: industry!,
-      size: size!,
-    });
-    appActions.completeOnboarding(company);
-    router.push(routes.dashboard);
+    setError(null);
+    try {
+      const result = await saveCompany({ name, description, industry: industry!, size: size! });
+      if ("error" in result) {
+        setError(result.error);
+        setSaving(false);
+        return;
+      }
+      router.push(routes.dashboard);
+      router.refresh();
+    } catch {
+      setError("Couldn't reach Veyra. Check your connection and try again.");
+      setSaving(false);
+    }
   }
-
-  const firstName = user?.name.split(" ")[0];
 
   return (
     <div className="min-h-screen bg-canvas">
@@ -147,6 +150,12 @@ export function OnboardingFlow() {
                   />
                 )}
                 </div>
+
+              {error && (
+                <p role="alert" className="mt-4 text-sm text-danger-600">
+                  {error}
+                </p>
+              )}
 
               <div className="mt-6 flex items-center justify-between gap-3 border-t border-line pt-5">
                 {step > 0 ? (
