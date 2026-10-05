@@ -1,11 +1,12 @@
 import { notFound } from "next/navigation";
-import { PagePlaceholder } from "@/components/layout/PagePlaceholder";
+import { InvestigationBrief } from "@/components/investigation/InvestigationBrief";
 import { InvestigationHeader } from "@/components/investigation/InvestigationHeader";
+import { SampleBanner } from "@/components/investigation/SampleBanner";
 import { ShareButton } from "@/components/investigation/ShareButton";
 import { SuggestionsBanner } from "@/components/investigation/SuggestionsBanner";
 import { SidePanelToggles, WorkspaceFrame } from "@/components/investigation/WorkspaceFrame";
 import { WorkspaceTabs } from "@/components/investigation/WorkspaceTabs";
-import { getInvestigationSummary, getInvestigationWorkspace } from "@/lib/data";
+import { getInvestigationRecord, getInvestigationSummary, getInvestigationWorkspace, listDataSources } from "@/lib/data";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -21,24 +22,22 @@ export default async function InvestigationLayout({
   children: React.ReactNode;
 }) {
   const { id } = await params;
-  const [summary, workspace] = await Promise.all([getInvestigationSummary(id), getInvestigationWorkspace(id)]);
+  const summary = await getInvestigationSummary(id);
   if (!summary) notFound();
 
-  // The preview only has full workspace data for the DAU demo.
-  if (!workspace) {
-    return (
-      <PagePlaceholder
-        title={`${summary.title} Investigation`}
-        description={summary.problem}
-        milestone={6}
-        note="Only the DAU Decline investigation has a full workspace in this preview."
-        next={{ href: "/investigations/dau-decline", label: "Open DAU Decline" }}
-      />
-    );
+  // Until its data is analysed, an investigation is its brief: problem, answers and plan.
+  if (!summary.isSample) {
+    const [record, dataSources] = await Promise.all([getInvestigationRecord(id), listDataSources()]);
+    if (!record) notFound();
+    return <InvestigationBrief record={record} dataSources={dataSources} />;
   }
+
+  const workspace = await getInvestigationWorkspace(id);
+  if (!workspace) notFound();
 
   return (
     <WorkspaceFrame workspace={workspace}>
+      <SampleBanner investigationId={id} />
       <InvestigationHeader
         actions={
           <>

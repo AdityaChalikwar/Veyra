@@ -4,6 +4,7 @@ import { PageContainer, PageHeader } from "@/components/org/PageHeader";
 import { getBusinessContext, getBusinessMemory, listAllEvidence } from "@/lib/data";
 import { routes } from "@/lib/routes";
 import { formatRelative } from "@/lib/time";
+import { EmptyNote } from "@/components/ui/EmptyNote";
 
 export const metadata = { title: "Customers" };
 
@@ -36,6 +37,7 @@ export default async function CustomersPage() {
 
       <section className="mt-8">
         <h2 className="mb-3 text-[15px] font-semibold">Segments</h2>
+        {segments.length === 0 && <EmptyNote>Customer segments are learned from completed investigations and kept in Business Memory.</EmptyNote>}
         <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">
           {segments.map((s) => (
             <li key={s.id} className="rounded-xl border border-line bg-surface p-4 shadow-card">

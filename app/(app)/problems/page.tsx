@@ -4,6 +4,7 @@ import { ConfidenceBadge } from "@/components/ui/ConfidenceBadge";
 import { cn } from "@/lib/cn";
 import { listProblems } from "@/lib/data";
 import { routes } from "@/lib/routes";
+import { EmptyNote } from "@/components/ui/EmptyNote";
 
 export const metadata = { title: "Problems" };
 
@@ -21,6 +22,7 @@ export default async function ProblemsPage() {
         title="Problems"
         description="Problem statements across investigations, refined by evidence. Problems come before solutions."
       />
+      {problems.length === 0 && <EmptyNote className="mt-8">No problems yet. Start an investigation to define one.</EmptyNote>}
       <ul className="mt-8 space-y-3">
         {problems.map((p) => (
           <li key={p.investigationId} className="rounded-xl border border-line bg-surface p-5 shadow-card">

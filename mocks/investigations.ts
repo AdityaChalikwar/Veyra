@@ -1,80 +1,18 @@
 import { ago } from "@/lib/time";
 import type { InvestigationSummary } from "@/lib/types";
 
-/** Built on each call so "updated 2 hours ago" stays true for the demo. */
-export function buildInvestigations(): InvestigationSummary[] {
-  return [
-    {
-      id: "dau-decline",
-      title: "DAU Decline",
-      topic: "engagement",
-      status: "investigating",
-      problem: "DAU has fallen 40% over the last 8 weeks.",
-      evidenceCount: 8,
-      hypothesisCount: 3,
-      openQuestionCount: 4,
-      confidence: "medium",
-      updatedAt: ago({ hours: 2 }),
-    },
-    {
-      id: "smb-onboarding",
-      title: "SMB Onboarding",
-      topic: "onboarding",
-      status: "customer-research",
-      problem: "Single-store retailers take three times longer than mid-market customers to launch their first store.",
-      evidenceCount: 14,
-      hypothesisCount: 4,
-      openQuestionCount: 5,
-      confidence: "low-medium",
-      updatedAt: ago({ hours: 5 }),
-    },
-    {
-      id: "inventory-conversion",
-      title: "Inventory Conversion",
-      topic: "operations",
-      status: "problem-definition",
-      problem: "Merchants who connect their inventory system convert to paid far less often than expected.",
-      evidenceCount: 9,
-      hypothesisCount: 3,
-      openQuestionCount: 3,
-      confidence: "medium",
-      updatedAt: ago({ days: 1, hours: 2 }),
-    },
-    {
-      id: "europe-expansion",
-      title: "Europe Expansion",
-      topic: "market",
-      status: "planning",
-      problem: "Should Acme Commerce enter the German and Dutch mid-market retail segment?",
-      evidenceCount: 3,
-      hypothesisCount: 1,
-      openQuestionCount: 6,
-      confidence: "low",
-      updatedAt: ago({ days: 3 }),
-    },
-    {
-      id: "onboarding-conversion-2025",
-      title: "Onboarding Conversion Decline",
-      topic: "adoption",
-      status: "completed",
-      problem: "New merchants stalled during store configuration, not account creation.",
-      evidenceCount: 17,
-      hypothesisCount: 3,
-      openQuestionCount: 0,
-      confidence: "high",
-      updatedAt: "2025-04-02T12:00:00Z",
-    },
-    {
-      id: "expansion-revenue",
-      title: "Expansion Revenue Stall",
-      topic: "revenue",
-      status: "completed",
-      problem: "Multi-store accounts weren't adding stores because per-store pricing penalised growth.",
-      evidenceCount: 12,
-      hypothesisCount: 4,
-      openQuestionCount: 0,
-      confidence: "high",
-      updatedAt: "2026-07-10T12:00:00Z",
-    },
-  ];
+/** The sample investigation's headline numbers. Built on each call so "updated 2 hours ago" stays true. */
+export function buildSampleSummary(): Omit<InvestigationSummary, "id"> {
+  return {
+    title: "DAU Decline",
+    topic: "engagement",
+    status: "investigating",
+    problem: "DAU has fallen 40% over the last 8 weeks.",
+    evidenceCount: 8,
+    hypothesisCount: 3,
+    openQuestionCount: 4,
+    confidence: "medium",
+    updatedAt: ago({ hours: 2 }),
+    isSample: true,
+  };
 }

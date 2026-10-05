@@ -10,7 +10,10 @@ const statusText = { done: "Done", "in-progress": "In progress", pending: "Pendi
  */
 export function DiscoveryStages({ stages }: { stages: DiscoveryStage[] }) {
   return (
-    <ol className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6" aria-label="Investigation progress">
+    <ol
+      className={cn("grid grid-cols-2 gap-2 sm:grid-cols-3", stages.length === 5 ? "xl:grid-cols-5" : "xl:grid-cols-6")}
+      aria-label="Investigation progress"
+    >
       {stages.map((s, i) => (
         <li
           key={s.id}

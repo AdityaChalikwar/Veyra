@@ -103,6 +103,8 @@ export type InvestigationSummary = {
   openQuestionCount: number;
   confidence: Confidence;
   updatedAt: string; // ISO
+  /** The read-only demo investigation every workspace starts with. */
+  isSample?: boolean;
 };
 
 /* ── Starting an investigation ───────────────────────────────────────── */
@@ -582,6 +584,22 @@ export type InvestigationMap = {
 
 /** One stage of this investigation's discovery path (stages differ per investigation). */
 export type DiscoveryStage = { id: ID; label: string; status: "done" | "in-progress" | "pending" };
+
+/**
+ * A saved investigation as the New Investigation flow captured it — before
+ * any data has been analysed. Shown on the investigation's brief page.
+ */
+export type InvestigationRecord = {
+  summary: InvestigationSummary;
+  trigger: InvestigationTrigger | null;
+  outcome: InvestigationOutcome | null;
+  knownContext: string;
+  attachments: string[];
+  dataSourceIds: ID[];
+  questions: ClarifyingQuestion[];
+  plan: InvestigationPlan | null;
+  createdAt: string; // ISO
+};
 
 export type Investigation = InvestigationSummary & {
   subtitle: string;

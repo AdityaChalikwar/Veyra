@@ -60,6 +60,34 @@ export async function signInWithGoogle(): Promise<{ url: string } | { error: str
   return { url: data.url };
 }
 
+/** Emails a password reset link. Always reports success, so it can't reveal which emails have accounts. */
+export async function requestPasswordReset(input: { email: string }): Promise<AuthResult> {
+  const email = input.email.trim().toLowerCase();
+  if (!EMAIL_PATTERN.test(email)) return { error: "Enter the email address you signed up with." };
+  const supabase = await createClient();
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${await siteUrl()}/auth/callback?next=${encodeURIComponent(routes.updatePassword)}`,
+  });
+  if (error && (error.code === "over_email_send_rate_limit" || error.code === "over_request_rate_limit")) {
+    return { error: friendlyError(error) };
+  }
+  return { checkEmail: email };
+}
+
+/** Sets a new password for the signed-in user (after following a reset link). */
+export async function updatePassword(input: { password: string }): Promise<AuthResult> {
+  if (input.password.length < MIN_PASSWORD_LENGTH) return { error: `Use at least ${MIN_PASSWORD_LENGTH} characters for your password.` };
+  const supabase = await createClient();
+  const { data } = await supabase.auth.getClaims();
+  if (!data?.claims) return { error: "Your reset link has expired. Request a new one from the log-in page." };
+  const { error } = await supabase.auth.updateUser({ password: input.password });
+  if (error) {
+    if (error.code === "same_password") return { error: "Choose a password you haven't used here before." };
+    return { error: friendlyError(error) };
+  }
+  return { redirectTo: await homeFor() };
+}
+
 export async function signOut() {
   const supabase = await createClient();
   await supabase.auth.signOut();

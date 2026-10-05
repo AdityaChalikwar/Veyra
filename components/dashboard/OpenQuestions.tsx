@@ -1,9 +1,11 @@
 import { CircleHelp } from "lucide-react";
 import Link from "next/link";
 import { routes } from "@/lib/routes";
+import { EmptyNote } from "@/components/ui/EmptyNote";
 
 /** What Veyra doesn't know yet, across investigations. */
 export function OpenQuestions({ items }: { items: { investigationId: string; investigationTitle: string; question: string }[] }) {
+  if (!items.length) return <EmptyNote className="border-0 py-6">Open questions appear here as investigations raise them.</EmptyNote>;
   return (
     <ul className="divide-y divide-line">
       {items.map((q) => (

@@ -7,6 +7,7 @@ import { MemoryPreview } from "@/components/dashboard/MemoryPreview";
 import { OpenQuestions } from "@/components/dashboard/OpenQuestions";
 import { RecentEvidence } from "@/components/dashboard/RecentEvidence";
 import { ButtonLink } from "@/components/ui/Button";
+import { EmptyNote } from "@/components/ui/EmptyNote";
 import { Panel } from "@/components/ui/Panel";
 import {
   listActiveInvestigations,
@@ -85,6 +86,7 @@ export default async function DashboardPage() {
             All investigations
           </Link>
         </div>
+        {active.length === 0 && <EmptyNote>No investigations yet. Start one from a problem your team is facing.</EmptyNote>}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {active.map((inv) => (
             <InvestigationCard key={inv.id} investigation={inv} />

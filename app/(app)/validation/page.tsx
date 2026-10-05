@@ -3,6 +3,7 @@ import { PageContainer, PageHeader } from "@/components/org/PageHeader";
 import { cn } from "@/lib/cn";
 import { listValidations } from "@/lib/data";
 import { routes } from "@/lib/routes";
+import { EmptyNote } from "@/components/ui/EmptyNote";
 
 export const metadata = { title: "Validation" };
 
@@ -20,6 +21,7 @@ export default async function ValidationPage() {
         title="Validation"
         description="Hypotheses under test and experiments across investigations. What's learned here flows into Business Memory."
       />
+      {validations.length === 0 && <EmptyNote className="mt-8">Nothing being validated yet. Validations start from an investigation&rsquo;s hypotheses.</EmptyNote>}
       <ul className="mt-8 space-y-3">
         {validations.map((v) => (
           <li key={`${v.investigationId}-${v.hypothesis}`} className="rounded-xl border border-line bg-surface p-5 shadow-card">

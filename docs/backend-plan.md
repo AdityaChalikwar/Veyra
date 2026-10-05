@@ -17,11 +17,16 @@ next step, validation) and to run analysis over company data, not to host a chat
 | Milestone | State |
 |---|---|
 | 1. Foundation — Supabase Auth (email + password; Google when enabled), protected pages, profiles, workspaces, membership, business context, RLS | **Done** (`supabase/migrations/20261003*`) |
-| 2. Investigations, clarifying questions, plan | Next |
-| 3. CSV upload and profiling → evidence | |
+| 2. Investigations, clarifying questions, plan, sample investigation, password reset | **Done** (`supabase/migrations/20261005*`) |
+| 3. CSV upload and profiling → evidence | Next |
 | 4. AI analysis pipeline (Claude) | |
 | 5. Decisions, validation, Decision Brief | |
 | 6. Business Memory, clean-up of mocks | |
+
+Every workspace gets a **sample investigation** (DAU Decline): a real row, so it can
+be listed and removed, whose content is the demo in `/mocks` until evidence and
+analysis are stored. Real investigations show a **brief** (problem, context,
+clarifying questions with editable answers, plan) until their data is analysed.
 
 Architecture: everything server-side runs in the Next.js app (server components, server
 actions, `app/auth/callback`). The server acts as the signed-in user, so Row Level

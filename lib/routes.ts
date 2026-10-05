@@ -4,6 +4,7 @@ export const routes = {
   login: "/auth?mode=login",
   signup: "/auth?mode=signup",
   onboarding: "/onboarding",
+  updatePassword: "/auth/update-password",
   dashboard: "/dashboard",
   investigations: "/investigations",
   newInvestigation: "/investigations/new",

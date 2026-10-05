@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/Button";
 import { Field, inputClass } from "@/components/ui/Field";
 import { Spinner } from "@/components/ui/Spinner";
 import { cn } from "@/lib/cn";
-import { signInWithEmail, signInWithGoogle, signUpWithEmail, type AuthResult } from "@/app/auth/actions";
+import { requestPasswordReset, signInWithEmail, signInWithGoogle, signUpWithEmail, type AuthResult } from "@/app/auth/actions";
 import { MIN_PASSWORD_LENGTH } from "@/lib/options";
 import { routes } from "@/lib/routes";
 import { GoogleIcon } from "./GoogleIcon";
@@ -50,11 +50,14 @@ export function AuthForm() {
   const [error, setError] = useState<string | null>(urlErrors[searchParams.get("error") ?? ""] ?? null);
   const [pending, setPending] = useState<Pending>(null);
   const [sentTo, setSentTo] = useState<string | null>(null);
+  /** Log-in form switched to "send me a reset link". */
+  const [resetting, setResetting] = useState(false);
 
   const text = copy[mode];
 
   function switchMode(next: Mode) {
     setMode(next);
+    setResetting(false);
     setError(null);
     router.replace(next === "login" ? routes.login : routes.signup, { scroll: false });
   }
@@ -95,7 +98,13 @@ export function AuthForm() {
     setError(null);
     setPending("email");
     try {
-      handle(mode === "signup" ? await signUpWithEmail({ name, email, password }) : await signInWithEmail({ email, password }));
+      handle(
+        resetting
+          ? await requestPasswordReset({ email })
+          : mode === "signup"
+            ? await signUpWithEmail({ name, email, password })
+            : await signInWithEmail({ email, password }),
+      );
     } catch {
       setPending(null);
       setError("Couldn't reach Veyra. Check your connection and try again.");
@@ -111,8 +120,17 @@ export function AuthForm() {
           </span>
           <h1 className="mt-4 text-2xl font-semibold tracking-tight">Check your email</h1>
           <p className="mt-2 text-sm text-ink-muted">
-            We sent a confirmation link to <span className="font-medium text-ink">{sentTo}</span>. Open it on this device to finish
-            creating your account.
+            {resetting ? (
+              <>
+                If <span className="font-medium text-ink">{sentTo}</span> has a Veyra account, we&rsquo;ve sent it a link to choose a new
+                password. Open it on this device.
+              </>
+            ) : (
+              <>
+                We sent a confirmation link to <span className="font-medium text-ink">{sentTo}</span>. Open it on this device to finish
+                creating your account.
+              </>
+            )}
           </p>
           <p className="mt-4 text-xs text-ink-subtle">Nothing arrived after a few minutes? Check your spam folder.</p>
           <button
@@ -189,16 +207,17 @@ export function AuthForm() {
           ) : (
             <form onSubmit={handleEmail} noValidate className="space-y-3 rounded-xl border border-line bg-surface p-4 shadow-card">
               <div className="flex items-center justify-between">
-                <p className="text-sm font-medium">Continue with Email</p>
+                <p className="text-sm font-medium">{resetting ? "Reset your password" : "Continue with Email"}</p>
                 <button
                   type="button"
                   onClick={() => {
-                    setShowEmail(false);
+                    if (resetting) setResetting(false);
+                    else setShowEmail(false);
                     setError(null);
                   }}
                   className="inline-flex items-center gap-1 text-xs text-ink-subtle hover:text-ink"
                 >
-                  <ArrowLeft className="h-3 w-3" /> Other options
+                  <ArrowLeft className="h-3 w-3" /> {resetting ? "Back to log in" : "Other options"}
                 </button>
               </div>
 
@@ -230,17 +249,31 @@ export function AuthForm() {
                 />
               </Field>
 
-              <Field label="Password" htmlFor="auth-password">
-                <input
-                  id="auth-password"
-                  type="password"
-                  autoComplete={mode === "signup" ? "new-password" : "current-password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder={mode === "signup" ? `At least ${MIN_PASSWORD_LENGTH} characters` : ""}
-                  className={inputClass}
-                />
-              </Field>
+              {!resetting && (
+                <Field label="Password" htmlFor="auth-password">
+                  <input
+                    id="auth-password"
+                    type="password"
+                    autoComplete={mode === "signup" ? "new-password" : "current-password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder={mode === "signup" ? `At least ${MIN_PASSWORD_LENGTH} characters` : ""}
+                    className={inputClass}
+                  />
+                </Field>
+              )}
+              {mode === "login" && !resetting && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setResetting(true);
+                    setError(null);
+                  }}
+                  className="text-xs font-medium text-brand-600 hover:text-brand-700"
+                >
+                  Forgot password?
+                </button>
+              )}
 
               {error && (
                 <p id="auth-error" className="text-xs text-danger-600">
@@ -250,7 +283,7 @@ export function AuthForm() {
 
               <Button type="submit" size="lg" className="w-full" disabled={pending !== null}>
                 {pending === "email" ? <Spinner /> : null}
-                {text.emailCta}
+                {resetting ? "Send reset link" : text.emailCta}
                 {pending !== "email" && <ArrowRight className="h-4 w-4" />}
               </Button>
             </form>

@@ -4,6 +4,7 @@ import { ConfidenceBadge } from "@/components/ui/ConfidenceBadge";
 import { EvidenceStrengthBadge } from "@/components/ui/EvidenceStrengthBadge";
 import { listOpportunities } from "@/lib/data";
 import { routes } from "@/lib/routes";
+import { EmptyNote } from "@/components/ui/EmptyNote";
 
 export const metadata = { title: "Opportunities" };
 
@@ -17,6 +18,7 @@ export default async function OpportunitiesPage() {
         title="Opportunities"
         description="Areas worth solving for, found through investigations. Opportunities are not features — solutions are explored once the problem is understood."
       />
+      {opportunities.length === 0 && <EmptyNote className="mt-8">No opportunities yet. They appear once an investigation&rsquo;s data has been analysed.</EmptyNote>}
       <ul className="mt-8 grid grid-cols-1 gap-3 md:grid-cols-2">
         {opportunities.map((o) => (
           <li key={`${o.investigationId}-${o.title}`} className="rounded-xl border border-line bg-surface p-5 shadow-card">

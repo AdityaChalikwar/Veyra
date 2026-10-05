@@ -6,7 +6,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/Spinner";
-import { createInvestigation, planInvestigation } from "@/lib/data/investigations";
+import { createInvestigation } from "@/app/(app)/investigations/actions";
+import { planInvestigation } from "@/lib/data/investigations";
 import { routes } from "@/lib/routes";
 import { appActions, useAppState, useHydrated } from "@/lib/store/app-store";
 import type { InvestigationDraft } from "@/lib/types";
@@ -16,6 +17,7 @@ export function InvestigationPlanView() {
   const hydrated = useHydrated();
   const { draft } = useAppState();
   const [creating, setCreating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   if (!hydrated) return <div className="min-h-[60vh]" />;
   if (creating) return <CreatingState />;
@@ -31,11 +33,34 @@ export function InvestigationPlanView() {
       </div>
     );
   }
-  return <PlanBody draft={draft} onCreating={() => setCreating(true)} />;
+  return (
+    <PlanBody
+      draft={draft}
+      error={error}
+      onCreating={() => {
+        setError(null);
+        setCreating(true);
+      }}
+      onError={(message) => {
+        setCreating(false);
+        setError(message);
+      }}
+    />
+  );
 }
 
 /** Veyra's proposed investigation: methods chosen for this problem, and those deliberately left out. */
-function PlanBody({ draft, onCreating }: { draft: InvestigationDraft; onCreating: () => void }) {
+function PlanBody({
+  draft,
+  error,
+  onCreating,
+  onError,
+}: {
+  draft: InvestigationDraft;
+  error: string | null;
+  onCreating: () => void;
+  onError: (message: string) => void;
+}) {
   const router = useRouter();
   const plan = draft.plan;
 
@@ -52,9 +77,18 @@ function PlanBody({ draft, onCreating }: { draft: InvestigationDraft; onCreating
 
   async function start() {
     onCreating();
-    const { id } = await createInvestigation(draft);
-    router.push(routes.investigation(id));
-    appActions.clearDraft();
+    try {
+      const result = await createInvestigation(draft);
+      if ("error" in result) {
+        onError(result.error);
+        return;
+      }
+      appActions.clearDraft();
+      router.push(routes.investigation(result.id));
+      router.refresh();
+    } catch {
+      onError("Couldn't reach Veyra. Check your connection and try again.");
+    }
   }
 
   return (
@@ -120,6 +154,11 @@ function PlanBody({ draft, onCreating }: { draft: InvestigationDraft; onCreating
             )}
           </div>
 
+          {error && (
+            <p role="alert" className="mt-6 text-sm text-danger-600">
+              {error}
+            </p>
+          )}
           <div className="mt-8 flex flex-col gap-3 border-t border-line pt-6 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-[13px] text-ink-subtle">The plan adapts as evidence comes in. You stay in charge of the decisions.</p>
             <Button size="lg" onClick={start}>
@@ -137,8 +176,8 @@ function CreatingState() {
     <div className="grid min-h-[70vh] place-items-center px-4">
       <div className="text-center">
         <Spinner className="mx-auto h-6 w-6 text-brand-600" />
-        <p className="mt-4 font-medium">Starting the investigation…</p>
-        <p className="mt-1 text-sm text-ink-subtle">Reading connected data and gathering evidence.</p>
+        <p className="mt-4 font-medium">Saving the investigation…</p>
+        <p className="mt-1 text-sm text-ink-subtle">Your problem, answers and plan are being stored so you can come back to them.</p>
       </div>
     </div>
   );

@@ -2,8 +2,10 @@ import { EvidenceFormatIcon } from "@/components/evidence/EvidenceFormatIcon";
 import { categoryLabel } from "@/components/evidence/evidence-categories";
 import { formatRelative } from "@/lib/time";
 import type { EvidenceWithContext } from "@/lib/types";
+import { EmptyNote } from "@/components/ui/EmptyNote";
 
 export function RecentEvidence({ items }: { items: EvidenceWithContext[] }) {
+  if (!items.length) return <EmptyNote className="border-0 py-6">Evidence appears here once data is added to an investigation.</EmptyNote>;
   return (
     <ul className="divide-y divide-line">
       {items.map((e) => (

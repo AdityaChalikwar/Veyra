@@ -1,5 +1,6 @@
 import { cn } from "@/lib/cn";
 import type { MemoryCategory, MemoryEntry } from "@/lib/types";
+import { EmptyNote } from "@/components/ui/EmptyNote";
 
 const categoryStyle: Partial<Record<MemoryCategory, { label: string; className: string }>> = {
   learnings: { label: "Learning", className: "bg-confirmed-50 text-confirmed-600" },
@@ -12,6 +13,7 @@ const categoryStyle: Partial<Record<MemoryCategory, { label: string; className: 
 };
 
 export function MemoryPreview({ entries }: { entries: MemoryEntry[] }) {
+  if (!entries.length) return <EmptyNote className="border-0 py-6">Veyra remembers what each investigation learned once it&rsquo;s completed.</EmptyNote>;
   return (
     <ul className="divide-y divide-line">
       {entries.map((m) => {

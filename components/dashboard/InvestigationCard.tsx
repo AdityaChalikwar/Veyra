@@ -21,7 +21,10 @@ export function InvestigationCard({ investigation: inv }: { investigation: Inves
           </span>
           <h3 className="min-w-0 text-[15px] font-semibold leading-snug">{inv.title}</h3>
         </div>
-        <StatusBadge status={inv.status} />
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          <StatusBadge status={inv.status} />
+          {inv.isSample && <span className="rounded bg-violet-50 px-1.5 py-0.5 text-[11px] font-medium text-violet-700">Sample</span>}
+        </div>
       </div>
 
       <p className="mt-3 line-clamp-2 flex-1 text-[13px] leading-relaxed text-ink-muted">{inv.problem}</p>

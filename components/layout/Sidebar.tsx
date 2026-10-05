@@ -114,7 +114,9 @@ export function Sidebar({ investigations, onNavigate }: Props) {
                               )}
                             >
                               <span className="block truncate text-[13px] text-white">{inv.title}</span>
-                              <span className="block truncate text-[11px] text-navy-300">{statusLabel[inv.status]}</span>
+                              <span className="block truncate text-[11px] text-navy-300">
+                                {inv.isSample ? `Sample · ${statusLabel[inv.status]}` : statusLabel[inv.status]}
+                              </span>
                             </Link>
                           </li>
                         );

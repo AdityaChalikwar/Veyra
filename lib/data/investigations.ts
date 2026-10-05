@@ -1,7 +1,8 @@
 /**
- * Starting investigations. Mocked for now: questions and plans come from fixed
- * sets, and every new investigation opens the DAU demo workspace. Replace with
- * the AI planner and backend later — the screens only depend on these signatures.
+ * Helpers for the New Investigation flow, used in the browser while the draft
+ * is being written. Clarifying questions and plans come from fixed sets until
+ * the AI planner arrives (Milestone 4). Saving happens in
+ * app/(app)/investigations/actions.ts.
  */
 import { dauPlan, demoDraft, demoQuestions, exampleProblems, genericQuestions, planTemplates } from "@/mocks/new-investigation";
 import type { ClarifyingQuestion, InvestigationDraft, InvestigationPlan } from "@/lib/types";
@@ -38,10 +39,4 @@ export async function planInvestigation(draft: InvestigationDraft): Promise<Inve
   await delay(1100);
   if (isDemoProblem(draft.problem)) return structuredClone(dauPlan);
   return structuredClone(planTemplates[draft.trigger ?? "other"]);
-}
-
-export async function createInvestigation(draft: InvestigationDraft): Promise<{ id: string }> {
-  void draft;
-  await delay(900);
-  return { id: "dau-decline" };
 }

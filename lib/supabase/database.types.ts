@@ -52,6 +52,125 @@ export type Database = {
           },
         ];
       };
+      clarifying_questions: {
+        Row: {
+          answer: string;
+          created_at: string;
+          hint: string;
+          id: string;
+          investigation_id: string;
+          position: number;
+          question: string;
+          updated_at: string;
+          workspace_id: string;
+        };
+        Insert: {
+          answer?: string;
+          created_at?: string;
+          hint?: string;
+          id?: string;
+          investigation_id: string;
+          position: number;
+          question: string;
+          updated_at?: string;
+          workspace_id: string;
+        };
+        Update: {
+          answer?: string;
+          created_at?: string;
+          hint?: string;
+          id?: string;
+          investigation_id?: string;
+          position?: number;
+          question?: string;
+          updated_at?: string;
+          workspace_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "clarifying_questions_investigation_id_fkey";
+            columns: ["investigation_id"];
+            isOneToOne: false;
+            referencedRelation: "investigations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "clarifying_questions_workspace_id_fkey";
+            columns: ["workspace_id"];
+            isOneToOne: false;
+            referencedRelation: "workspaces";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      investigations: {
+        Row: {
+          attachments: string[];
+          confidence: string;
+          created_at: string;
+          created_by: string | null;
+          data_source_ids: string[];
+          id: string;
+          is_sample: boolean;
+          known_context: string;
+          outcome: string | null;
+          plan: Json | null;
+          problem: string;
+          status: string;
+          title: string;
+          topic: string;
+          trigger: string | null;
+          updated_at: string;
+          workspace_id: string;
+        };
+        Insert: {
+          attachments?: string[];
+          confidence?: string;
+          created_at?: string;
+          created_by?: string | null;
+          data_source_ids?: string[];
+          id?: string;
+          is_sample?: boolean;
+          known_context?: string;
+          outcome?: string | null;
+          plan?: Json | null;
+          problem: string;
+          status?: string;
+          title: string;
+          topic?: string;
+          trigger?: string | null;
+          updated_at?: string;
+          workspace_id: string;
+        };
+        Update: {
+          attachments?: string[];
+          confidence?: string;
+          created_at?: string;
+          created_by?: string | null;
+          data_source_ids?: string[];
+          id?: string;
+          is_sample?: boolean;
+          known_context?: string;
+          outcome?: string | null;
+          plan?: Json | null;
+          problem?: string;
+          status?: string;
+          title?: string;
+          topic?: string;
+          trigger?: string | null;
+          updated_at?: string;
+          workspace_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "investigations_workspace_id_fkey";
+            columns: ["workspace_id"];
+            isOneToOne: false;
+            referencedRelation: "workspaces";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       profiles: {
         Row: {
           created_at: string;
@@ -143,6 +262,22 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      create_investigation: {
+        Args: {
+          p_attachments: string[];
+          p_data_source_ids: string[];
+          p_known_context: string;
+          p_outcome: string | null;
+          p_plan: Json | null;
+          p_problem: string;
+          p_questions: Json;
+          p_title: string;
+          p_topic: string;
+          p_trigger: string | null;
+          p_workspace_id: string;
+        };
+        Returns: string;
+      };
       save_workspace: {
         Args: {
           p_description: string;

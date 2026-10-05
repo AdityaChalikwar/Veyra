@@ -6,9 +6,11 @@ Veyra is an AI product discovery system: it helps product teams understand which
 to solve before deciding what to build. The full product journey is built; the backend is
 being connected milestone by milestone (see `docs/backend-plan.md`).
 
-**Real today:** sign-up / log-in (Supabase Auth), protected app pages, the company
-profile and business context (Supabase Postgres with Row Level Security).
-**Still mock data:** investigations, evidence and everything inside them.
+**Real today:** sign-up / log-in / password reset (Supabase Auth), protected app pages,
+the company profile and business context, and investigations — problem, context,
+clarifying questions and answers, and plan (Supabase Postgres with Row Level Security).
+**Still mock data:** evidence and analysis (findings, hypotheses, opportunities…), shown
+through the sample investigation every workspace starts with.
 
 ## Getting started
 
