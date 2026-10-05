@@ -8,8 +8,9 @@ being connected milestone by milestone (see `docs/backend-plan.md`).
 
 **Real today:** sign-up / log-in / password reset (Supabase Auth), protected app pages,
 the company profile and business context, and investigations — problem, context,
-clarifying questions and answers, and plan (Supabase Postgres with Row Level Security).
-**Still mock data:** evidence and analysis (findings, hypotheses, opportunities…), shown
+clarifying questions and answers, and plan, and uploaded CSV data turned into evidence
+(Supabase Postgres, Storage and Row Level Security).
+**Still mock data:** analysis (findings, hypotheses, opportunities…), shown
 through the sample investigation every workspace starts with.
 
 ## Getting started

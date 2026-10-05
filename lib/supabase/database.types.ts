@@ -103,6 +103,136 @@ export type Database = {
           },
         ];
       };
+      evidence: {
+        Row: {
+          category: string;
+          coverage: string | null;
+          created_at: string;
+          created_by: string | null;
+          file_id: string | null;
+          format: string;
+          id: string;
+          investigation_id: string;
+          name: string;
+          profile: Json | null;
+          source: string;
+          summary: string;
+          updated_at: string;
+          workspace_id: string;
+        };
+        Insert: {
+          category?: string;
+          coverage?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          file_id?: string | null;
+          format?: string;
+          id?: string;
+          investigation_id: string;
+          name: string;
+          profile?: Json | null;
+          source?: string;
+          summary?: string;
+          updated_at?: string;
+          workspace_id: string;
+        };
+        Update: {
+          category?: string;
+          coverage?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          file_id?: string | null;
+          format?: string;
+          id?: string;
+          investigation_id?: string;
+          name?: string;
+          profile?: Json | null;
+          source?: string;
+          summary?: string;
+          updated_at?: string;
+          workspace_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "evidence_file_id_fkey";
+            columns: ["file_id"];
+            isOneToOne: true;
+            referencedRelation: "files";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "evidence_investigation_id_fkey";
+            columns: ["investigation_id"];
+            isOneToOne: false;
+            referencedRelation: "investigations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "evidence_workspace_id_fkey";
+            columns: ["workspace_id"];
+            isOneToOne: false;
+            referencedRelation: "workspaces";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      files: {
+        Row: {
+          created_at: string;
+          created_by: string | null;
+          error: string | null;
+          id: string;
+          investigation_id: string;
+          name: string;
+          size_bytes: number;
+          status: string;
+          storage_path: string;
+          updated_at: string;
+          workspace_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          created_by?: string | null;
+          error?: string | null;
+          id?: string;
+          investigation_id: string;
+          name: string;
+          size_bytes: number;
+          status?: string;
+          storage_path: string;
+          updated_at?: string;
+          workspace_id: string;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string | null;
+          error?: string | null;
+          id?: string;
+          investigation_id?: string;
+          name?: string;
+          size_bytes?: number;
+          status?: string;
+          storage_path?: string;
+          updated_at?: string;
+          workspace_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "files_investigation_id_fkey";
+            columns: ["investigation_id"];
+            isOneToOne: false;
+            referencedRelation: "investigations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "files_workspace_id_fkey";
+            columns: ["workspace_id"];
+            isOneToOne: false;
+            referencedRelation: "workspaces";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       investigations: {
         Row: {
           attachments: string[];

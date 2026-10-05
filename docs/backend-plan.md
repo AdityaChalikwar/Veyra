@@ -18,8 +18,8 @@ next step, validation) and to run analysis over company data, not to host a chat
 |---|---|
 | 1. Foundation — Supabase Auth (email + password; Google when enabled), protected pages, profiles, workspaces, membership, business context, RLS | **Done** (`supabase/migrations/20261003*`) |
 | 2. Investigations, clarifying questions, plan, sample investigation, password reset | **Done** (`supabase/migrations/20261005*`) |
-| 3. CSV upload and profiling → evidence | Next |
-| 4. AI analysis pipeline (Claude) | |
+| 3. CSV upload (private Storage) and profiling in code → evidence | **Done** (`supabase/migrations/20261006*`, `lib/analysis/profile.ts`) |
+| 4. AI analysis pipeline (Claude) | Next |
 | 5. Decisions, validation, Decision Brief | |
 | 6. Business Memory, clean-up of mocks | |
 
@@ -27,6 +27,12 @@ Every workspace gets a **sample investigation** (DAU Decline): a real row, so it
 be listed and removed, whose content is the demo in `/mocks` until evidence and
 analysis are stored. Real investigations show a **brief** (problem, context,
 clarifying questions with editable answers, plan) until their data is analysed.
+
+Uploads: the browser sends the CSV straight to the private `uploads` bucket at
+`{workspace_id}/{investigation_id}/{file_id}.csv` (server actions are capped at 1 MB);
+the server then downloads it, profiles it with plain code (`profileCsv`: column types,
+totals, date range, issues, preview) and stores an `evidence` row with the profile. No AI
+touches the numbers. Storage access is limited to members of the folder's workspace.
 
 Architecture: everything server-side runs in the Next.js app (server components, server
 actions, `app/auth/callback`). The server acts as the signed-in user, so Row Level

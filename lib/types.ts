@@ -205,6 +205,53 @@ export type EvidenceItem = {
   qualityNote?: string;
 };
 
+/* ── Uploaded data ─────────────────────────────────────────────────────── */
+
+export type ColumnType = "number" | "date" | "boolean" | "category" | "identifier" | "text" | "empty";
+
+/** One column of an uploaded dataset, described by code (not AI). */
+export type ColumnProfile = {
+  name: string;
+  type: ColumnType;
+  /** Rows with a value in this column. */
+  filled: number;
+  /** Different values seen (counting stops at 10,000). */
+  distinct: number;
+  number?: { min: number; max: number; mean: number; median: number; sum: number };
+  date?: { from: string; to: string }; // ISO dates
+  /** Most common values, for categories and yes/no columns. */
+  top?: { value: string; count: number }[];
+};
+
+/** What an uploaded CSV contains. Every number here is computed in code. */
+export type DatasetProfile = {
+  rowCount: number;
+  columnCount: number;
+  columns: ColumnProfile[];
+  /** The date column used for the period the data covers, if any. */
+  dateColumn?: string;
+  dateRange?: { from: string; to: string };
+  /** Problems worth knowing before trusting the numbers. */
+  issues: string[];
+  preview: { columns: string[]; rows: string[][] };
+  /** True when only the first rows were read (very large files). */
+  truncated: boolean;
+};
+
+/** An uploaded file and, once processed, the evidence made from it. */
+export type UploadedEvidence = {
+  fileId: ID;
+  evidenceId?: ID;
+  name: string;
+  sizeBytes: number;
+  status: "uploading" | "processing" | "ready" | "failed";
+  error?: string;
+  summary?: string;
+  coverage?: string;
+  profile?: DatasetProfile;
+  addedAt: string; // ISO
+};
+
 /** Evidence as listed outside its investigation (e.g. on the dashboard). */
 export type EvidenceWithContext = EvidenceItem & { investigationTitle: string };
 
@@ -598,6 +645,8 @@ export type InvestigationRecord = {
   dataSourceIds: ID[];
   questions: ClarifyingQuestion[];
   plan: InvestigationPlan | null;
+  /** Uploaded files and the evidence made from them, newest first. */
+  uploads: UploadedEvidence[];
   createdAt: string; // ISO
 };
 

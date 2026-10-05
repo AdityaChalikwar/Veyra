@@ -1,19 +1,23 @@
-import { CalendarDays, CircleSlash, Clock, Compass, Database, FileText, Info, Upload } from "lucide-react";
+import { CalendarDays, CircleSlash, Clock, Compass, Database, FileText, Info, Sparkles, Upload } from "lucide-react";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { outcomeLabel, triggerLabel } from "@/lib/options";
 import { formatDate, formatRelative } from "@/lib/time";
 import type { DataSource, DiscoveryStage, InvestigationRecord } from "@/lib/types";
 import { AnswersEditor } from "./AnswersEditor";
+import { DataUploader } from "./DataUploader";
 import { DeleteInvestigationButton } from "./DeleteInvestigationButton";
 import { DiscoveryStages } from "./DiscoveryStages";
+import { UploadedEvidenceCard } from "./UploadedEvidenceCard";
 
-const stages: DiscoveryStage[] = [
-  { id: "s-problem", label: "Problem definition", status: "done" },
-  { id: "s-data", label: "Add data", status: "in-progress" },
-  { id: "s-analysis", label: "Analysis", status: "pending" },
-  { id: "s-validation", label: "Problem validation", status: "pending" },
-  { id: "s-opportunity", label: "Opportunity discovery", status: "pending" },
-];
+function stagesFor(hasEvidence: boolean): DiscoveryStage[] {
+  return [
+    { id: "s-problem", label: "Problem definition", status: "done" },
+    { id: "s-data", label: "Add data", status: hasEvidence ? "done" : "in-progress" },
+    { id: "s-analysis", label: "Analysis", status: hasEvidence ? "in-progress" : "pending" },
+    { id: "s-validation", label: "Problem validation", status: "pending" },
+    { id: "s-opportunity", label: "Opportunity discovery", status: "pending" },
+  ];
+}
 
 /**
  * A saved investigation before any data is analysed: what the team told Veyra,
@@ -24,6 +28,7 @@ export function InvestigationBrief({ record, dataSources }: { record: Investigat
   const { summary: inv } = record;
   const sources = record.dataSourceIds.map((id) => dataSources.find((d) => d.id === id)).filter((d): d is DataSource => !!d);
   const unanswered = record.questions.filter((q) => !q.answer.trim()).length;
+  const evidence = record.uploads.filter((u) => u.status === "ready");
 
   return (
     <div className="mx-auto max-w-5xl px-4 pb-16 sm:px-8">
@@ -52,20 +57,45 @@ export function InvestigationBrief({ record, dataSources }: { record: Investigat
 
         <div className="mt-4">
           <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-ink-faint">Investigation progress</p>
-          <DiscoveryStages stages={stages} />
+          <DiscoveryStages stages={stagesFor(evidence.length > 0)} />
           <div className="mt-2 flex gap-2.5 rounded-lg border border-brand-200 bg-brand-50/60 px-3.5 py-2.5 text-[13px] text-brand-700">
-            <Upload className="mt-0.5 h-4 w-4 shrink-0" />
-            <p>
-              <b className="font-semibold">Next: add data.</b> Uploading a CSV — and Veyra analysing it into evidence, findings and
-              hypotheses — is the next part being built. Your problem, answers and plan are saved, so you can come back to this
-              investigation any time.
-            </p>
+            {evidence.length ? <Sparkles className="mt-0.5 h-4 w-4 shrink-0" /> : <Upload className="mt-0.5 h-4 w-4 shrink-0" />}
+            {evidence.length ? (
+              <p>
+                <b className="font-semibold">Next: analysis.</b> Veyra has {evidence.length === 1 ? "one dataset" : `${evidence.length} datasets`} to
+                work with. Turning it into findings, hypotheses and a refined problem is the next part being built — add more data in the
+                meantime if you have it.
+              </p>
+            ) : (
+              <p>
+                <b className="font-semibold">Next: add data.</b> Upload a CSV export — for example events, signups, orders or support
+                tickets — and Veyra will check what it contains and save it as evidence for this investigation.
+              </p>
+            )}
           </div>
         </div>
       </header>
 
       <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
         <div className="min-w-0 space-y-6">
+          <section id="evidence" className="rounded-xl border border-line bg-surface p-5 shadow-card">
+            <h2 className="text-[15px] font-semibold">Evidence</h2>
+            <p className="mt-0.5 text-xs text-ink-subtle">
+              Your own data. Veyra reads each file with plain calculations — no AI yet — so every number shown can be traced back to
+              the file.
+            </p>
+            <div className="mt-4">
+              <DataUploader investigationId={inv.id} />
+            </div>
+            {record.uploads.length > 0 && (
+              <div className="mt-4 space-y-3">
+                {record.uploads.map((u) => (
+                  <UploadedEvidenceCard key={u.fileId} upload={u} />
+                ))}
+              </div>
+            )}
+          </section>
+
           <section className="rounded-xl border border-line bg-surface p-5 shadow-card">
             <h2 className="text-[15px] font-semibold">Clarifying questions</h2>
             <p className="mt-0.5 text-xs text-ink-subtle">
@@ -163,7 +193,8 @@ export function InvestigationBrief({ record, dataSources }: { record: Investigat
               </>
             )}
             <p className="mt-4 flex gap-1.5 text-xs text-ink-faint">
-              <Info className="mt-px h-3.5 w-3.5 shrink-0" /> Connections are simulated for now; uploading files is coming next.
+              <Info className="mt-px h-3.5 w-3.5 shrink-0" /> Live connections to these tools come later. For now, upload exports from them as
+              CSV files.
             </p>
           </section>
 

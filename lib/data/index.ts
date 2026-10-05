@@ -27,8 +27,11 @@ import type {
   BusinessMemory,
   Company,
   Confidence,
+  DatasetProfile,
   DataSource,
   DecisionRecord,
+  EvidenceCategory,
+  EvidenceFormat,
   EvidenceStrength,
   EvidenceWithContext,
   InvestigationOutcome,
@@ -41,6 +44,7 @@ import type {
   InvestigationWorkspace,
   Level,
   MemoryEntry,
+  UploadedEvidence,
   User,
 } from "@/lib/types";
 
@@ -93,7 +97,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 type InvestigationRow = Pick<
   Tables<"investigations">,
   "id" | "title" | "problem" | "topic" | "status" | "confidence" | "is_sample" | "updated_at"
-> & { clarifying_questions: { answer: string }[] };
+> & { clarifying_questions: { answer: string }[]; evidence: { count: number }[] };
 
 function toSummary(row: InvestigationRow): InvestigationSummary {
   if (row.is_sample) return { ...buildSampleSummary(), id: row.id };
@@ -103,7 +107,7 @@ function toSummary(row: InvestigationRow): InvestigationSummary {
     topic: row.topic as InvestigationTopic,
     status: row.status as InvestigationStatus,
     problem: row.problem,
-    evidenceCount: 0,
+    evidenceCount: row.evidence[0]?.count ?? 0,
     hypothesisCount: 0,
     // Until analysis exists, unanswered clarifying questions are the open questions.
     openQuestionCount: row.clarifying_questions.filter((q) => !q.answer.trim()).length,
@@ -117,7 +121,7 @@ export const listInvestigations = cache(async (): Promise<InvestigationSummary[]
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("investigations")
-    .select("id, title, problem, topic, status, confidence, is_sample, updated_at, clarifying_questions (answer)")
+    .select("id, title, problem, topic, status, confidence, is_sample, updated_at, clarifying_questions (answer), evidence (count)")
     .order("updated_at", { ascending: false });
   if (error) throw new Error(`Couldn't load investigations: ${error.message}`);
   // Real investigations first; the sample after them.
@@ -143,7 +147,9 @@ export async function getInvestigationRecord(id: string): Promise<InvestigationR
   const supabase = await createClient();
   const { data } = await supabase
     .from("investigations")
-    .select("trigger, outcome, known_context, attachments, data_source_ids, plan, created_at, clarifying_questions (id, position, question, hint, answer)")
+    .select(
+      "trigger, outcome, known_context, attachments, data_source_ids, plan, created_at, clarifying_questions (id, position, question, hint, answer), files (id, name, size_bytes, status, error, created_at, evidence (id, summary, coverage, profile))",
+    )
     .eq("id", id)
     .maybeSingle();
   if (!data) return undefined;
@@ -156,6 +162,20 @@ export async function getInvestigationRecord(id: string): Promise<InvestigationR
     dataSourceIds: data.data_source_ids,
     plan: data.plan as InvestigationPlan | null,
     createdAt: data.created_at,
+    uploads: [...data.files]
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+      .map((f) => ({
+        fileId: f.id,
+        evidenceId: f.evidence?.id,
+        name: f.name,
+        sizeBytes: f.size_bytes,
+        status: f.status as UploadedEvidence["status"],
+        error: f.error ?? undefined,
+        summary: f.evidence?.summary,
+        coverage: f.evidence?.coverage ?? undefined,
+        profile: (f.evidence?.profile ?? undefined) as DatasetProfile | undefined,
+        addedAt: f.created_at,
+      })),
     questions: [...data.clarifying_questions]
       .sort((a, b) => a.position - b.position)
       .map((q) => ({ id: q.id, investigationId: id, question: q.question, hint: q.hint || undefined, answer: q.answer })),
@@ -196,14 +216,36 @@ export async function listDecisions(): Promise<DecisionRecord[]> {
     .sort((a, b) => b.decidedAt.localeCompare(a.decidedAt));
 }
 
-/** Every piece of evidence across investigations, newest first. Real evidence arrives with Milestone 3. */
+/** Every piece of evidence across investigations, newest first: uploaded data, then the sample's. */
 export async function listAllEvidence(): Promise<EvidenceWithContext[]> {
-  const sample = await getSample();
-  if (!sample) return [];
-  return buildEvidence()
-    .filter((e) => e.investigationId === SAMPLE_MOCK_ID)
-    .sort((a, b) => b.addedAt.localeCompare(a.addedAt))
-    .map((e) => ({ ...e, investigationId: sample.id, investigationTitle: sampleTitle(sample) }));
+  const supabase = await createClient();
+  const [{ data }, sample] = await Promise.all([
+    supabase
+      .from("evidence")
+      .select("id, investigation_id, name, category, source, format, coverage, summary, created_at, investigations (title)")
+      .order("created_at", { ascending: false })
+      .limit(100),
+    getSample(),
+  ]);
+  const real: EvidenceWithContext[] = (data ?? []).map((e) => ({
+    id: e.id,
+    investigationId: e.investigation_id,
+    investigationTitle: e.investigations?.title ?? "Investigation",
+    name: e.name,
+    category: e.category as EvidenceCategory,
+    source: e.source,
+    format: e.format as EvidenceFormat,
+    coverage: e.coverage ?? undefined,
+    description: e.summary,
+    addedAt: e.created_at,
+  }));
+  const fromSample: EvidenceWithContext[] = sample
+    ? buildEvidence()
+        .filter((e) => e.investigationId === SAMPLE_MOCK_ID)
+        .sort((a, b) => b.addedAt.localeCompare(a.addedAt))
+        .map((e) => ({ ...e, investigationId: sample.id, investigationTitle: sampleTitle(sample) }))
+    : [];
+  return [...real, ...fromSample];
 }
 
 export async function listRecentEvidence(limit = 4): Promise<EvidenceWithContext[]> {
