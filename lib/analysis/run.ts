@@ -1,6 +1,6 @@
 import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
-import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
+import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import type { BusinessContext, InvestigationTrigger, InvestigationOutcome } from "@/lib/types";
 import { outcomeLabel, triggerLabel } from "@/lib/options";
 import { renderPack, type AnalysisPack } from "./pack";
@@ -9,6 +9,12 @@ import { checkCitations } from "./validate";
 
 export const ANALYSIS_MODEL = process.env.ANALYSIS_MODEL || "claude-opus-5-5";
 const MAX_OUTPUT_TOKENS = 32_000;
+
+// Only the JSON schema, without the helper's parser: the SDK would otherwise parse
+// every text block itself and throw on a refused, cut-off or partly-fallen-back
+// answer before the stop reason can be checked. The answer is parsed below instead.
+const { type: formatType, schema: formatSchema } = betaZodOutputFormat(analysisSchema);
+const OUTPUT_FORMAT = { type: formatType, schema: formatSchema };
 
 export type AnalysisInput = {
   context: BusinessContext;
@@ -80,7 +86,7 @@ export async function runAnalysis(input: AnalysisInput): Promise<AnalysisOutcome
       model: ANALYSIS_MODEL,
       max_tokens: MAX_OUTPUT_TOKENS,
       thinking: { type: "adaptive" },
-      output_config: { effort: "high", format: zodOutputFormat(analysisSchema) },
+      output_config: { effort: "high", format: OUTPUT_FORMAT },
       betas: ["server-side-fallback-2026-07-01"],
       fallbacks: "default",
       system: SYSTEM,
@@ -100,11 +106,22 @@ export async function runAnalysis(input: AnalysisInput): Promise<AnalysisOutcome
       return { status: "truncated", stopReason, usage, error: "The analysis was cut off before it finished, so nothing was saved. Try again, or upload less data." };
     }
 
-    const text = message.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("");
+    // If a backup model took over part-way, the stream keeps the declined partial
+    // before a `fallback` block. Try the whole text first, then only what follows it.
+    const textOf = (blocks: readonly Anthropic.Beta.BetaContentBlock[]) => blocks.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("");
+    const lastFallback = message.content.map((b) => b.type).lastIndexOf("fallback");
+    const candidates = [textOf(message.content)];
+    if (lastFallback >= 0) candidates.push(textOf(message.content.slice(lastFallback + 1)));
     let json: unknown;
-    try {
-      json = JSON.parse(text);
-    } catch {
+    for (const text of candidates) {
+      try {
+        json = JSON.parse(text);
+        break;
+      } catch {
+        // try the next candidate
+      }
+    }
+    if (json === undefined) {
       return { status: "failed", stopReason, usage, error: "Claude's answer wasn't in the expected form. Try again." };
     }
     const parsed = analysisSchema.safeParse(json);
