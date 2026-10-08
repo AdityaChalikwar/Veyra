@@ -3,6 +3,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { outcomeLabel, triggerLabel } from "@/lib/options";
 import { formatDate, formatRelative } from "@/lib/time";
 import type { DataSource, InvestigationRecord } from "@/lib/types";
+import { AnalysisSection } from "./AnalysisSection";
 import { AnswersEditor } from "./AnswersEditor";
 import { DataUploader } from "./DataUploader";
 import { DeleteInvestigationButton } from "./DeleteInvestigationButton";
@@ -62,16 +63,20 @@ export function InvestigationBrief({ record, dataSources }: { record: Investigat
           <DiscoveryStages stages={record.stages} />
           <div className="mt-2 flex gap-2.5 rounded-lg border border-brand-200 bg-brand-50/60 px-3.5 py-2.5 text-[13px] text-brand-700">
             {record.currentStage !== "add_data" ? <Sparkles className="mt-0.5 h-4 w-4 shrink-0" /> : <Upload className="mt-0.5 h-4 w-4 shrink-0" />}
-            {record.currentStage !== "add_data" ? (
-              <p>
-                <b className="font-semibold">Next: analysis.</b> Veyra has {evidence.length === 1 ? "one dataset" : `${evidence.length} datasets`} to
-                work with. Turning it into findings, hypotheses and a refined problem is the next part being built — add more data in the
-                meantime if you have it.
-              </p>
-            ) : (
+            {record.currentStage === "add_data" ? (
               <p>
                 <b className="font-semibold">Next: add data.</b> Upload a CSV export — for example events, signups, orders or support
                 tickets — and Veyra will check what it contains and save it as evidence for this investigation.
+              </p>
+            ) : record.currentStage === "analysis" ? (
+              <p>
+                <b className="font-semibold">Next: analysis.</b> Veyra has {evidence.length === 1 ? "one dataset" : `${evidence.length} datasets`} to
+                work with. Run the analysis below to get findings, hypotheses and a recommended next step.
+              </p>
+            ) : (
+              <p>
+                <b className="font-semibold">Next: problem validation.</b> The analysis is done. Its hypotheses are untested — the next step
+                it recommends says how to start. Validation itself is the next part being built.
               </p>
             )}
           </div>
@@ -80,11 +85,15 @@ export function InvestigationBrief({ record, dataSources }: { record: Investigat
 
       <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
         <div className="min-w-0 space-y-6">
+          {record.currentStage !== "add_data" && (
+            <AnalysisSection investigationId={inv.id} runs={record.analysisRuns} uploads={record.uploads} />
+          )}
+
           <section id="evidence" className="rounded-xl border border-line bg-surface p-5 shadow-card">
             <h2 className="text-[15px] font-semibold">Evidence</h2>
             <p className="mt-0.5 text-xs text-ink-subtle">
-              Your own data. Veyra reads each file with plain calculations — no AI yet — so every number shown can be traced back to
-              the file.
+              Your own data. Veyra reads each file with plain calculations, so every number shown can be traced back to the file.
+              The AI only reads these summaries; it never calculates.
             </p>
             <div className="mt-4">
               <DataUploader investigationId={inv.id} />

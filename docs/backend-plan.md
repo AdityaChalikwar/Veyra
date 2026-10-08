@@ -20,7 +20,7 @@ next step, validation) and to run analysis over company data, not to host a chat
 | 2. Investigations, clarifying questions, plan, sample investigation, password reset | **Done** (`supabase/migrations/20261005*`) |
 | 3. CSV upload (private Storage) and profiling in code → evidence | **Done** (`supabase/migrations/20261006*`, `lib/analysis/profile.ts`) |
 | Persistence gaps — investigation objective, current stage, stage history, edit details | **Done** (`supabase/migrations/20261008*`) |
-| 4. AI analysis pipeline (Claude) | Next |
+| 4. AI analysis pipeline (Claude) — analysis pack in code, one structured Claude call, stored runs, stage moves to Problem validation | **Built; live call untested** (`supabase/migrations/20261009*`, `lib/analysis/`). Needs `ANTHROPIC_API_KEY` to run |
 | 5. Decisions, validation, Decision Brief | |
 | 6. Business Memory, clean-up of mocks | |
 
@@ -36,6 +36,20 @@ creating an investigation puts it at **Add data**; the first evidence moves it t
 write them, and a direct edit can't change the stage or the sample flag. Title, problem,
 objective, trigger and outcome can be edited from the brief ("Edit details"). New
 investigations start from a blank form.
+
+AI analysis (`lib/analysis/`): `pack.ts` builds the analysis pack from the stored evidence
+profiles in code and gives each dataset a reference (E1, E2…). `run.ts` makes one streamed,
+structured-output Claude call (`claude-opus-5-5`, override with `ANALYSIS_MODEL`; server-side
+refusal fallback on) with the business context, problem, objective and clarifying answers.
+The answer must match the zod schema in `schema.ts`: findings, hypotheses, open questions,
+a refined problem, first opportunities, a next step and data limits, each citing datasets or
+findings by reference. `validate.ts` drops anything citing something that doesn't exist.
+Refusals and cut-off answers are stored as their own run statuses and nothing is shown. Each
+run is saved in `analysis_runs` (pack, result, usage), and a completed run moves the
+investigation from Analysis to Problem validation via a trigger. The server action is
+`analyseInvestigation`; the UI is `AnalysisSection` / `AnalysisView` on the brief page.
+Findings are not yet separate rows: they live in the run's `result`, so accepting or editing
+them individually comes later.
 
 Uploads: the browser sends the CSV straight to the private `uploads` bucket at
 `{workspace_id}/{investigation_id}/{file_id}.csv` (server actions are capped at 1 MB);

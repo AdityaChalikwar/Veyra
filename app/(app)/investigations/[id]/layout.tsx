@@ -8,6 +8,9 @@ import { SidePanelToggles, WorkspaceFrame } from "@/components/investigation/Wor
 import { WorkspaceTabs } from "@/components/investigation/WorkspaceTabs";
 import { getInvestigationRecord, getInvestigationSummary, getInvestigationWorkspace, listDataSources } from "@/lib/data";
 
+/** Analysis runs as a server action from this page; a long Claude answer needs more than the default time. */
+export const maxDuration = 300;
+
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const summary = await getInvestigationSummary(id);

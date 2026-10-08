@@ -7,6 +7,8 @@
  * next step → validation → learning. Types below follow that order.
  */
 
+import type { AnalysisResult } from "@/lib/analysis/schema";
+
 export type ID = string;
 
 /**
@@ -641,6 +643,23 @@ export type DiscoveryStage = { id: ID; label: string; status: "done" | "in-progr
 /** Where an investigation is. Stored in the database and moved by it. */
 export type StageKey = "problem_definition" | "add_data" | "analysis" | "problem_validation" | "opportunity_discovery";
 
+/** One AI analysis of an investigation's evidence, as stored. */
+export type AnalysisRunRecord = {
+  id: ID;
+  status: "running" | "completed" | "failed" | "refused" | "truncated";
+  model: string;
+  createdAt: string; // ISO
+  completedAt?: string; // ISO
+  /** Plain-English reason when the run didn't complete. */
+  error?: string;
+  /** Set when status is "completed". */
+  result?: AnalysisResult;
+  /** The datasets analysed, by reference ("E1"…) in the order the analysis cites them. */
+  datasets: { ref: string; evidenceId: ID; name: string; period?: string }[];
+  /** What was dropped for not tracing back to the data. */
+  removed: string[];
+};
+
 export type InvestigationRecord = {
   summary: InvestigationSummary;
   objective: string;
@@ -656,6 +675,8 @@ export type InvestigationRecord = {
   plan: InvestigationPlan | null;
   /** Uploaded files and the evidence made from them, newest first. */
   uploads: UploadedEvidence[];
+  /** AI analysis runs, newest first. */
+  analysisRuns: AnalysisRunRecord[];
   createdAt: string; // ISO
 };
 

@@ -17,12 +17,16 @@ import { getSession, getWorkspace } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { buildDataSources } from "@/mocks/data-sources";
 import { cache } from "react";
+import { formatRange } from "@/lib/analysis/format";
+import type { AnalysisPack } from "@/lib/analysis/pack";
+import type { AnalysisResult } from "@/lib/analysis/schema";
 import { buildDauWorkspace, dauOpenQuestions } from "@/mocks/dau-investigation";
 import { buildDecisions } from "@/mocks/decisions";
 import { buildEvidence } from "@/mocks/evidence";
 import { buildSampleSummary } from "@/mocks/investigations";
 import type { Tables } from "@/lib/supabase/database.types";
 import type {
+  AnalysisRunRecord,
   BusinessContext,
   BusinessMemory,
   Company,
@@ -158,7 +162,7 @@ export async function getInvestigationRecord(id: string): Promise<InvestigationR
   const { data } = await supabase
     .from("investigations")
     .select(
-      "trigger, outcome, objective, current_stage, known_context, attachments, data_source_ids, plan, created_at, clarifying_questions (id, position, question, hint, answer), files (id, name, size_bytes, status, error, created_at, evidence (id, summary, coverage, profile)), investigation_stages (stage, completed_at)",
+      "trigger, outcome, objective, current_stage, known_context, attachments, data_source_ids, plan, created_at, clarifying_questions (id, position, question, hint, answer), files (id, name, size_bytes, status, error, created_at, evidence (id, summary, coverage, profile)), investigation_stages (stage, completed_at), analysis_runs (id, status, model, created_at, completed_at, error, result, pack, usage)",
     )
     .eq("id", id)
     .maybeSingle();
@@ -178,6 +182,10 @@ export async function getInvestigationRecord(id: string): Promise<InvestigationR
     dataSourceIds: data.data_source_ids,
     plan: data.plan as InvestigationPlan | null,
     createdAt: data.created_at,
+    analysisRuns: [...data.analysis_runs]
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+      .slice(0, 10)
+      .map(toAnalysisRun),
     uploads: [...data.files]
       .sort((a, b) => b.created_at.localeCompare(a.created_at))
       .map((f) => ({
@@ -195,6 +203,29 @@ export async function getInvestigationRecord(id: string): Promise<InvestigationR
     questions: [...data.clarifying_questions]
       .sort((a, b) => a.position - b.position)
       .map((q) => ({ id: q.id, investigationId: id, question: q.question, hint: q.hint || undefined, answer: q.answer })),
+  };
+}
+
+type AnalysisRunRow = Pick<Tables<"analysis_runs">, "id" | "status" | "model" | "created_at" | "completed_at" | "error" | "result" | "pack" | "usage">;
+
+function toAnalysisRun(r: AnalysisRunRow): AnalysisRunRecord {
+  const pack = r.pack as unknown as AnalysisPack | null;
+  const usage = r.usage as { removed?: string[] } | null;
+  return {
+    id: r.id,
+    status: r.status as AnalysisRunRecord["status"],
+    model: r.model,
+    createdAt: r.created_at,
+    completedAt: r.completed_at ?? undefined,
+    error: r.error ?? undefined,
+    result: (r.result ?? undefined) as AnalysisResult | undefined,
+    datasets: (pack?.datasets ?? []).map((d) => ({
+      ref: d.ref,
+      evidenceId: d.evidenceId,
+      name: d.name,
+      period: d.period ? formatRange(d.period.from, d.period.to) : undefined,
+    })),
+    removed: usage?.removed ?? [],
   };
 }
 

@@ -11,6 +11,62 @@ export type Database = {
   };
   public: {
     Tables: {
+      analysis_runs: {
+        Row: {
+          completed_at: string | null;
+          created_at: string;
+          created_by: string | null;
+          error: string | null;
+          id: string;
+          investigation_id: string;
+          model: string;
+          pack: Json | null;
+          result: Json | null;
+          status: string;
+          stop_reason: string | null;
+          usage: Json | null;
+          workspace_id: string;
+        };
+        Insert: {
+          completed_at?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          error?: string | null;
+          id?: string;
+          investigation_id: string;
+          model: string;
+          pack?: Json | null;
+          result?: Json | null;
+          status?: string;
+          stop_reason?: string | null;
+          usage?: Json | null;
+          workspace_id: string;
+        };
+        Update: {
+          completed_at?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          error?: string | null;
+          id?: string;
+          investigation_id?: string;
+          model?: string;
+          pack?: Json | null;
+          result?: Json | null;
+          status?: string;
+          stop_reason?: string | null;
+          usage?: Json | null;
+          workspace_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "analysis_runs_investigation_id_fkey";
+            columns: ["investigation_id"];
+            isOneToOne: false;
+            referencedRelation: "investigations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       business_contexts: {
         Row: {
           business_model: string;
