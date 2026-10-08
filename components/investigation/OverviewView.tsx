@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Brain, CheckCircle2, ChevronDown, CircleHelp, CircleSlash, Compass, Database } from "lucide-react";
+import { ArrowRight, Brain, CheckCircle2, ChevronDown, CircleHelp, CircleSlash, Compass, Database, Info, Upload } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { ConfidenceBadge } from "@/components/ui/ConfidenceBadge";
@@ -8,8 +8,13 @@ import { KindBadge } from "@/components/ui/KindBadge";
 import { cn } from "@/lib/cn";
 import { outcomeLabel, triggerLabel } from "@/lib/options";
 import { routes } from "@/lib/routes";
+import type { DataSource, LiveInvestigation } from "@/lib/types";
+import { AnalysisSection } from "./AnalysisSection";
+import { AnswersEditor } from "./AnswersEditor";
 import { ChartCard } from "./ChartCard";
+import { DataUploader } from "./DataUploader";
 import { DauTrendChart } from "./DauTrendChart";
+import { DeleteInvestigationButton } from "./DeleteInvestigationButton";
 import { HypothesisCard } from "./HypothesisCard";
 import { InvestigationMap } from "./InvestigationMap";
 import { KpiCard } from "./KpiCard";
@@ -26,6 +31,8 @@ export function OverviewView() {
   const { workspace } = useWorkspace();
   const id = workspace.investigation.id;
   const tab = (slug: string) => routes.investigation(id, slug);
+
+  if (workspace.live) return <LiveOverview live={workspace.live} tab={tab} />;
 
   return (
     <div className="mt-6 space-y-6">
@@ -119,6 +126,7 @@ function WhatWeKnow({ href }: { href: string }) {
         </Link>
       </div>
       <p className="mb-3 text-xs text-ink-subtle">Observations taken directly from your data.</p>
+      {known.length === 0 && <p className="text-[13px] text-ink-faint">Nothing yet — Veyra fills this in once it has analysed your data.</p>}
       <ul className="divide-y divide-line">
         {known.map((f) => {
           const e = workspace.evidence.find((x) => x.id === f.evidenceIds[0]);
@@ -157,6 +165,7 @@ function WhatWeDontKnow({ href }: { href: string }) {
         </Link>
       </div>
       <p className="mb-3 text-xs text-ink-subtle">Veyra won&rsquo;t guess. These stay open until evidence answers them.</p>
+      {workspace.openQuestions.length === 0 && <p className="text-[13px] text-ink-faint">No open questions right now.</p>}
       <ul className="space-y-2">
         {workspace.openQuestions.map((q) => {
           const answered = q.answeredByFindingId;
@@ -294,5 +303,95 @@ function Brief() {
         </div>
       )}
     </section>
+  );
+}
+
+/** The team's own investigation: what's saved, what's been found, and what moves it forward. */
+function LiveOverview({ live, tab }: { live: LiveInvestigation; tab: (slug: string) => string }) {
+  const { workspace } = useWorkspace();
+  const { record, dataSources } = live;
+  const inv = workspace.investigation;
+  const sources = record.dataSourceIds.map((d) => dataSources.find((x) => x.id === d)).filter((d): d is DataSource => !!d);
+  const unanswered = record.questions.filter((q) => !q.answer.trim()).length;
+
+  return (
+    <div className="mt-6 space-y-6">
+      {workspace.evidence.length ? (
+        <AnalysisSection investigationId={inv.id} runs={record.analysisRuns} uploads={record.uploads} />
+      ) : (
+        <section className="rounded-xl border-2 border-brand-200 bg-surface p-5 shadow-card">
+          <h2 className="flex items-center gap-2 text-[15px] font-semibold">
+            <Upload className="h-4 w-4 text-brand-600" /> Start by adding data
+          </h2>
+          <p className="mt-0.5 text-xs text-ink-subtle">
+            Upload a CSV export — events, sign-ups, orders or support tickets. Veyra checks what it contains, then analyses it against
+            this problem.
+          </p>
+          <div className="mt-4">
+            <DataUploader investigationId={inv.id} />
+          </div>
+        </section>
+      )}
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
+        <WhatWeKnow href={tab("findings")} />
+        <WhatWeDontKnow href={tab("research")} />
+      </div>
+
+      {live.run && <NextStepSummary href={tab("next-step")} />}
+
+      {workspace.hypotheses.length > 0 && (
+        <section>
+          <SectionHeader title="Active Hypotheses" href={tab("hypotheses")} linkLabel="All hypotheses" />
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+            {workspace.hypotheses.map((h) => (
+              <HypothesisCard key={h.id} hypothesis={h} compact />
+            ))}
+          </div>
+        </section>
+      )}
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <section className="rounded-xl border border-line bg-surface p-5 shadow-card">
+          <h2 className="text-[15px] font-semibold uppercase tracking-wide">Clarifying questions</h2>
+          <p className="mt-0.5 text-xs text-ink-subtle">
+            {record.questions.length === 0
+              ? "No questions were asked for this investigation."
+              : unanswered
+                ? `${unanswered} unanswered — Veyra treats these as unknowns until you answer them.`
+                : "All answered. You can still change your answers."}
+          </p>
+          {record.questions.length > 0 && <AnswersEditor investigationId={inv.id} questions={record.questions} />}
+        </section>
+
+        <section className="rounded-xl border border-line bg-surface p-5 shadow-card">
+          <h2 className="text-[15px] font-semibold uppercase tracking-wide">Context</h2>
+          <dl className="mt-3 space-y-3 text-[13px]">
+            <ContextItem label="Objective" value={record.objective || "Not given"} />
+            <ContextItem label="What triggered it" value={record.trigger ? triggerLabel(record.trigger) : "Not given"} />
+            <ContextItem label="Outcome wanted" value={record.outcome ? outcomeLabel(record.outcome) : "Not given"} />
+            <ContextItem label="What you already know" value={record.knownContext || "Nothing added"} />
+            <ContextItem label="Data sources named" value={sources.length ? sources.map((d) => d.name).join(", ") : "None"} />
+            {record.attachments.length > 0 && <ContextItem label="Attached" value={record.attachments.join(", ")} />}
+          </dl>
+          <p className="mt-4 flex gap-1.5 text-xs text-ink-faint">
+            <Info className="mt-px h-3.5 w-3.5 shrink-0" /> Live connections to tools come later. For now, upload exports from them as CSV.
+          </p>
+        </section>
+      </div>
+
+      {workspace.plan.methods.length > 0 && <PlanSection />}
+
+      <DeleteInvestigationButton investigationId={inv.id} title={inv.title} />
+    </div>
+  );
+}
+
+function ContextItem({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="text-[11px] font-semibold uppercase tracking-wider text-ink-faint">{label}</dt>
+      <dd className="mt-0.5 whitespace-pre-line text-ink">{value}</dd>
+    </div>
   );
 }

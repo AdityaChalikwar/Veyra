@@ -433,7 +433,8 @@ export type Opportunity = {
   title: string;
   description: string;
   evidenceStrength: EvidenceStrength;
-  impact: Level;
+  /** Absent when nothing in the evidence supports an estimate. */
+  impact?: Level;
   confidence: Confidence;
   assessment: Assessment[];
   /** Solution directions — explored only once the problem is understood. */
@@ -456,7 +457,7 @@ export type NextStep = {
   whyNotBuildYet?: string;
   researchTaskIds: ID[];
   wouldChangeIf: string[];
-  confidence: Confidence;
+  confidence?: Confidence;
   /** Other reasonable next steps, not ranked. */
   alternatives: { type: NextStepType; title: string; why: string }[];
 };
@@ -720,4 +721,16 @@ export type InvestigationWorkspace = {
   /** Suggested changes from analysing new evidence. */
   proposals: EvidenceProposal[];
   notes: InvestigationNote[];
+  /**
+   * The team's own investigation: its saved record and latest completed analysis.
+   * Absent on the sample, whose content is demo data.
+   */
+  live?: LiveInvestigation;
+};
+
+export type LiveInvestigation = {
+  record: InvestigationRecord;
+  dataSources: DataSource[];
+  /** The latest analysis that completed, if any. */
+  run?: AnalysisRunRecord & { result: AnalysisResult };
 };

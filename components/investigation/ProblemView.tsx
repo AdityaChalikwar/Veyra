@@ -3,6 +3,7 @@
 import { ArrowDown, Target } from "lucide-react";
 import { ConfidenceBadge } from "@/components/ui/ConfidenceBadge";
 import { FindingChip } from "./ArtifactChips";
+import { EmptyNote } from "@/components/ui/EmptyNote";
 import { useWorkspace } from "./workspace-context";
 
 /**
@@ -12,12 +13,30 @@ import { useWorkspace } from "./workspace-context";
 export function ProblemView() {
   const { workspace } = useWorkspace();
   const p = workspace.problem;
-  const facets: [string, string][] = [
-    ["Who is affected", p.whoIsAffected],
-    ["What they're trying to do", p.tryingTo],
-    ["What's getting in the way", p.inTheWay],
-    ["Business consequence", p.consequence],
-  ];
+  const facets = (
+    [
+      ["Who is affected", p.whoIsAffected],
+      ["What they're trying to do", p.tryingTo],
+      ["What's getting in the way", p.inTheWay],
+      ["Business consequence", p.consequence],
+    ] as [string, string][]
+  ).filter(([, v]) => v.trim());
+
+  // The team's own investigation before analysis: only the problem as they described it.
+  if (!p.refined) {
+    return (
+      <div className="mt-6 max-w-4xl space-y-4">
+        <section className="rounded-xl border border-line bg-surface p-5 shadow-card">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-faint">The problem as you described it</p>
+          <p className="mt-1 text-lg text-ink">&ldquo;{p.original}&rdquo;</p>
+        </section>
+        <EmptyNote>
+          Veyra refines the problem once it has analysed your data: who is affected, what is in the way and why it matters, each tied to the
+          evidence.
+        </EmptyNote>
+      </div>
+    );
+  }
 
   return (
     <div className="mt-6 max-w-4xl space-y-4">
@@ -57,14 +76,16 @@ export function ProblemView() {
           ))}
         </dl>
 
-        <div className="mt-5 border-t border-line pt-4">
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-ink-faint">Supporting evidence</p>
-          <div className="flex flex-col items-start gap-1.5">
-            {p.findingIds.map((id) => (
-              <FindingChip key={id} id={id} />
-            ))}
+        {p.findingIds.length > 0 && (
+          <div className="mt-5 border-t border-line pt-4">
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-ink-faint">Supporting evidence</p>
+            <div className="flex flex-col items-start gap-1.5">
+              {p.findingIds.map((id) => (
+                <FindingChip key={id} id={id} />
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </section>
 
       <p className="text-xs text-ink-subtle">

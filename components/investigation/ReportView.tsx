@@ -8,6 +8,7 @@ import { cn } from "@/lib/cn";
 import { useHydrated } from "@/lib/store/app-store";
 import { formatDate } from "@/lib/time";
 import type { Hypothesis, ValidationPlan } from "@/lib/types";
+import { ComingNext } from "./ComingNext";
 import { useWorkspace } from "./workspace-context";
 
 /**
@@ -17,11 +18,23 @@ import { useWorkspace } from "./workspace-context";
 export function ReportView() {
   const { workspace, progress } = useWorkspace();
   const mounted = useHydrated();
+  const live = !!workspace.live;
 
   useEffect(() => {
     document.documentElement.classList.add("printing-report");
     return () => document.documentElement.classList.remove("printing-report");
   }, []);
+
+  if (live) {
+    return (
+      <ComingNext title="The report comes with the Decision Brief">
+        <p>
+          A downloadable report of this investigation — problem, evidence, findings, hypotheses, decision — arrives once decisions can be
+          recorded. Everything it will draw on is already in the other tabs.
+        </p>
+      </ComingNext>
+    );
+  }
 
   function download() {
     const previous = document.title;
@@ -199,7 +212,7 @@ function InvestigationReport() {
               <b>Chosen: {chosen.title}.</b> {chosen.description}
             </p>
             <p className="mt-1 text-ink-muted">
-              Potential impact {chosen.impact} · Evidence {chosen.evidenceStrength} · Confidence {chosen.confidence}
+              {chosen.impact && `Potential impact ${chosen.impact} · `}Evidence {chosen.evidenceStrength} · Confidence {chosen.confidence}
             </p>
             {idea && (
               <div className="mt-3 rounded-lg border border-line p-3">

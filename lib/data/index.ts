@@ -19,6 +19,7 @@ import { buildDataSources } from "@/mocks/data-sources";
 import { cache } from "react";
 import { formatRange } from "@/lib/analysis/format";
 import type { AnalysisPack } from "@/lib/analysis/pack";
+import { buildLiveWorkspace } from "./live-workspace";
 import type { AnalysisResult } from "@/lib/analysis/schema";
 import { buildDauWorkspace, dauOpenQuestions } from "@/mocks/dau-investigation";
 import { buildDecisions } from "@/mocks/decisions";
@@ -110,8 +111,17 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type InvestigationRow = Pick<
   Tables<"investigations">,
-  "id" | "title" | "problem" | "topic" | "status" | "confidence" | "is_sample" | "updated_at"
+  "id" | "title" | "problem" | "topic" | "status" | "confidence" | "is_sample" | "updated_at" | "current_stage"
 > & { clarifying_questions: { answer: string }[]; evidence: { count: number }[] };
+
+/** Where an investigation is, in the words the status badge uses, follows its stage. */
+const stageStatus: Record<StageKey, InvestigationStatus> = {
+  problem_definition: "planning",
+  add_data: "investigating",
+  analysis: "investigating",
+  problem_validation: "validating",
+  opportunity_discovery: "opportunity-discovery",
+};
 
 function toSummary(row: InvestigationRow): InvestigationSummary {
   if (row.is_sample) return { ...buildSampleSummary(), id: row.id };
@@ -119,7 +129,7 @@ function toSummary(row: InvestigationRow): InvestigationSummary {
     id: row.id,
     title: row.title,
     topic: row.topic as InvestigationTopic,
-    status: row.status as InvestigationStatus,
+    status: row.status === "completed" ? "completed" : stageStatus[row.current_stage as StageKey],
     problem: row.problem,
     evidenceCount: row.evidence[0]?.count ?? 0,
     hypothesisCount: 0,
@@ -135,7 +145,7 @@ export const listInvestigations = cache(async (): Promise<InvestigationSummary[]
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("investigations")
-    .select("id, title, problem, topic, status, confidence, is_sample, updated_at, clarifying_questions (answer), evidence (count)")
+    .select("id, title, problem, topic, status, confidence, is_sample, updated_at, current_stage, clarifying_questions (answer), evidence (count)")
     .order("updated_at", { ascending: false });
   if (error) throw new Error(`Couldn't load investigations: ${error.message}`);
   // Real investigations first; the sample after them.
@@ -230,13 +240,16 @@ function toAnalysisRun(r: AnalysisRunRow): AnalysisRunRecord {
 }
 
 /**
- * The full workspace (evidence, findings, hypotheses…). Only the sample has one
- * until analysis is stored; for other investigations this returns undefined
- * and the brief page is shown instead.
+ * The full workspace (evidence, findings, hypotheses…). The sample's comes from
+ * the demo content; the team's own is built from what is saved.
  */
 export async function getInvestigationWorkspace(id: string): Promise<InvestigationWorkspace | undefined> {
   const summary = await getInvestigationSummary(id);
-  if (!summary?.isSample) return undefined;
+  if (!summary) return undefined;
+  if (!summary.isSample) {
+    const [record, dataSources] = await Promise.all([getInvestigationRecord(id), listDataSources()]);
+    return record ? buildLiveWorkspace(record, dataSources) : undefined;
+  }
   const ws = buildDauWorkspace(buildEvidence().filter((e) => e.investigationId === SAMPLE_MOCK_ID));
   return { ...ws, investigation: { ...ws.investigation, id: summary.id } };
 }
@@ -368,7 +381,7 @@ export type OpportunitySummary = {
   investigationTitle: string;
   title: string;
   evidenceStrength: EvidenceStrength;
-  impact: Level;
+  impact?: Level;
   confidence: Confidence;
 };
 

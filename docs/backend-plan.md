@@ -26,15 +26,20 @@ next step, validation) and to run analysis over company data, not to host a chat
 
 Every workspace gets a **sample investigation** (DAU Decline): a real row, so it can
 be listed and removed, whose content is the demo in `/mocks` until evidence and
-analysis are stored. Real investigations show a **brief** (problem, context,
-clarifying questions with editable answers, plan) until their data is analysed.
+analysis are stored. Real investigations use the **same workspace** (tabs, progress,
+side panel), built only from saved data by `buildLiveWorkspace` (`lib/data/live-workspace.ts`):
+uploads become evidence, and the latest completed analysis fills findings, hypotheses, open
+questions, the refined problem, opportunities and the next step. Parts not backed by real
+data yet (research, customers & market, validation, notes, report, Ask Veyra) say so
+instead of showing demo content, and simulated actions are hidden.
 
 Stages: each investigation has a `current_stage` and an `investigation_stages` history
 (when each stage started and finished). Only the database moves them, with triggers:
 creating an investigation puts it at **Add data**; the first evidence moves it to
 **Analysis**; removing the last evidence moves it back. Members can read stages but not
 write them, and a direct edit can't change the stage or the sample flag. Title, problem,
-objective, trigger and outcome can be edited from the brief ("Edit details"). New
+objective, trigger and outcome can be edited from the workspace header ("Edit details").
+The status badge follows the stage. New
 investigations start from a blank form.
 
 AI analysis (`lib/analysis/`): `pack.ts` builds the analysis pack from the stored evidence
@@ -47,7 +52,8 @@ findings by reference. `validate.ts` drops anything citing something that doesn'
 Refusals and cut-off answers are stored as their own run statuses and nothing is shown. Each
 run is saved in `analysis_runs` (pack, result, usage), and a completed run moves the
 investigation from Analysis to Problem validation via a trigger. The server action is
-`analyseInvestigation`; the UI is `AnalysisSection` / `AnalysisView` on the brief page.
+`analyseInvestigation`; `AnalysisSection` (Overview and Evidence tabs) runs it and summarises
+the latest result.
 Findings are not yet separate rows: they live in the run's `result`, so accepting or editing
 them individually comes later.
 

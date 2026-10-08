@@ -35,7 +35,7 @@ export default async function OpportunitiesPage() {
               </div>
               <div>
                 <dt className="text-[10.5px] font-semibold uppercase tracking-wider text-ink-faint">Potential impact</dt>
-                <dd className="text-[13px] font-semibold">{levelLabel[o.impact]}</dd>
+                <dd className="text-[13px] font-semibold">{o.impact ? levelLabel[o.impact] : "Not estimated"}</dd>
               </div>
               <div>
                 <dt className="text-[10.5px] font-semibold uppercase tracking-wider text-ink-faint">Confidence</dt>

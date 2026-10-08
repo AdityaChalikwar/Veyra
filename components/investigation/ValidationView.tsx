@@ -7,6 +7,7 @@ import { ConfidenceBadge } from "@/components/ui/ConfidenceBadge";
 import { cn } from "@/lib/cn";
 import { formatRelative } from "@/lib/time";
 import type { ValidationPlan } from "@/lib/types";
+import { ComingNext } from "./ComingNext";
 import { useWorkspace } from "./workspace-context";
 
 const statusStyle = {
@@ -26,6 +27,33 @@ function statusKey(v: ValidationPlan): keyof typeof statusStyle {
 /** For each important hypothesis: what we believe, what would disprove it, and the test that would settle it. */
 export function ValidationView() {
   const { workspace } = useWorkspace();
+  if (workspace.live) {
+    const tests = workspace.hypotheses.filter((h) => h.validationMethod);
+    return (
+      <ComingNext title="Validation tracking comes next">
+        <p>Soon you&rsquo;ll start, track and record the result of each test here. Confirming a hypothesis validates the problem.</p>
+        {tests.length ? (
+          <>
+            <p>Tests Veyra suggested from your data:</p>
+            <ul className="space-y-2">
+              {tests.map((h) => (
+                <li key={h.id} className="rounded-lg border border-line bg-surface px-3.5 py-2.5">
+                  <p className="text-[13.5px] font-medium text-ink">
+                    {h.label}: {h.statement}
+                  </p>
+                  <p className="mt-0.5 text-[13px] text-ink-muted">
+                    <span className="font-medium text-ink">Test:</span> {h.validationMethod}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : (
+          <p>Hypotheses to test appear once your data has been analysed.</p>
+        )}
+      </ComingNext>
+    );
+  }
   return (
     <div className="mt-6">
       <h2 className="text-lg font-semibold">Validation</h2>

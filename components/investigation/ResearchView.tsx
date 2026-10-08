@@ -4,6 +4,7 @@ import { FileText, MessagesSquare, Search } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/Spinner";
 import { ResearchTaskCard } from "./ResearchTaskCard";
+import { ComingNext } from "./ComingNext";
 import { useWorkspace } from "./workspace-context";
 
 /** What the investigation still needs to find out, and how. */
@@ -12,6 +13,29 @@ export function ResearchView() {
   const tasks = [...workspace.researchTasks].sort((a, b) => (a.status === "done" ? 1 : 0) - (b.status === "done" ? 1 : 0));
   const nextRunnable = workspace.researchTasks.find((t) => t.runnable && t.status === "not-started" && t.priority === "high");
   const feedbackDone = workspace.customers.themes.length > 0;
+
+  if (workspace.live) {
+    return (
+      <ComingNext title="Research tools come next">
+        <p>
+          Interview guides, feedback themes and web research will run from here. What still needs finding out is listed below; each answer
+          will come from research or new data.
+        </p>
+        {workspace.openQuestions.length ? (
+          <ul className="space-y-2">
+            {workspace.openQuestions.map((q) => (
+              <li key={q.id} className="rounded-lg border border-line bg-surface px-3.5 py-2.5">
+                <p className="text-[13.5px] font-medium text-ink">{q.question}</p>
+                <p className="mt-0.5 text-[13px] text-ink-muted">{q.whyItMatters}</p>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p>No open questions yet.</p>
+        )}
+      </ComingNext>
+    );
+  }
 
   return (
     <div className="mt-6">

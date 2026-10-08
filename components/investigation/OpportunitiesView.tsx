@@ -9,6 +9,7 @@ import { EvidenceStrengthBadge } from "@/components/ui/EvidenceStrengthBadge";
 import { cn } from "@/lib/cn";
 import { routes } from "@/lib/routes";
 import type { Opportunity } from "@/lib/types";
+import { EmptyNote } from "@/components/ui/EmptyNote";
 import { useWorkspace } from "./workspace-context";
 
 const levelLabel = { low: "Low", medium: "Medium", high: "High" } as const;
@@ -54,6 +55,9 @@ export function OpportunitiesView() {
 
       <section>
         <h2 className="mb-3 text-[15px] font-semibold">Opportunity areas</h2>
+        {workspace.opportunities.length === 0 && (
+          <EmptyNote>Opportunity areas appear here once Veyra has analysed your data and the problem is clearer.</EmptyNote>
+        )}
         <div className="space-y-3">
           {workspace.opportunities.map((o, i) => (
             <OpportunityCard key={o.id} opportunity={o} index={i + 1} chosen={choice?.opportunityId === o.id} />
@@ -66,7 +70,9 @@ export function OpportunitiesView() {
 
 function OpportunityCard({ opportunity: o, index, chosen }: { opportunity: Opportunity; index: number; chosen: boolean }) {
   const [showReasoning, setShowReasoning] = useState(false);
-  const { progress, choice, chooseOpportunity, chooseIdea } = useWorkspace();
+  const { workspace, progress, choice, chooseOpportunity, chooseIdea } = useWorkspace();
+  // Choosing an opportunity is recorded with decisions, which aren't saved for real investigations yet.
+  const canChoose = !workspace.live;
   return (
     <article className={cn("rounded-xl border bg-surface shadow-card", chosen ? "border-2 border-confirmed-600/50" : "border-line")}>
       <div className="p-5">
@@ -77,7 +83,8 @@ function OpportunityCard({ opportunity: o, index, chosen }: { opportunity: Oppor
               <Check className="h-3.5 w-3.5" /> Chosen by the team
             </span>
           ) : (
-            !choice && (
+            !choice &&
+            canChoose && (
               <Button
                 type="button"
                 size="sm"
@@ -102,7 +109,7 @@ function OpportunityCard({ opportunity: o, index, chosen }: { opportunity: Oppor
           </div>
           <div>
             <dt className="text-[10.5px] font-semibold uppercase tracking-wider text-ink-faint">Potential impact</dt>
-            <dd className="text-[13px] font-semibold">{levelLabel[o.impact]}</dd>
+            <dd className="text-[13px] font-semibold">{o.impact ? levelLabel[o.impact] : "Not estimated"}</dd>
           </div>
           <div>
             <dt className="text-[10.5px] font-semibold uppercase tracking-wider text-ink-faint">Confidence</dt>
@@ -111,15 +118,17 @@ function OpportunityCard({ opportunity: o, index, chosen }: { opportunity: Oppor
             </dd>
           </div>
         </dl>
-        <button
-          type="button"
-          onClick={() => setShowReasoning((s) => !s)}
-          aria-expanded={showReasoning}
-          className="mt-4 inline-flex items-center gap-1 text-xs font-medium text-brand-600 hover:text-brand-700"
-        >
-          <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", showReasoning && "rotate-180")} />
-          {showReasoning ? "Hide prioritisation reasoning" : "Show prioritisation reasoning"}
-        </button>
+        {o.assessment.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setShowReasoning((s) => !s)}
+            aria-expanded={showReasoning}
+            className="mt-4 inline-flex items-center gap-1 text-xs font-medium text-brand-600 hover:text-brand-700"
+          >
+            <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", showReasoning && "rotate-180")} />
+            {showReasoning ? "Hide prioritisation reasoning" : "Show prioritisation reasoning"}
+          </button>
+        )}
         {showReasoning && (
           <dl className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {o.assessment.map((a) => (

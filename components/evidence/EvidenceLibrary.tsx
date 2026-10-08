@@ -5,11 +5,13 @@ import { useWorkspace } from "@/components/investigation/workspace-context";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
 import { EvidenceCard } from "./EvidenceCard";
+import { LiveEvidence } from "./LiveEvidence";
 import { categoryAccent, categoryDescription, categoryLabel, categoryOrder } from "./evidence-categories";
 
 /** The Evidence tab: everything the investigation draws on, grouped by provenance, and what relies on it. */
 export function EvidenceLibrary() {
   const { workspace, openDetail, openAddEvidence } = useWorkspace();
+  if (workspace.live) return <LiveEvidence investigationId={workspace.investigation.id} live={workspace.live} />;
   const usage = (id: string) =>
     workspace.findings.filter((f) => f.evidenceIds.includes(id)).length +
     workspace.hypotheses.filter((h) => h.supportingEvidenceIds?.includes(id) || h.contradictingEvidenceIds?.includes(id)).length;

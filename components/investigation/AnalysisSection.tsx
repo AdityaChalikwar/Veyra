@@ -8,13 +8,13 @@ import { Button } from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/Spinner";
 import { formatRelative } from "@/lib/time";
 import type { AnalysisRunRecord, UploadedEvidence } from "@/lib/types";
-import { AnalysisView } from "./AnalysisView";
 
 /** A run still "running" after this long died with its request (matches the server). */
 const STALE_RUN_MS = 10 * 60 * 1000;
 
 /**
- * Runs Veyra's analysis and shows the latest result. Results are stored, so
+ * Runs Veyra's analysis and summarises the latest result (the findings,
+ * hypotheses and the rest have their own tabs). Results are stored, so
  * they're here after a refresh; a run in progress on another tab or after a
  * reload is picked up by checking back every few seconds.
  */
@@ -91,7 +91,22 @@ export function AnalysisSection({ investigationId, runs, uploads }: { investigat
               Your data has changed since this analysis. Analyse again to include it.
             </p>
           )}
-          <AnalysisView run={lastGood} />
+          <p className="text-[14px] leading-relaxed text-ink">{lastGood.result.summary}</p>
+          {lastGood.result.dataLimits.length > 0 && (
+            <>
+              <h3 className="mt-4 text-xs font-semibold uppercase tracking-wider text-ink-faint">What this data can&rsquo;t show</h3>
+              <ul className="mt-1.5 list-disc space-y-1 pl-5 text-[13px] text-ink-muted">
+                {lastGood.result.dataLimits.map((l) => (
+                  <li key={l}>{l}</li>
+                ))}
+              </ul>
+            </>
+          )}
+          <p className="mt-4 text-[13px] text-ink-muted">
+            {lastGood.result.findings.length} findings · {lastGood.result.hypotheses.length} hypotheses ·{" "}
+            {lastGood.result.openQuestions.length} open questions — see the Findings, Hypotheses, Problem and Next Step tabs.
+          </p>
+
         </div>
       ) : (
         !running && (

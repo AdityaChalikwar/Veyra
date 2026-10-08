@@ -65,16 +65,18 @@ export function HypothesisDetail({ id }: { id: string }) {
           <p className="text-[13px] text-ink-faint">Nothing contradicts this so far.</p>
         )}
       </Block>
-      <Block title="Open questions">
-        <ul className="space-y-1.5">
-          {h.openQuestions.map((q) => (
-            <li key={q} className="flex gap-2 rounded-lg border border-dashed border-line-strong px-3 py-2 text-[13px]">
-              <CircleHelp className="mt-0.5 h-4 w-4 shrink-0 text-ink-faint" />
-              {q}
-            </li>
-          ))}
-        </ul>
-      </Block>
+      {h.openQuestions.length > 0 && (
+        <Block title="Open questions">
+          <ul className="space-y-1.5">
+            {h.openQuestions.map((q) => (
+              <li key={q} className="flex gap-2 rounded-lg border border-dashed border-line-strong px-3 py-2 text-[13px]">
+                <CircleHelp className="mt-0.5 h-4 w-4 shrink-0 text-ink-faint" />
+                {q}
+              </li>
+            ))}
+          </ul>
+        </Block>
+      )}
       <Block title="Recommended validation">
         <p className="flex gap-2 text-[13px] leading-relaxed text-ink">
           <FlaskConical className="mt-0.5 h-4 w-4 shrink-0 text-brand-600" />

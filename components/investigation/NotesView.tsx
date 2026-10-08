@@ -4,11 +4,19 @@ import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { textareaClass } from "@/components/ui/Field";
 import { formatRelative } from "@/lib/time";
+import { ComingNext } from "./ComingNext";
 import { useWorkspace } from "./workspace-context";
 
 export function NotesView() {
   const { workspace, addNote } = useWorkspace();
   const [text, setText] = useState("");
+  if (workspace.live) {
+    return (
+      <ComingNext title="Notes come next">
+        <p>Team notes will be saved here. Until then, add context with Edit details, or answer the clarifying questions on the Overview.</p>
+      </ComingNext>
+    );
+  }
 
   function submit(e: React.FormEvent) {
     e.preventDefault();

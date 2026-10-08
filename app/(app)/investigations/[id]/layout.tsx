@@ -1,12 +1,12 @@
 import { notFound } from "next/navigation";
-import { InvestigationBrief } from "@/components/investigation/InvestigationBrief";
+import { EditInvestigationButton } from "@/components/investigation/EditInvestigationButton";
 import { InvestigationHeader } from "@/components/investigation/InvestigationHeader";
 import { SampleBanner } from "@/components/investigation/SampleBanner";
 import { ShareButton } from "@/components/investigation/ShareButton";
 import { SuggestionsBanner } from "@/components/investigation/SuggestionsBanner";
 import { SidePanelToggles, WorkspaceFrame } from "@/components/investigation/WorkspaceFrame";
 import { WorkspaceTabs } from "@/components/investigation/WorkspaceTabs";
-import { getInvestigationRecord, getInvestigationSummary, getInvestigationWorkspace, listDataSources } from "@/lib/data";
+import { getInvestigationSummary, getInvestigationWorkspace } from "@/lib/data";
 
 /** Analysis runs as a server action from this page; a long Claude answer needs more than the default time. */
 export const maxDuration = 300;
@@ -28,24 +28,31 @@ export default async function InvestigationLayout({
   const summary = await getInvestigationSummary(id);
   if (!summary) notFound();
 
-  // Until its data is analysed, an investigation is its brief: problem, answers and plan.
-  if (!summary.isSample) {
-    const [record, dataSources] = await Promise.all([getInvestigationRecord(id), listDataSources()]);
-    if (!record) notFound();
-    return <InvestigationBrief record={record} dataSources={dataSources} />;
-  }
-
   const workspace = await getInvestigationWorkspace(id);
   if (!workspace) notFound();
+  const live = workspace.live;
 
   return (
     <WorkspaceFrame workspace={workspace}>
-      <SampleBanner investigationId={id} />
+      {live ? null : <SampleBanner investigationId={id} />}
       <InvestigationHeader
         actions={
           <>
             <SidePanelToggles />
-            <ShareButton />
+            {live ? (
+              <EditInvestigationButton
+                investigationId={id}
+                initial={{
+                  title: summary.title,
+                  problem: summary.problem,
+                  objective: live.record.objective,
+                  trigger: live.record.trigger,
+                  outcome: live.record.outcome,
+                }}
+              />
+            ) : (
+              <ShareButton />
+            )}
           </>
         }
       />

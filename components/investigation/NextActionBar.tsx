@@ -20,7 +20,22 @@ export function NextActionBar() {
   let text: string;
   let cta: string;
   let tab: string;
-  if (progress.complete) {
+  const live = workspace.live;
+  if (live) {
+    if (!workspace.evidence.length) {
+      text = "Add data: upload a CSV export, such as events, sign-ups, orders or support tickets.";
+      cta = "Upload data";
+      tab = "evidence";
+    } else if (!live.run) {
+      text = "Analyse your data to turn it into findings, hypotheses and a recommended next step.";
+      cta = "Go to Evidence";
+      tab = "evidence";
+    } else {
+      text = "Review what the data shows and the hypotheses that might explain it. Validating them comes next.";
+      cta = "Review findings";
+      tab = "findings";
+    }
+  } else if (progress.complete) {
     const o = workspace.opportunities.find((x) => x.id === choice?.opportunityId);
     text = `Investigation complete. The team chose to pursue “${o?.title}”.`;
     cta = "View report";

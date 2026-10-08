@@ -1,6 +1,7 @@
 "use client";
 
 import { Files, MessageSquare } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 import { AiAssistant } from "@/components/assistant/AiAssistant";
 import { AddEvidenceModal } from "@/components/evidence/AddEvidenceModal";
@@ -10,6 +11,7 @@ import { EvidencePanel } from "@/components/evidence/EvidencePanel";
 import { Button } from "@/components/ui/Button";
 import { Drawer } from "@/components/ui/Drawer";
 import { cn } from "@/lib/cn";
+import { routes } from "@/lib/routes";
 import { askVeyra } from "@/lib/data/assistant";
 import { analyseEvidence, reviewProposal } from "@/lib/data/evidence";
 import { analyseExistingFeedback, runResearchTask } from "@/lib/data/research";
@@ -61,6 +63,8 @@ const now = () => new Date().toISOString();
 export function WorkspaceFrame({ workspace: initial, children }: { workspace: InvestigationWorkspace; children: React.ReactNode }) {
   const investigationId = initial.investigation.id;
   const { user } = useSession();
+  const router = useRouter();
+  const live = !!initial.live;
 
   const [evidence, setEvidence] = useState<EvidenceItem[]>(initial.evidence);
   const [findings, setFindings] = useState<Finding[]>(initial.findings);
@@ -281,30 +285,35 @@ export function WorkspaceFrame({ workspace: initial, children }: { workspace: In
 
   const progress = useMemo(() => deriveProgress(initial.stages, { market, validations, hypotheses, choice }), [initial.stages, market, validations, hypotheses, choice]);
 
+  // The team's own investigation shows what is saved, as it arrives from the server;
+  // only the sample keeps its simulated changes in the browser.
   const workspace = useMemo<InvestigationWorkspace>(
-    () => ({
-      ...initial,
-      investigation: {
-        ...initial.investigation,
-        status: progress.status,
-        confidence: progress.problemValidated ? "high" : initial.investigation.confidence,
-        evidenceCount: evidence.length,
-        openQuestionCount: openQuestions.filter((q) => !q.answeredByFindingId).length,
-      },
-      stages: progress.stages,
-      problem: progress.problemValidated ? { ...initial.problem, confidence: "high" } : initial.problem,
-      evidence,
-      findings,
-      hypotheses,
-      openQuestions,
-      researchTasks,
-      customers,
-      market,
-      validations,
-      proposals,
-      notes,
-      conversation: messages,
-    }),
+    () =>
+      initial.live
+        ? initial
+        : {
+            ...initial,
+            investigation: {
+              ...initial.investigation,
+              status: progress.status,
+              confidence: progress.problemValidated ? "high" : initial.investigation.confidence,
+              evidenceCount: evidence.length,
+              openQuestionCount: openQuestions.filter((q) => !q.answeredByFindingId).length,
+            },
+            stages: progress.stages,
+            problem: progress.problemValidated ? { ...initial.problem, confidence: "high" } : initial.problem,
+            evidence,
+            findings,
+            hypotheses,
+            openQuestions,
+            researchTasks,
+            customers,
+            market,
+            validations,
+            proposals,
+            notes,
+            conversation: messages,
+          },
     [initial, progress, evidence, findings, hypotheses, openQuestions, researchTasks, customers, market, validations, proposals, notes, messages],
   );
 
@@ -312,7 +321,8 @@ export function WorkspaceFrame({ workspace: initial, children }: { workspace: In
     () => ({
       workspace,
       openDetail: setDetail,
-      openAddEvidence: () => setAddOpen(true),
+      // The team's own evidence is uploaded on the Evidence tab; the modal only simulates adding it.
+      openAddEvidence: live ? () => router.push(routes.investigation(investigationId, "evidence")) : () => setAddOpen(true),
       addEvidence,
       openSide,
       sendMessage,
@@ -336,6 +346,9 @@ export function WorkspaceFrame({ workspace: initial, children }: { workspace: In
     }),
     [
       workspace,
+      live,
+      router,
+      investigationId,
       addEvidence,
       openSide,
       sendMessage,
@@ -473,6 +486,14 @@ function SidePanel({
               onSelect={(item) => openDetail({ type: "evidence", id: item.id })}
               onAdd={openAddEvidence}
             />
+          </div>
+        ) : workspace.live ? (
+          <div className="px-5 py-6 text-[13px] text-ink-muted">
+            <p className="font-medium text-ink">Ask Veyra comes later.</p>
+            <p className="mt-1">
+              You&rsquo;ll be able to ask questions about this investigation and get answers that link back to its evidence, findings and
+              hypotheses — and that say so when the evidence can&rsquo;t answer.
+            </p>
           </div>
         ) : (
           <AiAssistant onNavigate={onNavigate} />
