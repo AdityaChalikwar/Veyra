@@ -1,9 +1,8 @@
-import { Activity, Filter, TrendingDown, Users, UsersRound } from "lucide-react";
-import { ProgressBar } from "@/components/ui/ProgressBar";
+import { Filter, Files, Repeat, TrendingDown, Users } from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { Kpi } from "@/lib/types";
 
-const icons = { users: Users, funnel: Filter, segment: UsersRound, status: Activity };
+const icons = { users: Users, funnel: Filter, retention: Repeat, evidence: Files };
 
 export function KpiCard({ kpi }: { kpi: Kpi }) {
   const Icon = icons[kpi.icon];
@@ -13,7 +12,7 @@ export function KpiCard({ kpi }: { kpi: Kpi }) {
       <span
         className={cn(
           "grid h-9 w-9 shrink-0 place-items-center rounded-lg",
-          decline ? "bg-danger-50 text-danger-600" : "bg-brand-50 text-brand-600",
+          decline ? "bg-danger-50 text-danger-600" : kpi.kind === "stable" ? "bg-confirmed-50 text-confirmed-600" : "bg-brand-50 text-brand-600",
         )}
       >
         <Icon className="h-[18px] w-[18px]" />
@@ -25,7 +24,6 @@ export function KpiCard({ kpi }: { kpi: Kpi }) {
           {decline && <TrendingDown className="h-4 w-4 shrink-0 text-danger-600" aria-label="Decline" />}
         </p>
         <p className="mt-0.5 truncate text-xs text-ink-subtle">{kpi.detail}</p>
-        {kpi.progress !== undefined && <ProgressBar value={kpi.progress} label={kpi.label} className="mt-2" />}
       </div>
     </div>
   );

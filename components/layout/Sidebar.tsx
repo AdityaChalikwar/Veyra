@@ -5,29 +5,59 @@ import {
   Brain,
   Building2,
   Database,
+  FlaskConical,
+  FolderSearch,
   Home,
+  Lightbulb,
   ListChecks,
   Plus,
-  Settings,
+  Target,
+  UsersRound,
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Logo } from "@/components/brand/Logo";
-import { TopicIcon } from "@/components/investigation/TopicIcon";
 import { statusLabel } from "@/components/ui/StatusBadge";
 import { cn } from "@/lib/cn";
 import { routes } from "@/lib/routes";
 import type { InvestigationSummary } from "@/lib/types";
 import { UserMenu } from "./UserMenu";
 
-const workspaceLinks: { href: string; label: string; icon: LucideIcon }[] = [
-  { href: routes.context, label: "Business Context", icon: Building2 },
-  { href: routes.dataSources, label: "Data Sources", icon: Database },
-  { href: routes.research, label: "Research Library", icon: BookOpen },
-  { href: routes.decisions, label: "Decision Log", icon: ListChecks },
-  { href: routes.memory, label: "Business Memory", icon: Brain },
-  { href: routes.settings, label: "Settings", icon: Settings },
+type NavItem = { href: string; label: string; icon: LucideIcon };
+
+/** Navigation follows the discovery loop: discover → understand → decide → learn, on top of data. */
+const groups: { label: string; items: NavItem[] }[] = [
+  {
+    label: "Discover",
+    items: [
+      { href: routes.investigations, label: "Investigations", icon: FolderSearch },
+      { href: routes.research, label: "Research", icon: BookOpen },
+      { href: routes.customers, label: "Customers", icon: UsersRound },
+    ],
+  },
+  {
+    label: "Understand",
+    items: [
+      { href: routes.problems, label: "Problems", icon: Target },
+      { href: routes.opportunities, label: "Opportunities", icon: Lightbulb },
+    ],
+  },
+  { label: "Decide", items: [{ href: routes.decisions, label: "Decisions", icon: ListChecks }] },
+  {
+    label: "Learn",
+    items: [
+      { href: routes.validation, label: "Validation", icon: FlaskConical },
+      { href: routes.memory, label: "Business Memory", icon: Brain },
+    ],
+  },
+  {
+    label: "Data",
+    items: [
+      { href: routes.dataSources, label: "Data Sources", icon: Database },
+      { href: routes.context, label: "Business Context", icon: Building2 },
+    ],
+  },
 ];
 
 type Props = {
@@ -38,9 +68,7 @@ type Props = {
 
 export function Sidebar({ investigations, onNavigate }: Props) {
   const pathname = usePathname();
-  const active = investigations.filter((i) => i.status !== "completed");
-  const completed = investigations.filter((i) => i.status === "completed");
-
+  const active = investigations.filter((i) => i.status !== "completed").slice(0, 4);
   const isCurrent = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
   return (
@@ -51,47 +79,55 @@ export function Sidebar({ investigations, onNavigate }: Props) {
 
       <div className="flex-1 overflow-y-auto px-3 pb-4">
         <NavLink href={routes.dashboard} icon={Home} label="Home" current={pathname === routes.dashboard} onNavigate={onNavigate} />
-
         <Link
           href={routes.newInvestigation}
           onClick={onNavigate}
-          className="mt-3 flex h-10 items-center justify-center gap-2 rounded-lg bg-brand-600 text-sm font-medium text-white shadow-sm transition-colors hover:bg-brand-500"
+          className="mt-2 flex h-9 items-center justify-center gap-2 rounded-lg bg-brand-600 text-sm font-medium text-white shadow-sm transition-colors hover:bg-brand-500"
         >
           <Plus className="h-4 w-4" /> New Investigation
         </Link>
 
-        <p className="mt-5 px-2 text-[13px] font-semibold text-white">Investigations</p>
-        <GroupLabel>Active</GroupLabel>
-        <ul className="space-y-0.5">
-          {active.map((inv) => (
-            <InvestigationLink
-              key={inv.id}
-              investigation={inv}
-              current={isCurrent(routes.investigation(inv.id))}
-              onNavigate={onNavigate}
-            />
-          ))}
-        </ul>
-        <GroupLabel>Completed</GroupLabel>
-        <ul className="space-y-0.5">
-          {completed.map((inv) => (
-            <InvestigationLink
-              key={inv.id}
-              investigation={inv}
-              current={isCurrent(routes.investigation(inv.id))}
-              onNavigate={onNavigate}
-            />
-          ))}
-        </ul>
-
-        <div className="my-3 border-t border-navy-700/70" />
-        <ul className="space-y-0.5">
-          {workspaceLinks.map((l) => (
-            <li key={l.href}>
-              <NavLink {...l} current={isCurrent(l.href)} onNavigate={onNavigate} />
-            </li>
-          ))}
-        </ul>
+        {groups.map((group) => (
+          <div key={group.label} className="mt-4">
+            <p className="mb-1 px-2.5 text-[10.5px] font-semibold uppercase tracking-wider text-navy-300/80">{group.label}</p>
+            <ul className="space-y-0.5">
+              {group.items.map((item) => (
+                <li key={item.href}>
+                  <NavLink
+                    {...item}
+                    current={item.href === routes.investigations ? pathname === routes.investigations : isCurrent(item.href)}
+                    onNavigate={onNavigate}
+                  />
+                  {item.href === routes.investigations && (
+                    <ul className="ml-[21px] mt-0.5 space-y-0.5 border-l border-navy-700 pl-2">
+                      {active.map((inv) => {
+                        const current = isCurrent(routes.investigation(inv.id));
+                        return (
+                          <li key={inv.id}>
+                            <Link
+                              href={routes.investigation(inv.id)}
+                              onClick={onNavigate}
+                              aria-current={current ? "page" : undefined}
+                              className={cn(
+                                "block rounded-md px-2 py-1 transition-colors",
+                                current ? "bg-navy-700 text-white" : "hover:bg-navy-800 hover:text-white",
+                              )}
+                            >
+                              <span className="block truncate text-[13px] text-white">{inv.title}</span>
+                              <span className="block truncate text-[11px] text-navy-300">
+                                {inv.isSample ? `Sample · ${statusLabel[inv.status]}` : statusLabel[inv.status]}
+                              </span>
+                            </Link>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
       </div>
 
       <div className="shrink-0 border-t border-navy-700/70 p-3">
@@ -99,10 +135,6 @@ export function Sidebar({ investigations, onNavigate }: Props) {
       </div>
     </div>
   );
-}
-
-function GroupLabel({ children }: { children: React.ReactNode }) {
-  return <p className="mb-1 mt-2.5 px-2 text-[11px] font-medium uppercase tracking-wider text-navy-300/80">{children}</p>;
 }
 
 function NavLink({
@@ -128,46 +160,8 @@ function NavLink({
         current ? "bg-navy-700 text-white" : "hover:bg-navy-800 hover:text-white",
       )}
     >
-      <Icon className="h-[18px] w-[18px] shrink-0" />
+      <Icon className="h-[17px] w-[17px] shrink-0" />
       {label}
     </Link>
-  );
-}
-
-function InvestigationLink({
-  investigation: inv,
-  current,
-  onNavigate,
-}: {
-  investigation: InvestigationSummary;
-  current: boolean;
-  onNavigate?: () => void;
-}) {
-  const meta = inv.status === "completed" ? statusLabel.completed : `${statusLabel[inv.status]} · ${inv.progress}%`;
-  return (
-    <li>
-      <Link
-        href={routes.investigation(inv.id)}
-        onClick={onNavigate}
-        aria-current={current ? "page" : undefined}
-        className={cn(
-          "flex items-center gap-3 rounded-lg px-2.5 py-1.5 transition-colors",
-          current ? "bg-navy-700" : "hover:bg-navy-800",
-        )}
-      >
-        <span
-          className={cn(
-            "grid h-7 w-7 shrink-0 place-items-center rounded-md",
-            current ? "bg-brand-600 text-white" : "bg-navy-800 text-navy-300",
-          )}
-        >
-          <TopicIcon topic={inv.topic} className="h-3.5 w-3.5" />
-        </span>
-        <span className="min-w-0">
-          <span className="block truncate text-[13.5px] font-medium text-white">{inv.title}</span>
-          <span className="block truncate text-xs text-navy-300">{meta}</span>
-        </span>
-      </Link>
-    </li>
   );
 }

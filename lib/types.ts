@@ -1,30 +1,46 @@
 /**
  * Domain types shared by the UI and the data layer.
  * The mock layer (`/mocks`) and, later, the real backend must both satisfy these.
+ *
+ * Veyra's core object is the investigation: a product or business problem worked
+ * through evidence → findings → hypotheses → problem definition → opportunities →
+ * next step → validation → learning. Types below follow that order.
  */
 
 export type ID = string;
 
-/** What kind of claim a piece of content represents. Never blur these. */
-export type ArtifactKind = "fact" | "finding" | "hypothesis" | "recommendation" | "unknown";
+/**
+ * What kind of claim a piece of content represents. Never blur these.
+ * observation = what the data directly shows; interpretation = what it may mean;
+ * insight = a pattern across several sources; hypothesis = a possible explanation
+ * to test; recommendation = a suggested action; unknown / open question = a gap.
+ */
+export type ArtifactKind =
+  | "fact"
+  | "observation"
+  | "interpretation"
+  | "insight"
+  | "finding"
+  | "hypothesis"
+  | "recommendation"
+  | "unknown"
+  | "open-question";
 
 export type Confidence = "low" | "low-medium" | "medium" | "medium-high" | "high";
 
+/** How much evidence stands behind something — separate from how confident we are. */
+export type EvidenceStrength = "weak" | "moderate" | "strong";
+
 export type Level = "low" | "medium" | "high";
 
-export type InvestigationStage =
-  | "setup"
-  | "evidence"
-  | "analysis"
-  | "diagnosis"
-  | "recommendation"
-  | "action";
-
+/** Where a product-discovery investigation currently is. */
 export type InvestigationStatus =
   | "planning"
   | "investigating"
-  | "diagnosing"
-  | "recommendation"
+  | "customer-research"
+  | "problem-definition"
+  | "opportunity-discovery"
+  | "validating"
   | "completed";
 
 export type User = {
@@ -45,6 +61,7 @@ export type Industry =
 
 export type CompanySize = "1–10" | "11–50" | "51–200" | "201–500" | "500+";
 
+/** The basic profile captured during onboarding. */
 export type Company = {
   id: ID;
   name: string;
@@ -53,33 +70,63 @@ export type Company = {
   size: CompanySize;
 };
 
+/** Persistent business context, reused by every investigation. */
 export type BusinessContext = {
+  company: string;
   product: string;
   businessModel: string;
-  timePeriod: string;
+  targetCustomers: string;
+  goals: string[];
+  priorities: string[];
+  keyMetrics: string[];
 };
 
-/** Broad problem area. Drives the icon shown next to an investigation. */
-export type InvestigationTopic = "engagement" | "revenue" | "retention" | "market" | "pricing" | "adoption";
+export type InvestigationTopic =
+  | "engagement"
+  | "revenue"
+  | "retention"
+  | "market"
+  | "pricing"
+  | "adoption"
+  | "onboarding"
+  | "operations";
 
 export type InvestigationSummary = {
   id: ID;
   title: string;
   topic: InvestigationTopic;
   status: InvestigationStatus;
-  stage: InvestigationStage;
-  progress: number; // 0–100
-  headline: string;
+  /** The problem as currently understood (refined if it has been). */
+  problem: string;
+  evidenceCount: number;
+  hypothesisCount: number;
+  openQuestionCount: number;
+  confidence: Confidence;
   updatedAt: string; // ISO
+  /** The read-only demo investigation every workspace starts with. */
+  isSample?: boolean;
 };
 
-export type Investigation = InvestigationSummary & {
-  problem: string;
-  goal: string;
-  subtitle: string;
-  context: BusinessContext;
-  createdAt: string; // ISO
-};
+/* ── Starting an investigation ───────────────────────────────────────── */
+
+export type InvestigationTrigger =
+  | "metric-changed"
+  | "customer-feedback"
+  | "stakeholder-request"
+  | "market-opportunity"
+  | "competitive-pressure"
+  | "product-idea"
+  | "other";
+
+export type InvestigationOutcome =
+  | "understand-change"
+  | "identify-customer-problem"
+  | "find-opportunities"
+  | "evaluate-market"
+  | "validate-idea"
+  | "improve-product"
+  | "decide-what-next"
+  | "other";
 
 export type ClarifyingQuestion = {
   id: ID;
@@ -92,33 +139,123 @@ export type ClarifyingQuestion = {
   hint?: string;
 };
 
+/** A method Veyra chose (or deliberately didn't) for this investigation. */
+export type PlannedMethod = {
+  id: ID;
+  name: string;
+  why: string;
+  /** Data sources or evidence the method uses. */
+  uses?: string[];
+  status?: "done" | "in-progress" | "planned";
+};
+
+export type InvestigationPlan = {
+  summary: string;
+  methods: PlannedMethod[];
+  /** Methods Veyra considered and left out, and why — shows the plan is adaptive. */
+  notUsed: { name: string; why: string }[];
+};
+
 /** A new investigation before it's created. */
 export type InvestigationDraft = {
   problem: string;
-  goal: string;
-  context: BusinessContext;
+  /** What the team wants to achieve or decide, in their own words. Optional. */
+  objective?: string;
+  trigger: InvestigationTrigger | null;
+  outcome: InvestigationOutcome | null;
+  /** What the team already knows, in their words. */
+  knownContext: string;
+  /** Names of files, links or research attached at the start. */
+  attachments: string[];
+  /** Data sources Veyra may use. */
+  dataSourceIds: ID[];
   /** Cached once generated, so going back and forth keeps edited answers. */
   questions?: ClarifyingQuestion[];
+  plan?: InvestigationPlan;
 };
 
-export type EvidenceCategory = "company-data" | "research" | "notes" | "other";
+/* ── Evidence ────────────────────────────────────────────────────────── */
+
+/**
+ * Evidence provenance, in order of the evidence hierarchy. Kept visibly distinct:
+ * company data and customer evidence are first-party; public research is weakest.
+ */
+export type EvidenceCategory = "company-data" | "customer-evidence" | "uploaded-research" | "public-research" | "notes";
+
+export type EvidenceFormat = "csv" | "xlsx" | "pdf" | "doc" | "link" | "text" | "dataset";
 
 export type EvidenceItem = {
   id: ID;
   investigationId: ID;
   name: string;
   category: EvidenceCategory;
-  source: string; // e.g. "Product Analytics"
-  coverage?: string; // e.g. "Jan – Aug 2026"
+  /** The system or origin, e.g. "Product Analytics", "ERP", "Uploaded by you". */
+  source: string;
+  /** Dataset or report within the source, e.g. "Activation funnel". */
+  dataset?: string;
+  /** Period the evidence covers, e.g. "1 Aug – 30 Sep 2026". */
+  coverage?: string;
   format: EvidenceFormat;
   addedAt: string; // ISO
   description?: string;
   url?: string;
-  /** A few rows so people can see what the file contains. */
+  /** A few rows so people can see what the data contains. */
   preview?: { columns: string[]; rows: (string | number)[][] };
   /** Present for evidence added during the investigation; absent means already analysed. */
   analysis?: EvidenceAnalysis;
+  /** Shown on public research: what limits its reliability. */
+  qualityNote?: string;
 };
+
+/* ── Uploaded data ─────────────────────────────────────────────────────── */
+
+export type ColumnType = "number" | "date" | "boolean" | "category" | "identifier" | "text" | "empty";
+
+/** One column of an uploaded dataset, described by code (not AI). */
+export type ColumnProfile = {
+  name: string;
+  type: ColumnType;
+  /** Rows with a value in this column. */
+  filled: number;
+  /** Different values seen (counting stops at 10,000). */
+  distinct: number;
+  number?: { min: number; max: number; mean: number; median: number; sum: number };
+  date?: { from: string; to: string }; // ISO dates
+  /** Most common values, for categories and yes/no columns. */
+  top?: { value: string; count: number }[];
+};
+
+/** What an uploaded CSV contains. Every number here is computed in code. */
+export type DatasetProfile = {
+  rowCount: number;
+  columnCount: number;
+  columns: ColumnProfile[];
+  /** The date column used for the period the data covers, if any. */
+  dateColumn?: string;
+  dateRange?: { from: string; to: string };
+  /** Problems worth knowing before trusting the numbers. */
+  issues: string[];
+  preview: { columns: string[]; rows: string[][] };
+  /** True when only the first rows were read (very large files). */
+  truncated: boolean;
+};
+
+/** An uploaded file and, once processed, the evidence made from it. */
+export type UploadedEvidence = {
+  fileId: ID;
+  evidenceId?: ID;
+  name: string;
+  sizeBytes: number;
+  status: "uploading" | "processing" | "ready" | "failed";
+  error?: string;
+  summary?: string;
+  coverage?: string;
+  profile?: DatasetProfile;
+  addedAt: string; // ISO
+};
+
+/** Evidence as listed outside its investigation (e.g. on the dashboard). */
+export type EvidenceWithContext = EvidenceItem & { investigationTitle: string };
 
 export type EvidenceAnalysis = {
   status: "analysing" | "analysed";
@@ -134,28 +271,33 @@ export type EvidenceProposal = {
   id: ID;
   investigationId: ID;
   evidenceId: ID;
-  action: "supports-hypothesis" | "supports-finding";
+  action: "supports-hypothesis" | "contradicts-hypothesis" | "supports-finding";
   targetId: ID;
   summary: string;
   status: "pending" | "accepted" | "dismissed";
 };
 
-export type EvidenceFormat = "csv" | "xlsx" | "pdf" | "doc" | "link" | "text";
+/** How a piece of evidence relates to a claim. */
+export type EvidenceRole = "supporting" | "contradicting" | "unknown" | "requires-validation";
 
-/** Evidence as listed outside its investigation (e.g. on the dashboard). */
-export type EvidenceWithContext = EvidenceItem & { investigationTitle: string };
+/* ── Findings, questions, hypotheses ─────────────────────────────────── */
 
 /** One step in how Veyra reached a conclusion — shown when someone asks "Why?". */
 export type TrailStep = { text: string; evidenceId?: ID };
 
+export type FindingKind = "observation" | "interpretation" | "insight";
+
 export type Finding = {
   id: ID;
   investigationId: ID;
+  kind: FindingKind;
   statement: string;
   confidence: Confidence;
   /** Why the confidence is what it is. */
   confidenceReason: string;
   evidenceIds: ID[];
+  /** For interpretations and insights: the observations they build on. */
+  basedOnFindingIds?: ID[];
   detail?: {
     metricLabel: string;
     before: { label: string; value: string };
@@ -168,58 +310,190 @@ export type Finding = {
   trail: TrailStep[];
 };
 
+/** Something important Veyra doesn't know yet. */
+export type OpenQuestion = {
+  id: ID;
+  investigationId: ID;
+  question: string;
+  whyItMatters: string;
+  /** The research task that would answer it. */
+  researchTaskId?: ID;
+  /** Set once research answers it. */
+  answeredByFindingId?: ID;
+};
+
 export type Hypothesis = {
   id: ID;
   investigationId: ID;
+  /** Short reference, e.g. "H1". */
+  label: string;
   statement: string;
   confidence: Confidence;
+  evidenceStrength: EvidenceStrength;
   rationale: string;
   supportingFindingIds: ID[];
   contradictingFindingIds: ID[];
   /** Evidence linked directly (e.g. accepted from a suggestion). */
   supportingEvidenceIds?: ID[];
-  /** What would confirm or rule it out. */
-  nextTest?: string;
+  contradictingEvidenceIds?: ID[];
+  openQuestions: string[];
+  /** How Veyra suggests testing it. */
+  validationMethod: string;
+  /** Set once a validation settles it. Untested hypotheses stay "open". */
+  status?: "open" | "confirmed" | "rejected";
 };
 
-export type DiagnosisItem = { text: string; findingIds?: ID[]; evidenceIds?: ID[] };
+/* ── Research, customers, market ─────────────────────────────────────── */
 
-export type Diagnosis = {
+export type ResearchMethod =
+  | "Analytics"
+  | "Product analytics"
+  | "Customer interviews"
+  | "Feedback analysis"
+  | "Usability testing"
+  | "Survey"
+  | "Competitor research"
+  | "Market research";
+
+export type ResearchTask = {
+  id: ID;
   investigationId: ID;
+  title: string;
+  /** The question this research answers. */
+  question: string;
+  method: ResearchMethod;
+  priority: Level;
+  status: "not-started" | "in-progress" | "done";
+  /** Whether Veyra can run it against connected data (vs. needing people). */
+  runnable: boolean;
+  /** Filled in once the task has produced a result. */
+  result?: string;
+};
+
+/** A customer-understanding tool and whether it fits this investigation right now. */
+export type CustomerTool = {
+  id: ID;
+  name: string;
+  status: "used" | "recommended" | "later" | "not-relevant";
+  reason: string;
+};
+
+export type FeedbackTheme = { theme: string; mentions: number; example: string };
+
+export type CustomerSegment = { name: string; description: string; metric: string };
+
+export type CustomerUnderstanding = {
+  segments: CustomerSegment[];
+  themes: FeedbackTheme[];
+  tools: CustomerTool[];
+};
+
+export type MarketContext = {
+  status: "not-started" | "in-progress" | "done";
   summary: string;
-  known: DiagnosisItem[];
-  suspected: DiagnosisItem[];
-  unknown: DiagnosisItem[];
-  evidenceGaps: (DiagnosisItem & { howToClose: string })[];
 };
 
-export type Recommendation = {
-  id: ID;
-  investigationId: ID;
-  title: string;
-  rationale: string;
-  impact: Level;
-  effort: Level;
-  risk: Level;
+/* ── Problem, opportunities, ideas ───────────────────────────────────── */
+
+/** The problem, refined by evidence. Always a problem — never a solution. */
+export type ProblemStatement = {
+  original: string;
+  whatEvidenceSuggests: string;
+  refined: string;
+  whoIsAffected: string;
+  tryingTo: string;
+  inTheWay: string;
+  consequence: string;
   confidence: Confidence;
-  supportingFindingIds: ID[];
-  wouldChangeIf: string[];
-  isPrimary: boolean;
+  findingIds: ID[];
 };
 
-export type ActionStatus = "not-started" | "in-progress" | "done" | "blocked";
+export type Assessment = {
+  criterion: "Impact" | "Evidence strength" | "Confidence" | "Effort" | "Strategic alignment" | "Customer value";
+  rating: string;
+  reasoning: string;
+};
 
-export type ActionItem = {
+export type SolutionIdea = {
+  id: ID;
+  title: string;
+  problemAddressed: string;
+  evidence: string;
+  expectedImpact: Level;
+  assumptions: string[];
+  risks: string[];
+};
+
+/** An area worth solving for. Not a feature. */
+export type Opportunity = {
   id: ID;
   investigationId: ID;
-  week: number;
   title: string;
-  owner: string;
-  status: ActionStatus;
-  expectedOutcome: string;
-  measurement: string;
-  /** What this step is for, in a sentence. */
-  detail?: string;
+  description: string;
+  evidenceStrength: EvidenceStrength;
+  impact: Level;
+  confidence: Confidence;
+  assessment: Assessment[];
+  /** Solution directions — explored only once the problem is understood. */
+  ideas: SolutionIdea[];
+};
+
+/* ── Next step, validation, decisions ────────────────────────────────── */
+
+export type NextStepType = "research" | "analysis" | "validation" | "solution-exploration" | "hold";
+
+/** What Veyra suggests doing next. Often research or validation, not "build X". */
+export type NextStep = {
+  id: ID;
+  investigationId: ID;
+  type: NextStepType;
+  title: string;
+  detail: string;
+  why: string;
+  /** Why Veyra isn't recommending building something yet (when it isn't). */
+  whyNotBuildYet?: string;
+  researchTaskIds: ID[];
+  wouldChangeIf: string[];
+  confidence: Confidence;
+  /** Other reasonable next steps, not ranked. */
+  alternatives: { type: NextStepType; title: string; why: string }[];
+};
+
+export type ValidationPlan = {
+  id: ID;
+  investigationId: ID;
+  hypothesisId: ID;
+  belief: string;
+  supportedBy: string[];
+  wouldDisprove: string;
+  test: string;
+  successSignal: string;
+  metric: string;
+  status: "not-started" | "running" | "completed";
+  startedAt?: string; // ISO
+  /** What the test found. Arrives while running; the team then records a verdict. */
+  result?: ValidationResult;
+  /** The team's verdict, recorded when the validation completes. */
+  outcome?: "confirmed" | "rejected";
+  completedAt?: string; // ISO
+};
+
+export type ValidationResult = {
+  summary: string;
+  details: string[];
+  /** Whether the success signal was met — Veyra suggests, the team decides. */
+  signalMet: boolean;
+  signal: string;
+  suggestedOutcome: "confirmed" | "rejected";
+  /** Open questions this result answers, once the team records a verdict. */
+  answers: ID[];
+};
+
+/** The opportunity (and optionally the first solution direction) the team chose to pursue. */
+export type OpportunityChoice = {
+  opportunityId: ID;
+  ideaId?: ID;
+  decidedAt: string; // ISO
 };
 
 export type InvestigationNote = {
@@ -230,16 +504,56 @@ export type InvestigationNote = {
   createdAt: string; // ISO
 };
 
-export type DataSourceStatus = "connected" | "not-connected";
+export type DecisionStatus = "proposed" | "decided" | "in-experiment" | "validated";
+
+export type DecisionRecord = {
+  id: ID;
+  investigationId: ID;
+  investigationTitle: string;
+  decision: string;
+  status: DecisionStatus;
+  decidedAt: string; // ISO
+  owner: string;
+  rationale?: string;
+  outcome?: string;
+};
+
+/* ── Data sources ────────────────────────────────────────────────────── */
+
+export type DataSourceGroup = "company-systems" | "customer-evidence" | "external";
 
 export type DataSource = {
   id: ID;
   name: string;
-  kind: "Product analytics" | "Marketing" | "CRM" | "Payments" | "Web analytics" | "Files";
+  group: DataSourceGroup;
   description: string;
-  status: DataSourceStatus;
+  status: "connected" | "not-connected";
   lastSyncedAt?: string; // ISO
-  itemCount?: number;
+  /** Realistic headline numbers, e.g. { label: "Orders", value: "182,421" }. */
+  metrics?: { label: string; value: string }[];
+};
+
+/* ── Business memory ─────────────────────────────────────────────────── */
+
+export type MemoryCategory =
+  | "company"
+  | "segments"
+  | "validated-problems"
+  | "rejected-hypotheses"
+  | "investigations"
+  | "research"
+  | "decisions"
+  | "experiments"
+  | "learnings";
+
+export type MemoryEntry = {
+  id: ID;
+  category: MemoryCategory;
+  title: string;
+  body: string;
+  date?: string; // ISO
+  sourceInvestigationId?: ID;
+  sourceInvestigationTitle?: string;
 };
 
 /** An investigation's journey from problem to learning, as kept in Business Memory. */
@@ -260,45 +574,13 @@ export type BusinessMemory = {
   stories: MemoryStory[];
 };
 
-export type DecisionStatus = "proposed" | "decided" | "in-experiment" | "validated";
-
-export type DecisionRecord = {
-  id: ID;
-  investigationId: ID;
-  investigationTitle: string;
-  decision: string;
-  status: DecisionStatus;
-  decidedAt: string; // ISO
-  owner: string;
-  rationale?: string;
-  outcome?: string;
-};
-
-export type MemoryCategory =
-  | "company"
-  | "products"
-  | "customers"
-  | "segments"
-  | "investigations"
-  | "decisions"
-  | "experiments"
-  | "learnings";
-
-export type MemoryEntry = {
-  id: ID;
-  category: MemoryCategory;
-  title: string;
-  body: string;
-  date?: string; // ISO
-  sourceInvestigationId?: ID;
-  sourceInvestigationTitle?: string;
-};
+/* ── Veyra AI ────────────────────────────────────────────────────────── */
 
 export type ChatRole = "user" | "assistant";
 
 /** A link from a chat message to a structured artifact. Chat always points back to the investigation. */
 export type ArtifactRef = {
-  kind: "finding" | "hypothesis" | "evidence" | "diagnosis" | "recommendation" | "action";
+  kind: "finding" | "hypothesis" | "evidence" | "problem" | "next-step" | "research" | "opportunities" | "validation" | "report";
   id: ID;
   label: string;
 };
@@ -319,22 +601,16 @@ export type Kpi = {
   label: string;
   value: string;
   detail: string;
-  /** "decline" = a real drop worth flagging; "neutral" = context; "status" = investigation state. */
-  kind: "decline" | "neutral" | "status";
-  icon: "users" | "funnel" | "segment" | "status";
-  progress?: number;
+  /** "decline" = a real drop worth flagging; "stable" = checked and unchanged; "neutral" = context. */
+  kind: "decline" | "stable" | "neutral";
+  icon: "users" | "funnel" | "retention" | "evidence";
   sourceEvidenceId?: ID;
 };
 
 export type TrendPoint = { period: string; value: number; annotation?: string };
 
-export type SegmentComparison = {
-  segment: string;
-  before: number;
-  after: number;
-  /** Relative change, e.g. -0.61. */
-  change: number;
-};
+/** Two rates tracked over the same periods, e.g. activation vs retention. */
+export type RatePoint = { period: string; primary: number; secondary: number; annotation?: string };
 
 /** How a node on the investigation map reads. Colour follows meaning, not decoration. */
 export type MapSignal = "problem" | "minor" | "stable" | "event" | "unknown";
@@ -355,22 +631,72 @@ export type InvestigationMap = {
   branches: MapBranch[];
 };
 
+/** One stage of this investigation's discovery path (stages differ per investigation). */
+export type DiscoveryStage = { id: ID; label: string; status: "done" | "in-progress" | "pending" };
+
+/**
+ * A saved investigation as the New Investigation flow captured it — before
+ * any data has been analysed. Shown on the investigation's brief page.
+ */
+/** Where an investigation is. Stored in the database and moved by it. */
+export type StageKey = "problem_definition" | "add_data" | "analysis" | "problem_validation" | "opportunity_discovery";
+
+export type InvestigationRecord = {
+  summary: InvestigationSummary;
+  objective: string;
+  currentStage: StageKey;
+  /** Every stage in order, with its status from the stage history. */
+  stages: DiscoveryStage[];
+  trigger: InvestigationTrigger | null;
+  outcome: InvestigationOutcome | null;
+  knownContext: string;
+  attachments: string[];
+  dataSourceIds: ID[];
+  questions: ClarifyingQuestion[];
+  plan: InvestigationPlan | null;
+  /** Uploaded files and the evidence made from them, newest first. */
+  uploads: UploadedEvidence[];
+  createdAt: string; // ISO
+};
+
+export type Investigation = InvestigationSummary & {
+  subtitle: string;
+  trigger: InvestigationTrigger;
+  outcome: InvestigationOutcome;
+  createdAt: string; // ISO
+};
+
 export type InvestigationWorkspace = {
   investigation: Investigation;
+  stages: DiscoveryStage[];
+  plan: InvestigationPlan;
+  questions: ClarifyingQuestion[];
   kpis: Kpi[];
   trend: { title: string; metric: string; unit: string; points: TrendPoint[]; sourceEvidenceId?: ID };
-  segments: { title: string; beforeLabel: string; afterLabel: string; rows: SegmentComparison[]; sourceEvidenceId?: ID };
+  rates: {
+    title: string;
+    primaryLabel: string;
+    secondaryLabel: string;
+    points: RatePoint[];
+    sourceEvidenceId?: ID;
+  };
   map: InvestigationMap;
-  questions: ClarifyingQuestion[];
   evidence: EvidenceItem[];
   findings: Finding[];
+  openQuestions: OpenQuestion[];
   hypotheses: Hypothesis[];
-  diagnosis: Diagnosis;
+  researchTasks: ResearchTask[];
+  customers: CustomerUnderstanding;
+  market: MarketContext;
+  problem: ProblemStatement;
+  opportunities: Opportunity[];
+  nextStep: NextStep;
+  validations: ValidationPlan[];
+  /** Business Memory entries relevant to this investigation. */
+  relatedMemory: MemoryEntry[];
   /** The conversation so far with Veyra AI. */
   conversation: ChatMessage[];
   /** Suggested changes from analysing new evidence. */
   proposals: EvidenceProposal[];
-  recommendations: Recommendation[];
-  actions: ActionItem[];
   notes: InvestigationNote[];
 };

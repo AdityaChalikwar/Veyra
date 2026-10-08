@@ -1,21 +1,21 @@
 "use client";
 
-import { Check, ExternalLink, Loader2, Sparkles, X } from "lucide-react";
+import { Check, ExternalLink, Loader2, X } from "lucide-react";
 import { FindingChip } from "@/components/investigation/ArtifactChips";
 import { Button } from "@/components/ui/Button";
 import { KindBadge } from "@/components/ui/KindBadge";
 import { useWorkspace } from "@/components/investigation/workspace-context";
 import { formatRelative } from "@/lib/time";
+import { categoryLabel } from "./evidence-categories";
 import { EvidenceFormatIcon } from "./EvidenceFormatIcon";
 
-const categoryLabel = { "company-data": "Company data", research: "Research", notes: "Notes & links", other: "Other" };
 
 export function EvidenceDetail({ id }: { id: string }) {
   const { workspace, resolveProposal, openDetail } = useWorkspace();
   const item = workspace.evidence.find((e) => e.id === id);
   if (!item) return <p className="p-5 text-sm text-ink-subtle">This evidence no longer exists.</p>;
   const usedBy = workspace.findings.filter((f) => f.evidenceIds.includes(id) || f.trail.some((s) => s.evidenceId === id));
-  const supports = workspace.hypotheses.filter((h) => h.supportingEvidenceIds?.includes(id));
+  const supports = workspace.hypotheses.filter((h) => h.supportingEvidenceIds?.includes(id) || h.contradictingEvidenceIds?.includes(id));
   const proposals = workspace.proposals.filter((p) => p.evidenceId === id);
 
   return (
@@ -30,18 +30,18 @@ export function EvidenceDetail({ id }: { id: string }) {
         </div>
       </div>
 
-      {item.analysis && (
+      {(item.analysis || proposals.length > 0) && (
         <section className="rounded-xl border border-brand-200 bg-brand-50/40 p-4">
           <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-brand-700">
-            <Sparkles className="h-3.5 w-3.5" /> Veyra&rsquo;s analysis
+            Veyra&rsquo;s analysis
           </h3>
-          {item.analysis.status === "analysing" ? (
+          {item.analysis?.status === "analysing" ? (
             <p className="mt-2 flex items-center gap-2 text-[13px] text-ink-muted">
               <Loader2 className="h-3.5 w-3.5 animate-spin text-brand-600" /> Analysing this evidence against the investigation…
             </p>
           ) : (
             <>
-              <p className="mt-2 text-[13px] leading-relaxed text-ink">{item.analysis.summary}</p>
+              {item.analysis?.summary && <p className="mt-2 text-[13px] leading-relaxed text-ink">{item.analysis.summary}</p>}
               {proposals.map((p) => (
                 <div key={p.id} className="mt-3 rounded-lg border border-line bg-surface p-3">
                   <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-faint">Suggested change</p>
@@ -68,10 +68,18 @@ export function EvidenceDetail({ id }: { id: string }) {
         </section>
       )}
 
+      {item.qualityNote && (
+        <p className="rounded-lg border border-uncertain-200 bg-uncertain-50 px-3 py-2 text-xs text-uncertain-600">
+          <b className="font-semibold">Public research — weaker evidence.</b> {item.qualityNote}
+        </p>
+      )}
+
       <dl className="grid grid-cols-2 gap-3 text-[13px]">
-        {item.coverage && <Meta label="Covers" value={item.coverage} />}
+        <Meta label="Source" value={item.source} />
+        {item.dataset && <Meta label="Dataset" value={item.dataset} />}
+        {item.coverage && <Meta label="Period" value={item.coverage} />}
         <Meta label="Added" value={formatRelative(item.addedAt)} />
-        <Meta label="Format" value={item.format.toUpperCase()} />
+        {item.format !== "dataset" && <Meta label="Format" value={item.format.toUpperCase()} />}
       </dl>
 
       {item.description && <p className="text-[13px] leading-relaxed text-ink">{item.description}</p>}
@@ -127,7 +135,7 @@ export function EvidenceDetail({ id }: { id: string }) {
 
       {supports.length > 0 && (
         <section>
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-ink-faint">Supports hypotheses</h3>
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-ink-faint">Linked hypotheses</h3>
           <div className="flex flex-col items-start gap-1.5">
             {supports.map((h) => (
               <button
@@ -137,7 +145,8 @@ export function EvidenceDetail({ id }: { id: string }) {
                 className="w-full rounded-lg border border-line px-3 py-2 text-left text-[13px] hover:border-brand-300"
               >
                 <KindBadge kind="hypothesis" className="mr-2" />
-                {h.statement}
+                {h.label}: {h.statement}
+                <span className="ml-1 text-xs text-ink-faint">({h.supportingEvidenceIds?.includes(id) ? "supports" : "contradicts"})</span>
               </button>
             ))}
           </div>

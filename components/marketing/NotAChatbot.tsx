@@ -10,11 +10,11 @@ const principles = [
 ];
 
 const artifacts: { kind: ArtifactKind; text: string; meta: string }[] = [
-  { kind: "fact", text: "DAU fell from 120K to 72K between April and August.", meta: "dau_data.csv" },
-  { kind: "finding", text: "The decline is concentrated among paid-social users (−61%).", meta: "High confidence" },
-  { kind: "hypothesis", text: "The April onboarding redesign reduced activation.", meta: "Medium-high confidence" },
-  { kind: "unknown", text: "Did acquisition quality change independently?", meta: "Needs cohort analysis" },
-  { kind: "recommendation", text: "Fix onboarding for paid social before scaling spend.", meta: "Impact high · Effort medium" },
+  { kind: "observation", text: "New-user activation fell from 42% to 29% after 4 August.", meta: "Product Analytics · Activation funnel" },
+  { kind: "interpretation", text: "The decline comes from new users, not existing users leaving.", meta: "Medium-high confidence" },
+  { kind: "hypothesis", text: "Onboarding friction is reducing activation.", meta: "Strong evidence · not yet validated" },
+  { kind: "open-question", text: "Did activation fall in every acquisition channel?", meta: "Research needed: analytics" },
+  { kind: "recommendation", text: "Interview 5–8 new users before choosing a solution.", meta: "Recommended next step" },
 ];
 
 export function NotAChatbot() {

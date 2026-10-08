@@ -5,6 +5,7 @@ import { cn } from "@/lib/cn";
 import { listDecisions } from "@/lib/data";
 import { routes } from "@/lib/routes";
 import { formatDate } from "@/lib/time";
+import { EmptyNote } from "@/components/ui/EmptyNote";
 
 export const metadata = { title: "Decision Log" };
 
@@ -13,6 +14,7 @@ export default async function DecisionLogPage() {
   return (
     <PageContainer>
       <PageHeader title="Decision Log" description="Every decision, why it was made, and what happened next." />
+      {decisions.length === 0 && <EmptyNote className="mt-8">No decisions yet. When your team accepts a next step or records a verdict in an investigation, it&rsquo;s logged here with the reasoning.</EmptyNote>}
       <ul className="mt-8 space-y-3">
         {decisions.map((d) => (
           <li key={d.id} className="rounded-xl border border-line bg-surface p-5 shadow-card">
@@ -29,7 +31,7 @@ export default async function DecisionLogPage() {
               · {d.owner} · {formatDate(d.decidedAt)}
             </p>
             {(d.rationale || d.outcome) && (
-              <dl className="mt-4 grid gap-3 border-t border-line pt-4 sm:grid-cols-2">
+              <dl className="mt-4 grid grid-cols-1 gap-3 border-t border-line pt-4 sm:grid-cols-2">
                 {d.rationale && (
                   <div>
                     <dt className="text-[11px] font-semibold uppercase tracking-wider text-ink-faint">Why</dt>

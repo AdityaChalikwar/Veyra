@@ -3,33 +3,33 @@ import { BarChart3, FileSearch, MessageSquareText, Scale, Upload } from "lucide-
 const steps = [
   {
     icon: MessageSquareText,
-    title: "Tell us the problem",
-    body: "Describe what's going wrong in plain language. Veyra asks the clarifying questions a good analyst would.",
-    output: "Problem & goal",
+    title: "Bring a problem",
+    body: "A metric moved, customers are complaining, or there's a market to evaluate. Veyra asks what it needs to know.",
+    output: "Investigation plan",
   },
   {
     icon: Upload,
-    title: "Give us the evidence",
-    body: "Connect company data, analytics and research. Add notes, links and customer feedback.",
-    output: "Evidence library",
+    title: "Investigate the evidence",
+    body: "Veyra analyses product analytics, CRM, ERP, support and research — choosing methods that fit the problem.",
+    output: "Observations & hypotheses",
   },
   {
     icon: FileSearch,
-    title: "Investigate the causes",
-    body: "Veyra breaks the problem down, tests possible causes and separates facts from hypotheses.",
-    output: "Findings & diagnosis",
+    title: "Define the real problem",
+    body: "Separate what's known from what isn't, and refine a vague symptom into a problem worth solving.",
+    output: "Problem definition",
   },
   {
     icon: Scale,
-    title: "Decide what to do",
-    body: "Weigh options by impact, effort, risk and confidence — with the evidence for each in view.",
-    output: "Recommendation",
+    title: "Find the next step",
+    body: "Explore opportunities, then decide the next discovery step — often research or validation, not a feature.",
+    output: "Recommended next step",
   },
   {
     icon: BarChart3,
-    title: "Measure what happened",
-    body: "Turn the decision into an action plan and experiment. Results feed your business memory.",
-    output: "Learnings",
+    title: "Validate and learn",
+    body: "Test the riskiest assumptions. What you learn is kept in business memory for the next investigation.",
+    output: "Validated learning",
   },
 ];
 
@@ -39,13 +39,13 @@ export function HowItWorks() {
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <div className="max-w-2xl">
           <p className="text-[13px] font-semibold text-brand-600">How Veyra works</p>
-          <h2 className="mt-2 text-3xl font-semibold tracking-tight">From a vague problem to a measured decision.</h2>
+          <h2 className="mt-2 text-3xl font-semibold tracking-tight">From a vague symptom to the right problem.</h2>
           <p className="mt-3 text-ink-muted">
-            Five steps, each producing something you can review, share and come back to.
+            The investigation adapts to the problem — and each step produces something your team can review and challenge.
           </p>
         </div>
 
-        <ol className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <ol className="mt-12 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
           {steps.map((step, i) => {
             const Icon = step.icon;
             return (

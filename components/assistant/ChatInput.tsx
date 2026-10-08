@@ -39,7 +39,7 @@ export function ChatInput({
             send();
           }
         }}
-        placeholder="Ask Veyra anything..."
+        placeholder="Ask about this investigation…"
         className="block w-full resize-none bg-transparent px-3 pt-2.5 text-[13px] text-ink placeholder:text-ink-faint outline-none"
       />
       <div className="flex items-center justify-between px-2 pb-2">

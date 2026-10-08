@@ -80,3 +80,25 @@
     scroll-behavior: auto;
   }
 }
+
+/* Investigation report: on the Report tab, printing shows only the report (saved as PDF). */
+#report-print {
+  display: none;
+}
+@media print {
+  @page {
+    size: A4;
+    margin: 16mm;
+  }
+  html.printing-report body {
+    background: #fff;
+  }
+  html.printing-report body > *:not(#report-print) {
+    display: none !important;
+  }
+  html.printing-report #report-print {
+    display: block;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+}

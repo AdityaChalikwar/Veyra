@@ -46,7 +46,10 @@ export function FindingChip({ id }: { id: string }) {
       className="inline-flex max-w-full items-start gap-1.5 rounded-md border border-line bg-surface px-2 py-1 text-left text-xs text-ink-muted hover:border-brand-300 hover:text-brand-700"
     >
       <Lightbulb className="mt-px h-3 w-3 shrink-0 text-brand-600" />
-      <span>{finding.statement}</span>
+      <span>
+        <span className="mr-1 text-[10px] font-semibold uppercase tracking-wide text-ink-faint">{finding.kind}</span>
+        {finding.statement}
+      </span>
     </button>
   );
 }

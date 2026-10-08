@@ -4,9 +4,11 @@ import { routes } from "@/lib/routes";
 import { formatRelative } from "@/lib/time";
 import { decisionStatus as status } from "@/components/org/decision-status";
 import type { DecisionRecord } from "@/lib/types";
+import { EmptyNote } from "@/components/ui/EmptyNote";
 
 
 export function DecisionList({ decisions }: { decisions: DecisionRecord[] }) {
+  if (!decisions.length) return <EmptyNote className="border-0 py-6">Decisions appear here as your team makes them in investigations.</EmptyNote>;
   return (
     <ul className="divide-y divide-line">
       {decisions.map((d) => (

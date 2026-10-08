@@ -1,31 +1,21 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import type { Company, InvestigationDraft, User } from "@/lib/types";
+import type { InvestigationDraft } from "@/lib/types";
 
 /**
- * Client-side app state, saved in localStorage so a refresh keeps you signed in.
- * This is a stand-in for real sessions: when auth and a database exist, this
- * store only caches what the backend returns.
+ * Browser-only state, saved in localStorage. Sign-in and the company profile
+ * live in Supabase; this only keeps the unsaved New Investigation draft until
+ * investigations are stored in the database.
  */
-export type AuthMethod = "google" | "email";
-
 export type AppState = {
-  user: User | null;
-  authMethod: AuthMethod | null;
-  company: Company | null;
-  onboardingComplete: boolean;
-  /** The new investigation being set up (problem → clarifying questions). */
+  /** The new investigation being set up (problem → clarifying questions → plan). */
   draft: InvestigationDraft | null;
 };
 
-const STORAGE_KEY = "veyra:app-state:v1";
+const STORAGE_KEY = "veyra:app-state:v2";
 
 const initialState: AppState = {
-  user: null,
-  authMethod: null,
-  company: null,
-  onboardingComplete: false,
   draft: null,
 };
 
@@ -38,7 +28,11 @@ function load() {
   loaded = true;
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (raw) state = { ...initialState, ...JSON.parse(raw) };
+    if (raw) state = { draft: (JSON.parse(raw) as Partial<AppState>).draft ?? null };
+    // The previous version also kept a simulated sign-in here; drop it.
+    window.localStorage.removeItem("veyra:app-state:v1");
+    // Drafts saved by an older version of the New Investigation flow have a different shape.
+    if (state.draft && !Array.isArray(state.draft.dataSourceIds)) state = { ...state, draft: null };
   } catch {
     // Storage unavailable (private mode, blocked) — run without persistence.
   }
@@ -87,15 +81,6 @@ export function useHydrated(): boolean {
 }
 
 export const appActions = {
-  signIn(user: User, method: AuthMethod) {
-    setState({ user, authMethod: method });
-  },
-  signOut() {
-    setState(initialState);
-  },
-  completeOnboarding(company: Company) {
-    setState({ company, onboardingComplete: true });
-  },
   saveDraft(draft: InvestigationDraft) {
     setState({ draft });
   },

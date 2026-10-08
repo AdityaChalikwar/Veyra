@@ -6,10 +6,10 @@ import { KindBadge } from "@/components/ui/KindBadge";
 import { cn } from "@/lib/cn";
 import type { ArtifactRef, ChatMessage as Message } from "@/lib/types";
 
-const refKind: Partial<Record<ArtifactRef["kind"], "finding" | "hypothesis" | "recommendation" | "unknown">> = {
+const refKind: Partial<Record<ArtifactRef["kind"], "finding" | "hypothesis" | "recommendation">> = {
   finding: "finding",
   hypothesis: "hypothesis",
-  recommendation: "recommendation",
+  "next-step": "recommendation",
 };
 
 /** One chat turn. Assistant turns link to the structured artifacts they talk about. */

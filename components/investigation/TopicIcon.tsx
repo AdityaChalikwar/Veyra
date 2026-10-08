@@ -1,4 +1,4 @@
-import { BarChart3, DollarSign, Globe2, Tag, TrendingDown, UserMinus, type LucideIcon } from "lucide-react";
+import { BarChart3, Boxes, DollarSign, Globe2, Rocket, Tag, TrendingDown, UserMinus, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { InvestigationTopic } from "@/lib/types";
 
@@ -9,6 +9,8 @@ const icons: Record<InvestigationTopic, LucideIcon> = {
   market: Globe2,
   pricing: DollarSign,
   adoption: Tag,
+  onboarding: Rocket,
+  operations: Boxes,
 };
 
 export function TopicIcon({ topic, className }: { topic: InvestigationTopic; className?: string }) {
