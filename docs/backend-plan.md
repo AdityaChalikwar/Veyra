@@ -19,6 +19,7 @@ next step, validation) and to run analysis over company data, not to host a chat
 | 1. Foundation — Supabase Auth (email + password; Google when enabled), protected pages, profiles, workspaces, membership, business context, RLS | **Done** (`supabase/migrations/20261003*`) |
 | 2. Investigations, clarifying questions, plan, sample investigation, password reset | **Done** (`supabase/migrations/20261005*`) |
 | 3. CSV upload (private Storage) and profiling in code → evidence | **Done** (`supabase/migrations/20261006*`, `lib/analysis/profile.ts`) |
+| Persistence gaps — investigation objective, current stage, stage history, edit details | **Done** (`supabase/migrations/20261008*`) |
 | 4. AI analysis pipeline (Claude) | Next |
 | 5. Decisions, validation, Decision Brief | |
 | 6. Business Memory, clean-up of mocks | |
@@ -27,6 +28,14 @@ Every workspace gets a **sample investigation** (DAU Decline): a real row, so it
 be listed and removed, whose content is the demo in `/mocks` until evidence and
 analysis are stored. Real investigations show a **brief** (problem, context,
 clarifying questions with editable answers, plan) until their data is analysed.
+
+Stages: each investigation has a `current_stage` and an `investigation_stages` history
+(when each stage started and finished). Only the database moves them, with triggers:
+creating an investigation puts it at **Add data**; the first evidence moves it to
+**Analysis**; removing the last evidence moves it back. Members can read stages but not
+write them, and a direct edit can't change the stage or the sample flag. Title, problem,
+objective, trigger and outcome can be edited from the brief ("Edit details"). New
+investigations start from a blank form.
 
 Uploads: the browser sends the CSV straight to the private `uploads` bucket at
 `{workspace_id}/{investigation_id}/{file_id}.csv` (server actions are capped at 1 MB);

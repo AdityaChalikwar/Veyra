@@ -2,22 +2,13 @@ import { CalendarDays, CircleSlash, Clock, Compass, Database, FileText, Info, Sp
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { outcomeLabel, triggerLabel } from "@/lib/options";
 import { formatDate, formatRelative } from "@/lib/time";
-import type { DataSource, DiscoveryStage, InvestigationRecord } from "@/lib/types";
+import type { DataSource, InvestigationRecord } from "@/lib/types";
 import { AnswersEditor } from "./AnswersEditor";
 import { DataUploader } from "./DataUploader";
 import { DeleteInvestigationButton } from "./DeleteInvestigationButton";
 import { DiscoveryStages } from "./DiscoveryStages";
+import { EditInvestigationButton } from "./EditInvestigationButton";
 import { UploadedEvidenceCard } from "./UploadedEvidenceCard";
-
-function stagesFor(hasEvidence: boolean): DiscoveryStage[] {
-  return [
-    { id: "s-problem", label: "Problem definition", status: "done" },
-    { id: "s-data", label: "Add data", status: hasEvidence ? "done" : "in-progress" },
-    { id: "s-analysis", label: "Analysis", status: hasEvidence ? "in-progress" : "pending" },
-    { id: "s-validation", label: "Problem validation", status: "pending" },
-    { id: "s-opportunity", label: "Opportunity discovery", status: "pending" },
-  ];
-}
 
 /**
  * A saved investigation before any data is analysed: what the team told Veyra,
@@ -34,11 +25,22 @@ export function InvestigationBrief({ record, dataSources }: { record: Investigat
     <div className="mx-auto max-w-5xl px-4 pb-16 sm:px-8">
       <header className="pt-6">
         <p className="text-xs font-semibold uppercase tracking-wider text-brand-600">Investigation</p>
-        <h1 className="mt-0.5 text-xl font-semibold tracking-tight sm:text-2xl">{inv.title}</h1>
+        <div className="flex items-start justify-between gap-3">
+          <h1 className="mt-0.5 text-xl font-semibold tracking-tight sm:text-2xl">{inv.title}</h1>
+          <EditInvestigationButton
+            investigationId={inv.id}
+            initial={{ title: inv.title, problem: inv.problem, objective: record.objective, trigger: record.trigger, outcome: record.outcome }}
+          />
+        </div>
 
         <div className="mt-3 rounded-xl border border-line bg-surface p-4 shadow-card">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-faint">Problem</p>
           <p className="mt-0.5 text-[15px] font-medium text-ink">&ldquo;{inv.problem}&rdquo;</p>
+          {record.objective && (
+            <p className="mt-2 text-[13.5px] text-ink-muted">
+              <span className="font-medium text-ink">Objective:</span> {record.objective}
+            </p>
+          )}
           <dl className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-ink-subtle">
             <div>
               <dt className="sr-only">Status</dt>
@@ -57,10 +59,10 @@ export function InvestigationBrief({ record, dataSources }: { record: Investigat
 
         <div className="mt-4">
           <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-ink-faint">Investigation progress</p>
-          <DiscoveryStages stages={stagesFor(evidence.length > 0)} />
+          <DiscoveryStages stages={record.stages} />
           <div className="mt-2 flex gap-2.5 rounded-lg border border-brand-200 bg-brand-50/60 px-3.5 py-2.5 text-[13px] text-brand-700">
-            {evidence.length ? <Sparkles className="mt-0.5 h-4 w-4 shrink-0" /> : <Upload className="mt-0.5 h-4 w-4 shrink-0" />}
-            {evidence.length ? (
+            {record.currentStage !== "add_data" ? <Sparkles className="mt-0.5 h-4 w-4 shrink-0" /> : <Upload className="mt-0.5 h-4 w-4 shrink-0" />}
+            {record.currentStage !== "add_data" ? (
               <p>
                 <b className="font-semibold">Next: analysis.</b> Veyra has {evidence.length === 1 ? "one dataset" : `${evidence.length} datasets`} to
                 work with. Turning it into findings, hypotheses and a refined problem is the next part being built — add more data in the
@@ -161,6 +163,7 @@ export function InvestigationBrief({ record, dataSources }: { record: Investigat
           <section className="rounded-xl border border-line bg-surface p-5 shadow-card">
             <h2 className="text-[15px] font-semibold">Context</h2>
             <dl className="mt-3 space-y-3 text-[13px]">
+              <Item label="Objective" value={record.objective || "Not given"} />
               <Item label="What triggered it" value={record.trigger ? triggerLabel(record.trigger) : "Not given"} />
               <Item label="Outcome wanted" value={record.outcome ? outcomeLabel(record.outcome) : "Not given"} />
               <Item label="What you already know" value={record.knownContext || "Nothing added"} />

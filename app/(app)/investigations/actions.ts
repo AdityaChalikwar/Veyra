@@ -7,12 +7,14 @@ import { deriveTitle, inferTopic } from "@/lib/investigation-text";
 import { OUTCOMES, TRIGGERS } from "@/lib/options";
 import { createClient } from "@/lib/supabase/server";
 import type { Json } from "@/lib/supabase/database.types";
-import type { InvestigationDraft } from "@/lib/types";
+import type { InvestigationDraft, InvestigationOutcome, InvestigationTrigger } from "@/lib/types";
 
 const MAX_PROBLEM = 2000;
 /** Must match the bucket's limit (supabase/migrations/20261006000001_uploads_and_evidence.sql). */
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
 const MAX_TEXT = 5000;
+const MAX_OBJECTIVE = 2000;
+const MAX_TITLE = 120;
 const MAX_ITEMS = 20;
 
 /** Saves the New Investigation draft — problem, context, answered questions and plan — as an investigation. */
@@ -35,6 +37,7 @@ export async function createInvestigation(draft: InvestigationDraft): Promise<{ 
     p_workspace_id: company.id,
     p_title: deriveTitle(problem),
     p_problem: problem,
+    p_objective: (draft.objective ?? "").trim().slice(0, MAX_OBJECTIVE),
     p_topic: inferTopic(problem),
     p_trigger: trigger,
     p_outcome: outcome,
@@ -48,6 +51,45 @@ export async function createInvestigation(draft: InvestigationDraft): Promise<{ 
 
   revalidatePath("/", "layout");
   return { id: data };
+}
+
+export type InvestigationEdit = {
+  title: string;
+  problem: string;
+  objective: string;
+  trigger: InvestigationTrigger | null;
+  outcome: InvestigationOutcome | null;
+};
+
+/** Updates an investigation's title, problem, objective, trigger and outcome. The sample can't be edited. */
+export async function updateInvestigation(investigationId: string, edit: InvestigationEdit): Promise<{ ok: true } | { error: string }> {
+  await requireWorkspace();
+  const title = edit.title.trim();
+  const problem = edit.problem.trim();
+  if (!title) return { error: "Give the investigation a title." };
+  if (!problem) return { error: "Describe the problem." };
+  if (title.length > MAX_TITLE) return { error: `Keep the title under ${MAX_TITLE} characters.` };
+  if (problem.length > MAX_PROBLEM) return { error: "Shorten the problem description a little." };
+  if (edit.objective.length > MAX_OBJECTIVE) return { error: "Shorten the objective a little." };
+
+  const supabase = await createClient();
+  const { error, count } = await supabase
+    .from("investigations")
+    .update(
+      {
+        title,
+        problem,
+        objective: edit.objective.trim(),
+        trigger: TRIGGERS.some((t) => t.value === edit.trigger) ? edit.trigger : null,
+        outcome: OUTCOMES.some((o) => o.value === edit.outcome) ? edit.outcome : null,
+      },
+      { count: "exact" },
+    )
+    .eq("id", investigationId)
+    .eq("is_sample", false);
+  if (error || !count) return { error: "Couldn't save your changes. Try again in a moment." };
+  revalidatePath("/", "layout");
+  return { ok: true };
 }
 
 /** Saves edited answers to an investigation's clarifying questions. */

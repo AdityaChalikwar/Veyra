@@ -233,16 +233,60 @@ export type Database = {
           },
         ];
       };
+      investigation_stages: {
+        Row: {
+          completed_at: string | null;
+          id: string;
+          investigation_id: string;
+          stage: string;
+          started_at: string;
+          workspace_id: string;
+        };
+        Insert: {
+          completed_at?: string | null;
+          id?: string;
+          investigation_id: string;
+          stage: string;
+          started_at?: string;
+          workspace_id: string;
+        };
+        Update: {
+          completed_at?: string | null;
+          id?: string;
+          investigation_id?: string;
+          stage?: string;
+          started_at?: string;
+          workspace_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "investigation_stages_investigation_id_fkey";
+            columns: ["investigation_id"];
+            isOneToOne: false;
+            referencedRelation: "investigations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "investigation_stages_workspace_id_fkey";
+            columns: ["workspace_id"];
+            isOneToOne: false;
+            referencedRelation: "workspaces";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       investigations: {
         Row: {
           attachments: string[];
           confidence: string;
           created_at: string;
           created_by: string | null;
+          current_stage: string;
           data_source_ids: string[];
           id: string;
           is_sample: boolean;
           known_context: string;
+          objective: string;
           outcome: string | null;
           plan: Json | null;
           problem: string;
@@ -258,10 +302,12 @@ export type Database = {
           confidence?: string;
           created_at?: string;
           created_by?: string | null;
+          current_stage?: string;
           data_source_ids?: string[];
           id?: string;
           is_sample?: boolean;
           known_context?: string;
+          objective?: string;
           outcome?: string | null;
           plan?: Json | null;
           problem: string;
@@ -277,10 +323,12 @@ export type Database = {
           confidence?: string;
           created_at?: string;
           created_by?: string | null;
+          current_stage?: string;
           data_source_ids?: string[];
           id?: string;
           is_sample?: boolean;
           known_context?: string;
+          objective?: string;
           outcome?: string | null;
           plan?: Json | null;
           problem?: string;
@@ -397,6 +445,7 @@ export type Database = {
           p_attachments: string[];
           p_data_source_ids: string[];
           p_known_context: string;
+          p_objective: string;
           p_outcome: string | null;
           p_plan: Json | null;
           p_problem: string;

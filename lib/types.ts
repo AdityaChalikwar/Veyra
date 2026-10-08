@@ -159,6 +159,8 @@ export type InvestigationPlan = {
 /** A new investigation before it's created. */
 export type InvestigationDraft = {
   problem: string;
+  /** What the team wants to achieve or decide, in their own words. Optional. */
+  objective?: string;
   trigger: InvestigationTrigger | null;
   outcome: InvestigationOutcome | null;
   /** What the team already knows, in their words. */
@@ -636,8 +638,15 @@ export type DiscoveryStage = { id: ID; label: string; status: "done" | "in-progr
  * A saved investigation as the New Investigation flow captured it — before
  * any data has been analysed. Shown on the investigation's brief page.
  */
+/** Where an investigation is. Stored in the database and moved by it. */
+export type StageKey = "problem_definition" | "add_data" | "analysis" | "problem_validation" | "opportunity_discovery";
+
 export type InvestigationRecord = {
   summary: InvestigationSummary;
+  objective: string;
+  currentStage: StageKey;
+  /** Every stage in order, with its status from the stage history. */
+  stages: DiscoveryStage[];
   trigger: InvestigationTrigger | null;
   outcome: InvestigationOutcome | null;
   knownContext: string;

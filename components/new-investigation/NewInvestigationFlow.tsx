@@ -8,7 +8,7 @@ import { OptionGrid } from "@/components/onboarding/OptionGrid";
 import { Button } from "@/components/ui/Button";
 import { inputClass, textareaClass } from "@/components/ui/Field";
 import { cn } from "@/lib/cn";
-import { emptyDraft, getDemoDraft } from "@/lib/data/investigations";
+import { emptyDraft } from "@/lib/data/investigations";
 import { OUTCOMES, TRIGGERS } from "@/lib/options";
 import { routes } from "@/lib/routes";
 import { appActions, useAppState, useHydrated } from "@/lib/store/app-store";
@@ -25,16 +25,15 @@ export function NewInvestigationFlow(props: Props) {
 
 /**
  * What the flow starts with: a problem picked on the dashboard wins, then a
- * draft the user is returning to, then the DAU demo.
+ * draft the user is returning to, then a blank form.
  */
 function useInitialDraft(dataSources: DataSource[]): InvestigationDraft {
   const searchParams = useSearchParams();
   const { draft } = useAppState();
   const fromDashboard = searchParams.get("problem")?.trim();
-  if (fromDashboard && fromDashboard !== draft?.problem) {
-    return { ...emptyDraft(fromDashboard), dataSourceIds: dataSources.filter((s) => s.status === "connected").map((s) => s.id) };
-  }
-  return draft ?? getDemoDraft();
+  const connected = dataSources.filter((s) => s.status === "connected").map((s) => s.id);
+  if (fromDashboard && fromDashboard !== draft?.problem) return { ...emptyDraft(fromDashboard), dataSourceIds: connected };
+  return draft ?? { ...emptyDraft(), dataSourceIds: connected };
 }
 
 const STEP_TITLES = [
@@ -164,6 +163,17 @@ function ContextStep({ draft, update }: StepProps) {
           options={OUTCOMES.map((o) => ({ value: o.value, title: o.label }))}
           selected={draft.outcome ? [draft.outcome] : []}
           onToggle={(v) => update({ outcome: v })}
+        />
+        <label htmlFor="objective" className="mt-5 block text-[13px] font-medium text-ink">
+          In your own words: what do you want to achieve or decide? <span className="font-normal text-ink-subtle">(optional)</span>
+        </label>
+        <textarea
+          id="objective"
+          rows={2}
+          value={draft.objective ?? ""}
+          onChange={(e) => update({ objective: e.target.value })}
+          placeholder="e.g. Decide whether to roll back the new onboarding flow before the Q4 campaign."
+          className={`${textareaClass} mt-2`}
         />
       </section>
     </>

@@ -1,16 +1,6 @@
-import type { ClarifyingQuestion, InvestigationDraft, InvestigationPlan, InvestigationTrigger } from "@/lib/types";
+import type { ClarifyingQuestion, InvestigationPlan, InvestigationTrigger } from "@/lib/types";
 
 /** The primary demo, used to pre-fill the New Investigation flow. */
-export const demoDraft: InvestigationDraft = {
-  problem: "Our DAU dropped 40%.",
-  trigger: "metric-changed",
-  outcome: "understand-change",
-  knownContext:
-    "The drop started in early August. We shipped a new onboarding flow on 4 August, and marketing increased the paid search budget in July.",
-  attachments: [],
-  dataSourceIds: ["ds-analytics", "ds-erp", "ds-crm", "ds-feedback"],
-};
-
 export const exampleProblems = [
   "Our DAU dropped 40%.",
   "Our customers are abandoning checkout.",

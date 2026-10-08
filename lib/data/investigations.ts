@@ -4,7 +4,7 @@
  * the AI planner arrives (Milestone 4). Saving happens in
  * app/(app)/investigations/actions.ts.
  */
-import { dauPlan, demoDraft, demoQuestions, exampleProblems, genericQuestions, planTemplates } from "@/mocks/new-investigation";
+import { dauPlan, demoQuestions, exampleProblems, genericQuestions, planTemplates } from "@/mocks/new-investigation";
 import type { ClarifyingQuestion, InvestigationDraft, InvestigationPlan } from "@/lib/types";
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -20,13 +20,8 @@ export function listExampleProblems(): string[] {
   return [...exampleProblems];
 }
 
-/** Pre-fill for the New Investigation flow. */
-export function getDemoDraft(): InvestigationDraft {
-  return structuredClone(demoDraft);
-}
-
 export function emptyDraft(problem = ""): InvestigationDraft {
-  return { problem, trigger: null, outcome: null, knownContext: "", attachments: [], dataSourceIds: [] };
+  return { problem, objective: "", trigger: null, outcome: null, knownContext: "", attachments: [], dataSourceIds: [] };
 }
 
 export async function generateClarifyingQuestions(draft: InvestigationDraft): Promise<ClarifyingQuestion[]> {

@@ -44,6 +44,7 @@ import type {
   InvestigationWorkspace,
   Level,
   MemoryEntry,
+  StageKey,
   UploadedEvidence,
   User,
 } from "@/lib/types";
@@ -89,6 +90,15 @@ export async function getBusinessContext(): Promise<BusinessContext> {
 }
 
 /* ── Investigations ─────────────────────────────────────────────────── */
+
+/** Discovery stages in order, as stored in investigation_stages. */
+const STAGES: { key: StageKey; label: string }[] = [
+  { key: "problem_definition", label: "Problem definition" },
+  { key: "add_data", label: "Add data" },
+  { key: "analysis", label: "Analysis" },
+  { key: "problem_validation", label: "Problem validation" },
+  { key: "opportunity_discovery", label: "Opportunity discovery" },
+];
 
 /** The sample's content still uses these IDs inside /mocks. */
 const SAMPLE_MOCK_ID = "dau-decline";
@@ -148,13 +158,19 @@ export async function getInvestigationRecord(id: string): Promise<InvestigationR
   const { data } = await supabase
     .from("investigations")
     .select(
-      "trigger, outcome, known_context, attachments, data_source_ids, plan, created_at, clarifying_questions (id, position, question, hint, answer), files (id, name, size_bytes, status, error, created_at, evidence (id, summary, coverage, profile))",
+      "trigger, outcome, objective, current_stage, known_context, attachments, data_source_ids, plan, created_at, clarifying_questions (id, position, question, hint, answer), files (id, name, size_bytes, status, error, created_at, evidence (id, summary, coverage, profile)), investigation_stages (stage, completed_at)",
     )
     .eq("id", id)
     .maybeSingle();
   if (!data) return undefined;
   return {
     summary,
+    objective: data.objective,
+    currentStage: data.current_stage as StageKey,
+    stages: STAGES.map(({ key, label }) => {
+      const row = data.investigation_stages.find((s) => s.stage === key);
+      return { id: key, label, status: !row ? "pending" : row.completed_at ? "done" : "in-progress" };
+    }),
     trigger: data.trigger as InvestigationTrigger | null,
     outcome: data.outcome as InvestigationOutcome | null,
     knownContext: data.known_context,
