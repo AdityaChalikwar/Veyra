@@ -5,7 +5,7 @@ import { requireWorkspace } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import type { BusinessContext } from "@/lib/types";
 
-export type BusinessContextInput = Omit<BusinessContext, "company">;
+export type BusinessContextInput = BusinessContext;
 
 const MAX_TEXT = 500;
 const MAX_ITEMS = 10;
@@ -24,6 +24,7 @@ export async function saveBusinessContext(input: BusinessContextInput): Promise<
   const { error } = await supabase
     .from("business_contexts")
     .update({
+      company_name: input.company.trim().slice(0, 120),
       product: input.product.trim().slice(0, MAX_TEXT),
       business_model: input.businessModel.trim().slice(0, MAX_TEXT),
       target_customers: input.targetCustomers.trim().slice(0, MAX_TEXT),

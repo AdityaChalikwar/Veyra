@@ -11,6 +11,30 @@ export type Database = {
   };
   public: {
     Tables: {
+      ai_usage: {
+        Row: {
+          created_at: string;
+          id: string;
+          kind: string;
+          user_id: string;
+          workspace_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          kind: string;
+          user_id?: string;
+          workspace_id: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          kind?: string;
+          user_id?: string;
+          workspace_id?: string;
+        };
+        Relationships: [];
+      };
       analysis_runs: {
         Row: {
           completed_at: string | null;
@@ -70,6 +94,7 @@ export type Database = {
       business_contexts: {
         Row: {
           business_model: string;
+          company_name: string;
           goals: string[];
           key_metrics: string[];
           priorities: string[];
@@ -80,6 +105,7 @@ export type Database = {
         };
         Insert: {
           business_model?: string;
+          company_name?: string;
           goals?: string[];
           key_metrics?: string[];
           priorities?: string[];
@@ -90,6 +116,7 @@ export type Database = {
         };
         Update: {
           business_model?: string;
+          company_name?: string;
           goals?: string[];
           key_metrics?: string[];
           priorities?: string[];

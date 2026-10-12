@@ -5,6 +5,7 @@ import { buildPack } from "@/lib/analysis/pack";
 import { profileCsv } from "@/lib/analysis/profile";
 import { ANALYSIS_MODEL, runAnalysis } from "@/lib/analysis/run";
 import { clarify } from "@/lib/ai/clarify";
+import { takeAiAllowance } from "@/lib/ai/usage";
 import { getBusinessContext, listDataSources } from "@/lib/data";
 import { requireWorkspace } from "@/lib/auth";
 import { deriveTitle, inferTopic } from "@/lib/investigation-text";
@@ -64,10 +65,13 @@ export async function createInvestigation(draft: InvestigationDraft): Promise<{ 
 export async function suggestQuestions(
   draft: InvestigationDraft,
 ): Promise<{ questions: ClarifyingQuestion[]; needed: NeededInfo[]; error?: string }> {
-  await requireWorkspace();
+  const { company } = await requireWorkspace();
   const fallback = (error: string) => ({ questions: structuredClone(genericQuestions), needed: [], error });
   const problem = draft.problem.trim();
   if (!problem || problem.length > MAX_PROBLEM) return fallback("Describe the problem first.");
+
+  const allowance = await takeAiAllowance(company.id, "questions");
+  if ("error" in allowance) return fallback(allowance.error);
 
   const [context, sources] = await Promise.all([getBusinessContext(), listDataSources()]);
   const result = await clarify({
@@ -295,6 +299,9 @@ export async function analyseInvestigation(investigationId: string): Promise<{ o
       .update({ status: "failed", error: "This analysis didn't finish.", completed_at: new Date().toISOString() })
       .eq("id", r.id);
   }
+
+  const allowance = await takeAiAllowance(company.id, "analysis");
+  if ("error" in allowance) return allowance;
 
   // Every kind of evidence arrives in the same shape — a profile, plus metrics for connected data — whatever its source.
   const pack = buildPack(

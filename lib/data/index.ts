@@ -9,11 +9,11 @@
  * and investigations (problem, context, clarifying questions, plan).
  *
  * Every workspace also has a sample investigation. Its row is real (so it can
- * be listed and removed) but its content is the DAU Decline demo from /mocks,
+ * be listed and removed) but its content is the Kitchen Returns Spike demo from /mocks,
  * until evidence and analysis are stored in the database.
  */
 import "server-only";
-import { getSession, getWorkspace } from "@/lib/auth";
+import { getSession, requireWorkspace } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { buildDataSources } from "@/mocks/data-sources";
 import { cache } from "react";
@@ -22,7 +22,7 @@ import type { AnalysisPack } from "@/lib/analysis/pack";
 import { buildLiveWorkspace } from "./live-workspace";
 import { listConnectedSources } from "./sources";
 import type { AnalysisResult } from "@/lib/analysis/schema";
-import { buildDauWorkspace, dauOpenQuestions } from "@/mocks/dau-investigation";
+import { buildSampleWorkspace, SAMPLE_ID, sampleOpenQuestions } from "@/mocks/sample-investigation";
 import { buildDecisions } from "@/mocks/decisions";
 import { buildEvidence } from "@/mocks/evidence";
 import { buildSampleSummary } from "@/mocks/investigations";
@@ -60,33 +60,24 @@ export async function getCurrentUser(): Promise<User | null> {
   return (await getSession())?.user ?? null;
 }
 
-/** The signed-in user's company (workspace), or null before onboarding. */
+/** The signed-in user's workspace (created on first use). */
 export async function getCompany(): Promise<Company | null> {
-  return getWorkspace();
+  return (await requireWorkspace()).company;
 }
 
-/** Persistent business context shared by every investigation. Empty fields until the team fills them in. */
+/** Persistent business context shared by every investigation. Optional: empty until someone fills it in. */
 export async function getBusinessContext(): Promise<BusinessContext> {
-  const company = await getWorkspace();
-  const empty: BusinessContext = {
-    company: company?.name ?? "",
-    product: "",
-    businessModel: "",
-    targetCustomers: "",
-    goals: [],
-    priorities: [],
-    keyMetrics: [],
-  };
-  if (!company) return empty;
+  const { company } = await requireWorkspace();
+  const empty: BusinessContext = { company: "", product: "", businessModel: "", targetCustomers: "", goals: [], priorities: [], keyMetrics: [] };
   const supabase = await createClient();
   const { data } = await supabase
     .from("business_contexts")
-    .select("product, business_model, target_customers, goals, priorities, key_metrics")
+    .select("company_name, product, business_model, target_customers, goals, priorities, key_metrics")
     .eq("workspace_id", company.id)
     .maybeSingle();
   if (!data) return empty;
   return {
-    company: company.name,
+    company: data.company_name,
     product: data.product,
     businessModel: data.business_model,
     targetCustomers: data.target_customers,
@@ -108,7 +99,7 @@ const STAGES: { key: StageKey; label: string }[] = [
 ];
 
 /** The sample's content still uses these IDs inside /mocks. */
-const SAMPLE_MOCK_ID = "dau-decline";
+const SAMPLE_MOCK_ID = SAMPLE_ID;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type InvestigationRow = Pick<
@@ -144,6 +135,8 @@ function toSummary(row: InvestigationRow): InvestigationSummary {
 
 /** All investigations in the user's workspace, most recently updated first. */
 export const listInvestigations = cache(async (): Promise<InvestigationSummary[]> => {
+  // On someone's first visit the workspace (and its sample) is created here, before reading.
+  await requireWorkspace();
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("investigations")
@@ -266,7 +259,7 @@ export async function getInvestigationWorkspace(id: string): Promise<Investigati
     const [record, dataSources] = await Promise.all([getInvestigationRecord(id), listDataSources()]);
     return record ? buildLiveWorkspace(record, dataSources) : undefined;
   }
-  const ws = buildDauWorkspace(buildEvidence().filter((e) => e.investigationId === SAMPLE_MOCK_ID));
+  const ws = buildSampleWorkspace(buildEvidence().filter((e) => e.investigationId === SAMPLE_MOCK_ID));
   return { ...ws, investigation: { ...ws.investigation, id: summary.id } };
 }
 
@@ -384,7 +377,7 @@ export async function listOpenQuestions(): Promise<{ investigationId: string; in
     .sort((a, b) => b.investigations.updated_at.localeCompare(a.investigations.updated_at) || a.position - b.position)
     .map((q) => ({ investigationId: q.investigation_id, investigationTitle: q.investigations.title, question: q.question }));
   const fromSample = sample
-    ? dauOpenQuestions.map((q) => ({ investigationId: sample.id, investigationTitle: sampleTitle(sample), question: q.question }))
+    ? sampleOpenQuestions.map((q) => ({ investigationId: sample.id, investigationTitle: sampleTitle(sample), question: q.question }))
     : [];
   return [...real, ...fromSample];
 }
@@ -406,16 +399,16 @@ export async function listProblems(): Promise<ProblemSummary[]> {
     .filter((i) => !i.isSample)
     .map((i) => ({ investigationId: i.id, investigationTitle: i.title, refined: i.problem, status: "draft", confidence: i.confidence }));
   if (!sample) return real;
-  const dau = buildDauWorkspace([]);
+  const sampleWs = buildSampleWorkspace([]);
   return [
     ...real,
     {
       investigationId: sample.id,
       investigationTitle: sampleTitle(sample),
-      original: dau.problem.original,
-      refined: dau.problem.refined,
+      original: sampleWs.problem.original,
+      refined: sampleWs.problem.refined,
       status: "refined",
-      confidence: dau.problem.confidence,
+      confidence: sampleWs.problem.confidence,
     },
   ];
 }
@@ -433,7 +426,7 @@ export type OpportunitySummary = {
 export async function listOpportunities(): Promise<OpportunitySummary[]> {
   const sample = await getSample();
   if (!sample) return [];
-  return buildDauWorkspace([]).opportunities.map((o) => ({
+  return buildSampleWorkspace([]).opportunities.map((o) => ({
     investigationId: sample.id,
     investigationTitle: sampleTitle(sample),
     title: o.title,
@@ -456,7 +449,7 @@ export type ValidationSummary = {
 export async function listValidations(): Promise<ValidationSummary[]> {
   const sample = await getSample();
   if (!sample) return [];
-  return buildDauWorkspace([]).validations.map((v) => ({
+  return buildSampleWorkspace([]).validations.map((v) => ({
     investigationId: sample.id,
     investigationTitle: sampleTitle(sample),
     hypothesis: v.belief,

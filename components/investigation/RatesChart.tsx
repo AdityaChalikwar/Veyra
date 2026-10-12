@@ -2,26 +2,27 @@
 
 import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { RatePoint } from "@/lib/types";
-import { chartTheme as t, type TooltipProps } from "./chart-theme";
+import { chartTheme as t, niceScale, type TooltipProps } from "./chart-theme";
 
-/** Muted comparison series: existing-user retention is context, activation is the story. */
+/** Muted comparison series: the baseline is context, the primary rate is the story. */
 const CONTEXT = "#94a3b8";
 
 type Props = { points: RatePoint[]; primaryLabel: string; secondaryLabel: string };
 
-/** Two rates on one percentage axis — activation (the story) against retention (the stable baseline). */
+/** Two rates on one percentage axis — the one that changed (the story) against a stable baseline. */
 export function RatesChart({ points, primaryLabel, secondaryLabel }: Props) {
   const event = points.find((p) => p.annotation);
   const last = points[points.length - 1];
+  const scale = niceScale(Math.max(...points.flatMap((p) => [p.primary, p.secondary])));
 
   return (
-    <div className="h-[240px] w-full" role="img" aria-label={`${primaryLabel} and ${secondaryLabel} by week`}>
+    <div className="h-[240px] w-full" role="img" aria-label={`${primaryLabel} and ${secondaryLabel} over time`}>
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={points} margin={{ top: 24, right: 40, bottom: 0, left: -8 }}>
           <CartesianGrid vertical={false} stroke={t.grid} />
           <XAxis dataKey="period" tickLine={false} axisLine={{ stroke: t.grid }} tick={t.tick} dy={6} interval="preserveStartEnd" minTickGap={16} />
-          <YAxis domain={[0, 100]} ticks={[0, 25, 50, 75, 100]} tickFormatter={(v) => `${v}%`} tickLine={false} axisLine={false} tick={t.tick} width={48} />
-          {event && <ReferenceLine x={event.period} stroke={t.annotation} label={{ value: "Onboarding change", position: "top", fill: "#475569", fontSize: 11, fontWeight: 500 }} />}
+          <YAxis domain={[0, scale.top]} ticks={scale.ticks} tickFormatter={(v) => `${v}%`} tickLine={false} axisLine={false} tick={t.tick} width={48} />
+          {event && <ReferenceLine x={event.period} stroke={t.annotation} label={{ value: event.annotation, position: "top", fill: "#475569", fontSize: 11, fontWeight: 500 }} />}
           <Tooltip content={(props) => <RatesTooltip {...props} primaryLabel={primaryLabel} secondaryLabel={secondaryLabel} />} cursor={{ stroke: t.annotation, strokeWidth: 1 }} />
           <Line
             type="monotone"

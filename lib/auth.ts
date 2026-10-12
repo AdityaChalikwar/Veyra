@@ -35,7 +35,7 @@ export const getSession = cache(async (): Promise<Session | null> => {
   };
 });
 
-/** The signed-in user's workspace (their company), or null before onboarding. */
+/** The signed-in user's workspace, or null before it has been created. */
 export const getWorkspace = cache(async (): Promise<Company | null> => {
   const session = await getSession();
   if (!session) return null;
@@ -66,15 +66,31 @@ export async function requireUser(): Promise<Session> {
   return session;
 }
 
-/** For pages inside the app: also sends users who haven't onboarded to onboarding. */
+/**
+ * The signed-in user's workspace, created on first use. Veyra asks for no
+ * business details at sign-up: the workspace is named after the person, and
+ * company details and business context can be added later if they want.
+ */
+const ensureWorkspace = cache(async (session: Session): Promise<Company | null> => {
+  const existing = await getWorkspace();
+  if (existing) return existing;
+  const first = session.user.name.split(" ")[0] || "My";
+  const name = `${first}'s workspace`;
+  const supabase = await createClient();
+  const { data: id, error } = await supabase.rpc("save_workspace", { p_name: name, p_description: "", p_industry: "Other", p_size: "1–10" });
+  if (error || !id) return null;
+  return { id, name, description: "", industry: "Other", size: "1–10" };
+});
+
+/** For pages inside the app and their actions: a signed-in user with a workspace. */
 export async function requireWorkspace(): Promise<{ session: Session; company: Company }> {
   const session = await requireUser();
-  const company = await getWorkspace();
-  if (!company) redirect(routes.onboarding);
+  const company = await ensureWorkspace(session);
+  if (!company) throw new Error("Couldn't set up your workspace. Reload the page to try again.");
   return { session, company };
 }
 
 /** Where a signed-in user should land. */
 export async function homeFor(): Promise<string> {
-  return (await getWorkspace()) ? routes.dashboard : routes.onboarding;
+  return routes.dashboard;
 }

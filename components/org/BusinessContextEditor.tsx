@@ -16,11 +16,12 @@ const fromLines = (text: string) => text.split("\n");
 /** Shows the business context, and edits it in place. */
 export function BusinessContextEditor({ context }: { context: BusinessContext }) {
   const router = useRouter();
-  const empty = !context.product && !context.businessModel && !context.targetCustomers && !context.goals.length;
+  const empty = !context.company && !context.product && !context.businessModel && !context.targetCustomers && !context.goals.length;
   const [editing, setEditing] = useState(empty);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({
+    company: context.company,
     product: context.product,
     businessModel: context.businessModel,
     targetCustomers: context.targetCustomers,
@@ -37,6 +38,7 @@ export function BusinessContextEditor({ context }: { context: BusinessContext })
     setError(null);
     try {
       const result = await saveBusinessContext({
+        company: form.company,
         product: form.product,
         businessModel: form.businessModel,
         targetCustomers: form.targetCustomers,
@@ -60,10 +62,16 @@ export function BusinessContextEditor({ context }: { context: BusinessContext })
     return (
       <form onSubmit={save} className="rounded-xl border border-line bg-surface p-5 shadow-card">
         <h2 className="flex items-center gap-2 text-[15px] font-semibold">
-          <Building2 className="h-4 w-4 text-brand-600" /> {empty ? "Tell Veyra about your business" : "Edit business context"}
+          <Building2 className="h-4 w-4 text-brand-600" /> {empty ? "Tell Veyra about your business (optional)" : "Edit business context"}
         </h2>
-        <p className="mt-1 text-xs text-ink-subtle">A sentence each is plenty. For lists, put one item per line.</p>
+        <p className="mt-1 text-xs text-ink-subtle">
+          Optional — Veyra works without it, and uses it to make its questions and analysis specific to you. A sentence each is plenty; for
+          lists, put one item per line.
+        </p>
         <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
+          <Field label="Company or project" htmlFor="ctx-company">
+            <input id="ctx-company" value={form.company} onChange={set("company")} placeholder="Northwind Home" className={inputClass} />
+          </Field>
           <Field label="Product" htmlFor="ctx-product">
             <input id="ctx-product" value={form.product} onChange={set("product")} placeholder="Commerce platform for mid-market retailers" className={inputClass} />
           </Field>
@@ -73,7 +81,6 @@ export function BusinessContextEditor({ context }: { context: BusinessContext })
           <Field label="Target customers" htmlFor="ctx-customers">
             <input id="ctx-customers" value={form.targetCustomers} onChange={set("targetCustomers")} placeholder="Independent retailers with 1–20 stores" className={inputClass} />
           </Field>
-          <span className="hidden md:block" />
           <Field label="Primary business goals" htmlFor="ctx-goals">
             <textarea id="ctx-goals" rows={3} value={form.goals} onChange={set("goals")} placeholder={"Increase retention\nGrow expansion revenue"} className={area} />
           </Field>

@@ -149,7 +149,7 @@ export function WorkspaceFrame({ workspace: initial, children }: { workspace: In
     setCustomers((c) => ({
       ...c,
       themes: res.themes,
-      tools: c.tools.map((t) => (t.id === "t-feedback" ? { ...t, status: "used", reason: "Support tickets and in-app feedback grouped into themes." } : t)),
+      tools: c.tools.map((t) => (t.id === "t-feedback" ? { ...t, status: "used", reason: "Return notes and product reviews grouped into themes." } : t)),
     }));
     setFindings((list) => [...list.filter((f) => f.id !== res.finding.id), res.finding]);
     setEvidence((list) =>
@@ -157,7 +157,7 @@ export function WorkspaceFrame({ workspace: initial, children }: { workspace: In
     );
     setProposals((p) => [...p.filter((x) => !res.proposals.some((n) => n.id === x.id)), ...res.proposals]);
     setRunning((r) => ({ ...r, feedback: false }));
-    say("I've grouped 186 onboarding tickets and 412 in-app comments into themes. Most complaints are about configuration required before merchants see their store.", [
+    say("I've grouped 214 return notes and 412 product reviews into themes. Most complaints describe Kitchen items chipped, cracked or flaking — faults in the items, not delivery.", [
       { kind: "finding", id: res.finding.id, label: "View insight" },
       { kind: "evidence", id: "ev-feedback", label: "Review suggestion" },
     ]);

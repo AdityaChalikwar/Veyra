@@ -84,11 +84,11 @@ export function CustomersMarketView() {
                 <p className="mt-1 text-[13px] italic text-ink-subtle">{t.example}</p>
               </li>
             ))}
-            <li className="text-xs text-ink-faint">From Support and Customer Feedback · 186 tickets and 412 comments</li>
+            <li className="text-xs text-ink-faint">From Support and Customer Feedback · 214 return notes and 412 reviews</li>
           </ul>
         ) : (
           <p className="rounded-xl border border-dashed border-line-strong px-4 py-5 text-center text-[13px] text-ink-subtle">
-            Support tickets and in-app feedback are connected but haven&rsquo;t been grouped into themes yet.
+            Return notes and product reviews are connected but haven&rsquo;t been grouped into themes yet.
           </p>
         )}
       </section>

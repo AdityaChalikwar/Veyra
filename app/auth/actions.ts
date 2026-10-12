@@ -28,13 +28,13 @@ export async function signUpWithEmail(input: { name: string; email: string; pass
     password: input.password,
     options: {
       data: { full_name: input.name.trim() },
-      emailRedirectTo: `${await siteUrl()}/auth/callback?next=${encodeURIComponent(routes.onboarding)}`,
+      emailRedirectTo: `${await siteUrl()}/auth/callback?next=${encodeURIComponent(routes.dashboard)}`,
     },
   });
   if (error) return { error: friendlyError(error) };
   // No session means Supabase sent a confirmation email first.
   if (!data.session) return { checkEmail: email };
-  return { redirectTo: routes.onboarding };
+  return { redirectTo: routes.dashboard };
 }
 
 export async function signInWithEmail(input: { email: string; password: string }): Promise<AuthResult> {

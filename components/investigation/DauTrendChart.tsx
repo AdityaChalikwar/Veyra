@@ -12,7 +12,7 @@ import {
   YAxis,
 } from "recharts";
 import type { TrendPoint } from "@/lib/types";
-import { chartTheme as t, type TooltipProps } from "./chart-theme";
+import { chartTheme as t, niceScale, type TooltipProps } from "./chart-theme";
 
 type Props = { points: TrendPoint[]; unit: string; metric: string };
 
@@ -20,6 +20,7 @@ export function DauTrendChart({ points, unit, metric }: Props) {
   const event = points.find((p) => p.annotation);
   const last = points[points.length - 1];
   const format = (v: number) => `${v}${unit}`;
+  const scale = niceScale(Math.max(...points.map((p) => p.value)));
 
   return (
     <div className="h-[240px] w-full" role="img" aria-label={`${metric} by month, ${points[0].period} to ${last.period}`}>
@@ -31,8 +32,8 @@ export function DauTrendChart({ points, unit, metric }: Props) {
           )}
           <XAxis dataKey="period" tickLine={false} axisLine={{ stroke: t.grid }} tick={t.tick} dy={6} interval="preserveStartEnd" minTickGap={16} />
           <YAxis
-            domain={[0, 140]}
-            ticks={[0, 40, 80, 120]}
+            domain={[0, scale.top]}
+            ticks={scale.ticks}
             tickFormatter={format}
             tickLine={false}
             axisLine={false}
@@ -46,7 +47,7 @@ export function DauTrendChart({ points, unit, metric }: Props) {
               label={{ value: event.annotation, position: "top", fill: "#475569", fontSize: 11, fontWeight: 500 }}
             />
           )}
-          <Tooltip content={(props) => <TrendTooltip {...props} unit={unit} />} cursor={{ stroke: t.annotation, strokeWidth: 1 }} />
+          <Tooltip content={(props) => <TrendTooltip {...props} unit={unit} metric={metric} />} cursor={{ stroke: t.annotation, strokeWidth: 1 }} />
           <Line
             type="monotone"
             dataKey="value"
@@ -70,14 +71,14 @@ export function DauTrendChart({ points, unit, metric }: Props) {
   );
 }
 
-function TrendTooltip({ active, payload, unit }: TooltipProps & { unit: string }) {
+function TrendTooltip({ active, payload, unit, metric }: TooltipProps & { unit: string; metric: string }) {
   if (!active || !payload?.length) return null;
   const point = payload[0].payload as TrendPoint;
   return (
     <div className="rounded-lg border border-line bg-surface px-3 py-2 text-xs shadow-raised">
       <p className="font-medium text-ink">Week of {point.period}</p>
       <p className="mt-0.5 text-ink-muted">
-        DAU <span className="font-semibold tabular-nums text-ink">{point.value}{unit}</span>
+        {metric} <span className="font-semibold tabular-nums text-ink">{point.value}{unit}</span>
       </p>
       {point.annotation && <p className="mt-1 text-ink-subtle">● {point.annotation}</p>}
     </div>

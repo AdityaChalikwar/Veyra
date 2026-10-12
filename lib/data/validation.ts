@@ -1,4 +1,4 @@
-import { validationResults } from "@/mocks/dau-investigation";
+import { validationResults } from "@/mocks/sample-investigation";
 import type { ValidationResult } from "@/lib/types";
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));

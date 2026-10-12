@@ -19,8 +19,10 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { ConnectDemoErpButton } from "@/components/data-sources/ConnectDemoErpButton";
+import { hasOwnContext } from "@/components/data-sources/demo-context";
+import { TryDemoButton } from "@/components/data-sources/TryDemoButton";
 import { PageContainer, PageHeader } from "@/components/org/PageHeader";
-import { listDataSources } from "@/lib/data";
+import { getBusinessContext, listDataSources } from "@/lib/data";
 import { listConnectedSources } from "@/lib/data/sources";
 import { routes } from "@/lib/routes";
 import { formatRelative } from "@/lib/time";
@@ -51,7 +53,8 @@ const groups: { id: DataSourceGroup; title: string; description: string }[] = [
 ];
 
 export default async function DataSourcesPage() {
-  const [sources, connectedSources] = await Promise.all([listDataSources(), listConnectedSources()]);
+  const [sources, connectedSources, context] = await Promise.all([listDataSources(), listConnectedSources(), getBusinessContext()]);
+  const ownContext = hasOwnContext(context);
   const demo = connectedSources.find((c) => c.connector === "demo-erp");
 
   return (
@@ -121,10 +124,14 @@ export default async function DataSourcesPage() {
               <p className="text-[15px] font-semibold">Try the Demo ERP</p>
               <p className="mt-0.5 max-w-2xl text-[13px] text-ink-muted">
                 A year of data from Northwind Home, a fictional online home-goods retailer: customers, products, orders, stock, purchasing,
-                returns and invoices. Set it up exactly as you would a real ERP.
+                returns and invoices. Set it up in one click, or step by step exactly as you would a real ERP. While you use it, the
+                business context switches to Northwind Home.
               </p>
             </div>
-            <ConnectDemoErpButton />
+            <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end">
+              <TryDemoButton ownContext={ownContext} label="Set it up in one click" />
+              <ConnectDemoErpButton ownContext={ownContext} />
+            </div>
           </div>
         )}
       </section>

@@ -39,6 +39,13 @@ metrics in `lib/data-layer/`. Snapshots become evidence on an investigation's Ev
 ("Add from your data"); the analysis pack includes their metrics. Not yet checked with a live
 Claude call. Next: Milestone 6 (decisions, validation, report), then 7 (memory).
 
+## Since Milestone 5
+- No business details at sign-up; workspace created automatically; context optional.
+- One-click demo (`setUpDemo`) with business context switch to Northwind Home and restore.
+- Sample investigation rebuilt as "Kitchen Returns Spike" (`mocks/sample-investigation.ts`),
+  numbers matching the Demo ERP.
+- Daily AI usage limit per person (`AI_DAILY_LIMIT`, default 25).
+
 ## Later
 - Secondary research with Claude's web search, feedback themes, interview guide, validation,
   Ask Veyra, decision brief, memory.

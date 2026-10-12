@@ -65,8 +65,8 @@ export function OverviewView() {
           title={workspace.trend.title}
           source={sourceLabel(workspace, workspace.trend.sourceEvidenceId)}
           table={{
-            caption: `${workspace.trend.metric} by week`,
-            columns: ["Week of", `DAU (${workspace.trend.unit})`, "Note"],
+            caption: `${workspace.trend.metric} over time`,
+            columns: ["Period", workspace.trend.unit ? `${workspace.trend.metric} (${workspace.trend.unit})` : workspace.trend.metric, "Note"],
             rows: workspace.trend.points.map((p) => [p.period, p.value, p.annotation ?? ""]),
           }}
         >
@@ -77,8 +77,8 @@ export function OverviewView() {
           legend={<RatesLegend primaryLabel={workspace.rates.primaryLabel} secondaryLabel={workspace.rates.secondaryLabel} />}
           source={sourceLabel(workspace, workspace.rates.sourceEvidenceId)}
           table={{
-            caption: `${workspace.rates.primaryLabel} and ${workspace.rates.secondaryLabel} by week`,
-            columns: ["Week of", workspace.rates.primaryLabel, workspace.rates.secondaryLabel],
+            caption: `${workspace.rates.primaryLabel} and ${workspace.rates.secondaryLabel} over time`,
+            columns: ["Period", workspace.rates.primaryLabel, workspace.rates.secondaryLabel],
             rows: workspace.rates.points.map((p) => [p.period, `${p.primary}%`, `${p.secondary}%`]),
           }}
         >

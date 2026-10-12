@@ -134,7 +134,7 @@ function InvestigationReport() {
                 , testing <b>{idea.title}</b> first
               </>
             ) : null}
-            . Success will show in {confirmedValidation?.metric.toLowerCase() ?? "the activation rate"}.
+            . Success will show in {confirmedValidation?.metric.toLowerCase() ?? "the metric being validated"}.
           </p>
         ) : (
           <p className="mt-2 text-ink-muted">No opportunity has been chosen yet.</p>

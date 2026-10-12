@@ -26,7 +26,7 @@ next step, validation) and to run analysis over company data, not to host a chat
 | 7. Business Memory, clean-up of mocks | |
 | Later. Real connectors (ERP, CRM, analytics, support, finance), scheduled sync | |
 
-Every workspace gets a **sample investigation** (DAU Decline): a real row, so it can
+Every workspace gets a **sample investigation** (Kitchen Returns Spike at Northwind Home, the Demo ERP's fictional retailer; its numbers match the Demo ERP): a real row, so it can
 be listed and removed, whose content is the demo in `/mocks` until evidence and
 analysis are stored. Real investigations use the **same workspace** (tabs, progress,
 side panel), built only from saved data by `buildLiveWorkspace` (`lib/data/live-workspace.ts`):
@@ -69,6 +69,22 @@ Architecture: everything server-side runs in the Next.js app (server components,
 actions, `app/auth/callback`). The server acts as the signed-in user, so Row Level
 Security applies to every query; no secret key is used. Membership checks live in the
 `private` schema so they aren't exposed through the API.
+
+## Getting started (no business details)
+
+Sign-up asks for nothing about the business. On first visit Veyra creates the person's
+workspace (`ensureWorkspace` in `lib/auth.ts`, named "<first name>'s workspace") with the
+sample investigation. Business context is optional (`/context`), and has its own company name
+(`business_contexts.company_name`).
+
+**Try with demo data** (dashboard, Data Sources) runs `setUpDemo`: connect the Demo ERP, select
+every dataset, accept the suggested mappings, sync, and open a new investigation into its story.
+Connecting the demo switches the business context to Northwind Home (`DEMO_CONTEXT`); if the
+team had written their own, they're asked first, and it's kept in the data source's `settings`
+and restored on disconnect. The sidebar shows "Demo data: Northwind Home" while it's connected.
+
+**AI usage limit:** each person gets `AI_DAILY_LIMIT` AI calls (analysis and question writing)
+per 24 hours, default 25, recorded in `ai_usage` (`lib/ai/usage.ts`).
 
 ## Data onboarding (core product direction)
 

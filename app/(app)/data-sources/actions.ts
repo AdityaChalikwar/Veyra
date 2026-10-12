@@ -7,7 +7,8 @@ import { getEntity, suggestEntity, suggestMapping, type EntityKey, type FieldMap
 import { computeMetrics } from "@/lib/data-layer/metrics";
 import { normalize, profileNormalized, type NormalizedRow } from "@/lib/data-layer/normalize";
 import { createClient } from "@/lib/supabase/server";
-import type { Json } from "@/lib/supabase/database.types";
+import type { Json, Tables } from "@/lib/supabase/database.types";
+import { DEMO_CONTEXT } from "@/lib/connectors/demo-erp/context";
 import type { DataCheck } from "@/lib/types";
 
 type Result<T = object> = ({ ok: true } & T) | { error: string };
@@ -18,9 +19,10 @@ const done = () => revalidatePath("/", "layout");
 /**
  * Connects the Demo ERP: creates the source and discovers its datasets, with
  * a suggested Veyra entity and field mapping for each. Nothing is selected
- * or synced yet.
+ * or synced yet. With `switchContext`, the business context switches to the
+ * demo company (the team's own is kept and restored on disconnect).
  */
-export async function connectDemoErp(): Promise<Result<{ id: string }>> {
+export async function connectDemoErp(options: { switchContext?: boolean } = {}): Promise<Result<{ id: string }>> {
   const { company } = await requireWorkspace();
   const supabase = await createClient();
   const connector = getConnector("demo-erp")!;
@@ -59,8 +61,65 @@ export async function connectDemoErp(): Promise<Result<{ id: string }>> {
     await supabase.from("data_sources").delete().eq("id", source.id);
     return { error: "Couldn't read the Demo ERP's datasets. Try again in a moment." };
   }
+  if (options.switchContext) await switchToDemoContext(company.id, source.id);
   done();
   return { ok: true, id: source.id };
+}
+
+type ContextRow = Pick<Tables<"business_contexts">, "company_name" | "product" | "business_model" | "target_customers" | "goals" | "priorities" | "key_metrics">;
+const CONTEXT_COLUMNS = "company_name, product, business_model, target_customers, goals, priorities, key_metrics";
+
+/** Puts Northwind Home's context in place, keeping the team's own on the data source to restore later. */
+async function switchToDemoContext(workspaceId: string, sourceId: string) {
+  const supabase = await createClient();
+  const { data: own } = await supabase.from("business_contexts").select(CONTEXT_COLUMNS).eq("workspace_id", workspaceId).maybeSingle();
+  if (own && own.company_name !== DEMO_CONTEXT.company) {
+    await supabase
+      .from("data_sources")
+      .update({ settings: { contextSwitched: true, savedContext: own } as unknown as Json })
+      .eq("id", sourceId);
+  } else {
+    await supabase.from("data_sources").update({ settings: { contextSwitched: true } }).eq("id", sourceId);
+  }
+  await supabase
+    .from("business_contexts")
+    .update({
+      company_name: DEMO_CONTEXT.company,
+      product: DEMO_CONTEXT.product,
+      business_model: DEMO_CONTEXT.businessModel,
+      target_customers: DEMO_CONTEXT.targetCustomers,
+      goals: DEMO_CONTEXT.goals,
+      priorities: DEMO_CONTEXT.priorities,
+      key_metrics: DEMO_CONTEXT.keyMetrics,
+    })
+    .eq("workspace_id", workspaceId);
+}
+
+/**
+ * The whole Demo ERP set-up in one go: connect, choose every dataset, accept
+ * the suggested field mappings, and sync. Used by "Try with demo data".
+ */
+export async function setUpDemo(options: { switchContext: boolean }): Promise<Result<{ id: string }>> {
+  await requireWorkspace();
+  const connected = await connectDemoErp(options);
+  if ("error" in connected) return connected;
+  const supabase = await createClient();
+  const { data: datasets } = await supabase.from("source_datasets").select("id, entity, mapping").eq("data_source_id", connected.id);
+  const usable = (datasets ?? []).filter((d) => {
+    const e = d.entity ? getEntity(d.entity) : undefined;
+    const m = d.mapping as FieldMapping;
+    return e && e.fields.every((f) => !f.required || m[f.key]);
+  });
+  if (!usable.length) return { error: "Couldn't set up the demo data. Try the step-by-step set-up on Data Sources." };
+  const now = new Date().toISOString();
+  const { error } = await supabase
+    .from("source_datasets")
+    .update({ selected: true, mapping_confirmed_at: now })
+    .in("id", usable.map((d) => d.id));
+  if (error) return { error: "Couldn't set up the demo data. Try again in a moment." };
+  const synced = await syncSource(connected.id);
+  if ("error" in synced) return synced;
+  return { ok: true, id: connected.id };
 }
 
 /** Which datasets of a source to bring into Veyra. */
@@ -212,9 +271,23 @@ export async function syncSource(sourceId: string): Promise<Result<{ snapshots: 
 
 /** Disconnects a source. Evidence already taken into investigations keeps its own copy. */
 export async function disconnectSource(sourceId: string): Promise<Result> {
-  await requireWorkspace();
+  const { company } = await requireWorkspace();
   if (!UUID.test(sourceId)) return { error: "Something went wrong. Reload the page and try again." };
   const supabase = await createClient();
+
+  // Leaving the demo puts the team's own business context back.
+  const { data: source } = await supabase.from("data_sources").select("settings").eq("id", sourceId).maybeSingle();
+  const settings = (source?.settings ?? {}) as { contextSwitched?: boolean; savedContext?: ContextRow };
+  if (settings.contextSwitched) {
+    const saved = settings.savedContext;
+    await supabase
+      .from("business_contexts")
+      .update(
+        saved ?? { company_name: "", product: "", business_model: "", target_customers: "", goals: [], priorities: [], key_metrics: [] },
+      )
+      .eq("workspace_id", company.id);
+  }
+
   const { error, count } = await supabase.from("data_sources").delete({ count: "exact" }).eq("id", sourceId);
   if (error || !count) return { error: "Couldn't disconnect it. Try again in a moment." };
   done();

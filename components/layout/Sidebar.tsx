@@ -22,6 +22,7 @@ import { statusLabel } from "@/components/ui/StatusBadge";
 import { cn } from "@/lib/cn";
 import { routes } from "@/lib/routes";
 import type { InvestigationSummary } from "@/lib/types";
+import { useSession } from "./SessionProvider";
 import { UserMenu } from "./UserMenu";
 
 type NavItem = { href: string; label: string; icon: LucideIcon };
@@ -67,6 +68,7 @@ type Props = {
 };
 
 export function Sidebar({ investigations, onNavigate }: Props) {
+  const { demo } = useSession();
   const pathname = usePathname();
   const active = investigations.filter((i) => i.status !== "completed").slice(0, 4);
   const isCurrent = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
@@ -131,6 +133,17 @@ export function Sidebar({ investigations, onNavigate }: Props) {
       </div>
 
       <div className="shrink-0 border-t border-navy-700/70 p-3">
+        {demo && (
+          <Link
+            href={routes.dataSource(demo.sourceId)}
+            className="mb-2 flex items-center gap-2 rounded-md bg-violet-500/15 px-2.5 py-1.5 text-xs text-violet-200 hover:bg-violet-500/25"
+          >
+            <FlaskConical className="h-3.5 w-3.5 shrink-0" />
+            <span>
+              Demo data: <b className="font-semibold text-white">{demo.name}</b>
+            </span>
+          </Link>
+        )}
         <UserMenu />
       </div>
     </div>

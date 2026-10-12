@@ -17,28 +17,28 @@ type Rule = {
 
 const rules: Rule[] = [
   {
-    match: /onboard|sign.?up|register|forced|too many steps|first session|configur|setup|set up/i,
+    match: /defect|chip|crack|faulty|broken|glaze|quality|inspection|supplier|quanta|batch/i,
     action: "supports-hypothesis",
-    targetId: "h-onboarding",
-    because: "It describes friction in the new onboarding",
+    targetId: "h-quality",
+    because: "It describes product faults or the new supplier's goods",
   },
   {
-    match: /paid|campaign|\bads?\b|creative|targeting|acquisition|\bcac\b|install/i,
+    match: /deliver|courier|shipping|transit|late|lead time|carton|packag/i,
     action: "supports-hypothesis",
-    targetId: "h-channel",
-    because: "It covers paid acquisition, including who campaigns are reaching",
+    targetId: "h-delivery",
+    because: "It covers delivery times or how goods travel",
   },
   {
-    match: /competit|rival|market share/i,
+    match: /season|summer|last year|holiday/i,
     action: "supports-hypothesis",
-    targetId: "h-competitor",
-    because: "It concerns competitors and their effect on the market",
+    targetId: "h-season",
+    because: "It concerns seasonal patterns in returns",
   },
   {
-    match: /funnel|activation|retention|cohort|completion/i,
+    match: /return|refund|rma|reason/i,
     action: "supports-finding",
-    targetId: "f-activation",
-    because: "It covers activation or onboarding funnel data",
+    targetId: "f-returns",
+    because: "It covers returns or refunds data",
   },
 ];
 

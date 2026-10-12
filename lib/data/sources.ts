@@ -1,5 +1,6 @@
 import "server-only";
 import { cache } from "react";
+import { requireWorkspace } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import type { ConnectedSource, DataCheck, DataMetric, SnapshotView, SourceDatasetView } from "@/lib/types";
 
@@ -92,6 +93,7 @@ function toSource(row: SourceRow): ConnectedSource {
 }
 
 export const listConnectedSources = cache(async (): Promise<ConnectedSource[]> => {
+  await requireWorkspace();
   const supabase = await createClient();
   const { data, error } = await supabase.from("data_sources").select(SOURCE_COLUMNS).order("created_at");
   if (error) throw new Error(`Couldn't load data sources: ${error.message}`);
