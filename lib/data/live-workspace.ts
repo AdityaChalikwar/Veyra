@@ -27,7 +27,7 @@ export function buildLiveWorkspace(record: InvestigationRecord, dataSources: Dat
 
   const evidence: EvidenceItem[] = record.uploads
     .filter((u) => u.status === "ready" && u.evidenceId)
-    .map((u) => ({
+    .map<EvidenceItem>((u) => ({
       id: u.evidenceId!,
       investigationId: id,
       name: u.name,
@@ -38,7 +38,22 @@ export function buildLiveWorkspace(record: InvestigationRecord, dataSources: Dat
       addedAt: u.addedAt,
       description: u.summary,
       preview: u.profile ? { columns: u.profile.preview.columns, rows: u.profile.preview.rows.slice(0, 5) } : undefined,
-    }));
+    }))
+    .concat(
+      record.sourceEvidence.map<EvidenceItem>((e) => ({
+        id: e.evidenceId,
+        investigationId: id,
+        name: e.name,
+        category: "company-data",
+        source: e.source,
+        dataset: e.name,
+        coverage: e.coverage,
+        format: "dataset",
+        addedAt: e.addedAt,
+        description: e.summary,
+        preview: e.profile ? { columns: e.profile.preview.columns, rows: e.profile.preview.rows.slice(0, 5) } : undefined,
+      })),
+    );
 
   // The analysis cites datasets as "E1", "E2"…; map them back to evidence ids.
   const refs = new Map(run?.datasets.map((d) => [d.ref, d.evidenceId]) ?? []);

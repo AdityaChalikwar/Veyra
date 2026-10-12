@@ -159,6 +159,142 @@ export type Database = {
           },
         ];
       };
+      data_sources: {
+        Row: {
+          connector: string;
+          created_at: string;
+          created_by: string | null;
+          id: string;
+          kind: string;
+          last_synced_at: string | null;
+          name: string;
+          settings: Json;
+          status: string;
+          updated_at: string;
+          workspace_id: string;
+        };
+        Insert: {
+          connector: string;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          kind: string;
+          last_synced_at?: string | null;
+          name: string;
+          settings?: Json;
+          status?: string;
+          updated_at?: string;
+          workspace_id: string;
+        };
+        Update: {
+          connector?: string;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          kind?: string;
+          last_synced_at?: string | null;
+          name?: string;
+          settings?: Json;
+          status?: string;
+          updated_at?: string;
+          workspace_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "data_sources_workspace_id_fkey";
+            columns: ["workspace_id"];
+            isOneToOne: false;
+            referencedRelation: "workspaces";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      dataset_snapshots: {
+        Row: {
+          checks: Json;
+          coverage: string | null;
+          created_at: string;
+          data_source_id: string;
+          entity: string;
+          id: string;
+          metrics: Json;
+          name: string;
+          profile: Json;
+          rejected_count: number;
+          row_count: number;
+          source_dataset_id: string;
+          source_name: string;
+          summary: string;
+          sync_run_id: string;
+          workspace_id: string;
+        };
+        Insert: {
+          checks?: Json;
+          coverage?: string | null;
+          created_at?: string;
+          data_source_id: string;
+          entity: string;
+          id?: string;
+          metrics?: Json;
+          name: string;
+          profile: Json;
+          rejected_count?: number;
+          row_count: number;
+          source_dataset_id: string;
+          source_name: string;
+          summary?: string;
+          sync_run_id: string;
+          workspace_id: string;
+        };
+        Update: {
+          checks?: Json;
+          coverage?: string | null;
+          created_at?: string;
+          data_source_id?: string;
+          entity?: string;
+          id?: string;
+          metrics?: Json;
+          name?: string;
+          profile?: Json;
+          rejected_count?: number;
+          row_count?: number;
+          source_dataset_id?: string;
+          source_name?: string;
+          summary?: string;
+          sync_run_id?: string;
+          workspace_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "dataset_snapshots_data_source_id_fkey";
+            columns: ["data_source_id"];
+            isOneToOne: false;
+            referencedRelation: "data_sources";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "dataset_snapshots_source_dataset_id_fkey";
+            columns: ["source_dataset_id"];
+            isOneToOne: false;
+            referencedRelation: "source_datasets";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "dataset_snapshots_sync_run_id_fkey";
+            columns: ["sync_run_id"];
+            isOneToOne: false;
+            referencedRelation: "sync_runs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "dataset_snapshots_workspace_id_fkey";
+            columns: ["workspace_id"];
+            isOneToOne: false;
+            referencedRelation: "workspaces";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       evidence: {
         Row: {
           category: string;
@@ -169,8 +305,10 @@ export type Database = {
           format: string;
           id: string;
           investigation_id: string;
+          metrics: Json | null;
           name: string;
           profile: Json | null;
+          snapshot_id: string | null;
           source: string;
           summary: string;
           updated_at: string;
@@ -185,8 +323,10 @@ export type Database = {
           format?: string;
           id?: string;
           investigation_id: string;
+          metrics?: Json | null;
           name: string;
           profile?: Json | null;
+          snapshot_id?: string | null;
           source?: string;
           summary?: string;
           updated_at?: string;
@@ -201,8 +341,10 @@ export type Database = {
           format?: string;
           id?: string;
           investigation_id?: string;
+          metrics?: Json | null;
           name?: string;
           profile?: Json | null;
+          snapshot_id?: string | null;
           source?: string;
           summary?: string;
           updated_at?: string;
@@ -434,6 +576,126 @@ export type Database = {
           updated_at?: string;
         };
         Relationships: [];
+      };
+      source_datasets: {
+        Row: {
+          approx_rows: number;
+          created_at: string;
+          data_source_id: string;
+          description: string;
+          entity: string | null;
+          id: string;
+          key: string;
+          mapping: Json;
+          mapping_confirmed_at: string | null;
+          name: string;
+          schema: Json | null;
+          selected: boolean;
+          updated_at: string;
+          workspace_id: string;
+        };
+        Insert: {
+          approx_rows?: number;
+          created_at?: string;
+          data_source_id: string;
+          description?: string;
+          entity?: string | null;
+          id?: string;
+          key: string;
+          mapping?: Json;
+          mapping_confirmed_at?: string | null;
+          name: string;
+          schema?: Json | null;
+          selected?: boolean;
+          updated_at?: string;
+          workspace_id: string;
+        };
+        Update: {
+          approx_rows?: number;
+          created_at?: string;
+          data_source_id?: string;
+          description?: string;
+          entity?: string | null;
+          id?: string;
+          key?: string;
+          mapping?: Json;
+          mapping_confirmed_at?: string | null;
+          name?: string;
+          schema?: Json | null;
+          selected?: boolean;
+          updated_at?: string;
+          workspace_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "source_datasets_data_source_id_fkey";
+            columns: ["data_source_id"];
+            isOneToOne: false;
+            referencedRelation: "data_sources";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "source_datasets_workspace_id_fkey";
+            columns: ["workspace_id"];
+            isOneToOne: false;
+            referencedRelation: "workspaces";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      sync_runs: {
+        Row: {
+          created_by: string | null;
+          data_source_id: string;
+          error: string | null;
+          finished_at: string | null;
+          id: string;
+          rows_read: number;
+          rows_rejected: number;
+          started_at: string;
+          status: string;
+          workspace_id: string;
+        };
+        Insert: {
+          created_by?: string | null;
+          data_source_id: string;
+          error?: string | null;
+          finished_at?: string | null;
+          id?: string;
+          rows_read?: number;
+          rows_rejected?: number;
+          started_at?: string;
+          status?: string;
+          workspace_id: string;
+        };
+        Update: {
+          created_by?: string | null;
+          data_source_id?: string;
+          error?: string | null;
+          finished_at?: string | null;
+          id?: string;
+          rows_read?: number;
+          rows_rejected?: number;
+          started_at?: string;
+          status?: string;
+          workspace_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "sync_runs_data_source_id_fkey";
+            columns: ["data_source_id"];
+            isOneToOne: false;
+            referencedRelation: "data_sources";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "sync_runs_workspace_id_fkey";
+            columns: ["workspace_id"];
+            isOneToOne: false;
+            referencedRelation: "workspaces";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       workspace_members: {
         Row: {

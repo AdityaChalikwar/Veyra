@@ -20,6 +20,7 @@ import { cache } from "react";
 import { formatRange } from "@/lib/analysis/format";
 import type { AnalysisPack } from "@/lib/analysis/pack";
 import { buildLiveWorkspace } from "./live-workspace";
+import { listConnectedSources } from "./sources";
 import type { AnalysisResult } from "@/lib/analysis/schema";
 import { buildDauWorkspace, dauOpenQuestions } from "@/mocks/dau-investigation";
 import { buildDecisions } from "@/mocks/decisions";
@@ -32,6 +33,7 @@ import type {
   BusinessMemory,
   Company,
   Confidence,
+  DataMetric,
   DatasetProfile,
   DataSource,
   DecisionRecord,
@@ -172,7 +174,7 @@ export async function getInvestigationRecord(id: string): Promise<InvestigationR
   const { data } = await supabase
     .from("investigations")
     .select(
-      "triggers, outcomes, objective, current_stage, known_context, attachments, data_source_ids, plan, created_at, clarifying_questions (id, position, question, hint, answer), files (id, name, size_bytes, status, error, created_at, evidence (id, summary, coverage, profile)), investigation_stages (stage, completed_at), analysis_runs (id, status, model, created_at, completed_at, error, result, pack, usage)",
+      "triggers, outcomes, objective, current_stage, known_context, attachments, data_source_ids, plan, created_at, clarifying_questions (id, position, question, hint, answer), files (id, name, size_bytes, status, error, created_at, evidence (id, summary, coverage, profile)), investigation_stages (stage, completed_at), evidence (id, name, source, coverage, summary, profile, metrics, snapshot_id, file_id, created_at), analysis_runs (id, status, model, created_at, completed_at, error, result, pack, usage)",
     )
     .eq("id", id)
     .maybeSingle();
@@ -209,6 +211,20 @@ export async function getInvestigationRecord(id: string): Promise<InvestigationR
         coverage: f.evidence?.coverage ?? undefined,
         profile: (f.evidence?.profile ?? undefined) as DatasetProfile | undefined,
         addedAt: f.created_at,
+      })),
+    sourceEvidence: [...data.evidence]
+      .filter((e) => !e.file_id)
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+      .map((e) => ({
+        evidenceId: e.id,
+        snapshotId: e.snapshot_id ?? undefined,
+        name: e.name,
+        source: e.source,
+        coverage: e.coverage ?? undefined,
+        summary: e.summary,
+        profile: (e.profile ?? undefined) as DatasetProfile | undefined,
+        metrics: (e.metrics ?? []) as DataMetric[],
+        addedAt: e.created_at,
       })),
     questions: [...data.clarifying_questions]
       .sort((a, b) => a.position - b.position)
@@ -321,8 +337,36 @@ export async function getBusinessMemory(): Promise<BusinessMemory> {
   return { entries: [], stories: [] };
 }
 
+/**
+ * The data sources Veyra knows about, with what is really connected: uploaded
+ * files are always available; the ERP is connected once the Demo ERP (or, later,
+ * a real ERP) has been set up. Other systems are listed but not yet connectable.
+ */
 export async function listDataSources(): Promise<DataSource[]> {
-  return buildDataSources();
+  const connected = await listConnectedSources();
+  const erp = connected.find((c) => c.kind === "erp");
+  const synced = erp?.datasets.filter((d) => d.latest) ?? [];
+  const uploads: DataSource = {
+    id: "ds-uploads",
+    name: "Uploaded files",
+    group: "company-systems",
+    description: "CSV exports you upload to an investigation.",
+    status: "connected",
+  };
+  return [
+    uploads,
+    ...buildDataSources().map<DataSource>((s) =>
+      s.id === "ds-erp" && erp
+        ? {
+            ...s,
+            name: erp.name,
+            status: "connected",
+            lastSyncedAt: erp.lastSyncedAt,
+            metrics: synced.slice(0, 3).map((d) => ({ label: d.name, value: d.latest!.rowCount.toLocaleString("en") })),
+          }
+        : { ...s, status: "not-connected", lastSyncedAt: undefined, metrics: undefined },
+    ),
+  ];
 }
 
 /** Open questions across active investigations: unanswered clarifying questions, plus the sample's. */

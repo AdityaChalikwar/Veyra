@@ -21,7 +21,7 @@ next step, validation) and to run analysis over company data, not to host a chat
 | 3. CSV upload (private Storage) and profiling in code → evidence | **Done** (`supabase/migrations/20261006*`, `lib/analysis/profile.ts`) |
 | Persistence gaps — investigation objective, current stage, stage history, edit details | **Done** (`supabase/migrations/20261008*`) |
 | 4. AI analysis pipeline (Claude) — analysis pack in code, one structured Claude call, stored runs, stage moves to Problem validation | **Done** — confirmed with a real call (`supabase/migrations/20261009*`, `lib/analysis/`); real investigations use the full workspace |
-| 5. Data onboarding layer + Demo ERP (see "Data onboarding" below) | Next |
+| 5. Data onboarding layer + Demo ERP (see "Data onboarding" below) | **Built** (`supabase/migrations/20261013*`, `lib/connectors/`, `lib/data-layer/`); analysis with ERP metrics needs one live check |
 | 6. Decisions, validation, Decision Brief | |
 | 7. Business Memory, clean-up of mocks | |
 | Later. Real connectors (ERP, CRM, analytics, support, finance), scheduled sync | |
@@ -92,11 +92,11 @@ analytics, support, finance, CSV and uploaded research all end up in that same s
 | Connector (code, `lib/connectors/`) | One module per source type with the same interface: `listDatasets`, `describe` (schema discovery: fields, types, sample), `read` (rows, paged, optionally since a point in time). Built: **Demo ERP**, **CSV upload**. Later: SAP, Oracle, Dynamics, NetSuite, CRM, analytics… added without touching the engine. |
 | `data_sources` | A workspace's connected source: type, name, status, settings. Credentials for real connectors are never stored in plain tables (Supabase Vault, server-side only). |
 | `source_datasets` | The datasets chosen from a source (e.g. ERP Orders) with the discovered schema. |
-| `field_mappings` | Source field → Veyra field, per dataset. Suggested automatically (names and types; AI can help later), confirmed by a person. |
+| Field mapping (`source_datasets.mapping`) | Veyra field → source field, per dataset. Suggested from field names and descriptions (`suggestMapping`; AI can help later), confirmed by a person. |
 | Canonical model (the Veyra business data layer) | A small set of business entities: customers, products, orders (+ lines), inventory, purchases, returns, invoices. Anything that doesn't map (most CSVs) stays a generic table. |
 | `sync_runs` | Each import: when, rows read, rows rejected and why (validation), status. |
-| `dataset_snapshots` | What a sync produced: the normalized rows (or, for large sources, aggregates), a profile and standard metrics computed in code. Snapshots don't change, so findings stay traceable to the exact data they used. |
-| Evidence | Points to a snapshot (today it points to an uploaded file; CSV moves onto the same path). Carries provenance: source, dataset, period, sync time. |
+| `dataset_snapshots` | What a sync produced: a profile (personal fields masked) and standard metrics computed in code from the normalized rows. Rows themselves aren't stored (Demo ERP regenerates them; real sources keep them). Snapshots don't change, so findings stay traceable to the exact data they used. |
+| Evidence | Either an uploaded file or a snapshot (`evidence.snapshot_id`), each with its own copy of profile and metrics, so it outlives a disconnected source. Carries provenance: source, dataset, period. The analysis pack treats both the same (`buildPack`). |
 | Metrics layer (code) | Standard, pre-defined calculations per entity — orders and revenue by week, return rate by product, stock-outs, customer counts by segment — computed in code from snapshots. The AI reads results; it never writes queries. |
 
 ### Demo ERP
@@ -117,7 +117,8 @@ validation, sync), so a real connector later is a new module, not a redesign.
   a narrowly-scoped service role. Demo ERP and CSV import within a request.
 - **Privacy.** ERP data includes personal data (names, emails, addresses). Only aggregates and
   profiles go to the AI; sample rows sent to it are masked. Today the analysis pack includes a
-  few raw preview rows from CSVs — masking them is part of this milestone.
+  few raw preview rows from CSVs — now masked by column name (`isPersonalColumn`), and connected
+  data is masked by field (`personal` in the canonical model).
 - **Mapping is the hard part.** Every ERP names things differently (SAP's VBAK/VBAP for orders).
   The canonical model stays small and the mapping step is where a person confirms meaning.
 - **Freshness vs traceability.** Re-syncing creates a new snapshot; analyses keep citing the

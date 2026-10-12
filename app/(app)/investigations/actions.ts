@@ -12,7 +12,7 @@ import { OUTCOMES, TRIGGERS } from "@/lib/options";
 import { createClient } from "@/lib/supabase/server";
 import type { Json } from "@/lib/supabase/database.types";
 import { genericQuestions } from "@/mocks/new-investigation";
-import type { ClarifyingQuestion, DatasetProfile, InvestigationDraft, InvestigationOutcome, InvestigationTrigger, NeededInfo } from "@/lib/types";
+import type { ClarifyingQuestion, DataMetric, DatasetProfile, InvestigationDraft, InvestigationOutcome, InvestigationTrigger, NeededInfo } from "@/lib/types";
 
 const MAX_PROBLEM = 2000;
 /** Must match the bucket's limit (supabase/migrations/20261006000001_uploads_and_evidence.sql). */
@@ -275,7 +275,7 @@ export async function analyseInvestigation(investigationId: string): Promise<{ o
 
   const { data: evidence } = await supabase
     .from("evidence")
-    .select("id, name, profile, created_at")
+    .select("id, name, source, profile, metrics, created_at")
     .eq("investigation_id", investigationId)
     .not("profile", "is", null)
     .order("created_at");
@@ -296,7 +296,16 @@ export async function analyseInvestigation(investigationId: string): Promise<{ o
       .eq("id", r.id);
   }
 
-  const pack = buildPack(evidence.map((e) => ({ id: e.id, name: e.name, profile: e.profile as unknown as DatasetProfile })));
+  // Every kind of evidence arrives in the same shape — a profile, plus metrics for connected data — whatever its source.
+  const pack = buildPack(
+    evidence.map((e) => ({
+      id: e.id,
+      name: e.name,
+      source: e.source,
+      profile: e.profile as unknown as DatasetProfile,
+      metrics: (e.metrics ?? undefined) as DataMetric[] | undefined,
+    })),
+  );
   const { data: run, error: insertError } = await supabase
     .from("analysis_runs")
     .insert({ investigation_id: investigationId, workspace_id: company.id, model: ANALYSIS_MODEL, pack: pack as unknown as Json })

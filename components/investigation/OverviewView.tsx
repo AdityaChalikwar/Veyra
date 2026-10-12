@@ -317,15 +317,23 @@ function LiveOverview({ live, tab }: { live: LiveInvestigation; tab: (slug: stri
   return (
     <div className="mt-6 space-y-6">
       {workspace.evidence.length ? (
-        <AnalysisSection investigationId={inv.id} runs={record.analysisRuns} uploads={record.uploads} />
+        <AnalysisSection
+          investigationId={inv.id}
+          runs={record.analysisRuns}
+          uploads={record.uploads}
+          sourceEvidenceIds={record.sourceEvidence.map((e) => e.evidenceId)}
+        />
       ) : (
         <section className="rounded-xl border-2 border-brand-200 bg-surface p-5 shadow-card">
           <h2 className="flex items-center gap-2 text-[15px] font-semibold">
             <Upload className="h-4 w-4 text-brand-600" /> Start by adding data
           </h2>
           <p className="mt-0.5 text-xs text-ink-subtle">
-            Upload a CSV export — events, sign-ups, orders or support tickets. Veyra checks what it contains, then analyses it against
-            this problem.
+            Upload a CSV export — events, sign-ups, orders or support tickets — or{" "}
+            <Link href={tab("evidence")} className="font-medium text-brand-600 hover:text-brand-700">
+              add datasets from a connected source
+            </Link>
+            . Veyra checks what they contain, then analyses them against this problem.
           </p>
           <div className="mt-4">
             <DataUploader investigationId={inv.id} />

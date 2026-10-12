@@ -23,8 +23,8 @@ export function NextActionBar() {
   const live = workspace.live;
   if (live) {
     if (!workspace.evidence.length) {
-      text = "Add data: upload a CSV export, such as events, sign-ups, orders or support tickets.";
-      cta = "Upload data";
+      text = "Add data: take datasets from a connected source like the Demo ERP, or upload a CSV export.";
+      cta = "Add data";
       tab = "evidence";
     } else if (!live.run) {
       text = "Analyse your data to turn it into findings, hypotheses and a recommended next step.";

@@ -1,4 +1,4 @@
-import type { ColumnProfile, DatasetProfile } from "@/lib/types";
+import type { ColumnProfile, DataMetric, DatasetProfile } from "@/lib/types";
 import { clip, fmtInt, formatNumber, formatRange, pct } from "./format";
 
 /**
@@ -32,6 +32,10 @@ export type PackDataset = {
   issues: string[];
   columns: PackColumn[];
   preview: DatasetProfile["preview"];
+  /** Where the data came from, e.g. "Demo ERP — Northwind Home" or "Uploaded CSV". */
+  source?: string;
+  /** Calculations over the full dataset, worked out in code (trends, breakdowns, rates). */
+  metrics?: DataMetric[];
 };
 
 export type AnalysisPack = {
@@ -40,9 +44,24 @@ export type AnalysisPack = {
   limits: string[];
 };
 
-export type PackInput = { id: string; name: string; profile: DatasetProfile };
+export type PackInput = { id: string; name: string; profile: DatasetProfile; source?: string; metrics?: DataMetric[] };
 
 const TOP_VALUES = 8;
+const MASK = "•••";
+
+/**
+ * Columns that probably hold personal data. Their sample values are masked and
+ * their common values left out, so names, emails and phone numbers never
+ * reach the AI. (Data from connected sources is masked earlier, by field.)
+ */
+export function isPersonalColumn(name: string): boolean {
+  const n = name.toLowerCase();
+  return (
+    /e-?mail|phone|mobile|telephone|address|postcode|post code|zip|passport|national id|ssn|date of birth|dob/.test(n) ||
+    /^(name|full ?name|first ?name|last ?name|surname)$/.test(n.trim()) ||
+    /(customer|client|contact|user|person|buyer|employee|cust)[ _-]?name/.test(n)
+  );
+}
 const MAX_COLUMNS = 60;
 
 export function buildPack(items: PackInput[]): AnalysisPack {
@@ -57,6 +76,8 @@ export function buildPack(items: PackInput[]): AnalysisPack {
       dateColumn: p.dateColumn,
       truncated: p.truncated,
       issues: p.issues,
+      source: item.source,
+      metrics: item.metrics?.length ? item.metrics : undefined,
       columns: p.columns.slice(0, MAX_COLUMNS).map((c) => ({
         name: c.name,
         type: c.type,
@@ -65,15 +86,23 @@ export function buildPack(items: PackInput[]): AnalysisPack {
         distinct: c.distinct,
         number: c.number,
         date: c.date,
-        top: c.top?.slice(0, TOP_VALUES).map((t) => ({ ...t, share: p.rowCount ? t.count / p.rowCount : 0 })),
+        top: isPersonalColumn(c.name) ? undefined : c.top?.slice(0, TOP_VALUES).map((t) => ({ ...t, share: p.rowCount ? t.count / p.rowCount : 0 })),
       })),
-      preview: p.preview,
+      preview: {
+        columns: p.preview.columns,
+        rows: p.preview.rows.map((row) => row.map((v, i) => (v && isPersonalColumn(p.preview.columns[i] ?? "") ? MASK : v))),
+      },
     };
   });
 
   const limits: string[] = [
-    "Each dataset is described by column summaries and a few sample rows. Row-level patterns, trends over time and relationships between columns are not available.",
+    datasets.some((d) => d.metrics)
+      ? "Datasets from connected sources come with metrics calculated over every row (trends by month, breakdowns, rates). Anything not in those metrics or the column summaries is not available."
+      : "Each dataset is described by column summaries and a few sample rows. Row-level patterns, trends over time and relationships between columns are not available.",
   ];
+  if (datasets.some((d) => d.metrics) && datasets.some((d) => !d.metrics)) {
+    limits.push("Uploaded files have column summaries only, with no trends; compare them with connected data carefully.");
+  }
   for (const d of datasets) {
     if (!d.period) limits.push(`${d.ref} has no date column, so what period it covers is unknown.`);
     if (d.truncated) limits.push(`${d.ref} is a very large file; only its first rows were read.`);
@@ -87,14 +116,20 @@ export function buildPack(items: PackInput[]): AnalysisPack {
 export function renderPack(pack: AnalysisPack): string {
   const out: string[] = [];
   for (const d of pack.datasets) {
-    out.push(`## ${d.ref}: ${d.name}`);
+    out.push(`## ${d.ref}: ${d.name}${d.source ? ` (from ${d.source})` : ""}`);
     out.push(`Rows: ${fmtInt(d.rows)}${d.period ? ` · Period: ${formatRange(d.period.from, d.period.to)} (column “${d.dateColumn}”)` : " · Period: unknown"}`);
     if (d.issues.length) out.push(`Data issues: ${d.issues.join(" | ")}`);
     out.push("Columns:");
     for (const c of d.columns) out.push(`- ${renderColumn(c)}`);
     if (d.preview.rows.length) {
-      out.push(`Sample rows (${d.preview.rows.length}): ${d.preview.columns.join(" | ")}`);
+      out.push(`Sample rows (${d.preview.rows.length}; personal details masked): ${d.preview.columns.join(" | ")}`);
       for (const r of d.preview.rows) out.push(`  ${r.map((v) => clip(v, 40)).join(" | ")}`);
+    }
+    for (const m of d.metrics ?? []) {
+      out.push(`Metric “${m.title}” (${m.unit}):`);
+      out.push(`  ${m.columns.join(" | ")}`);
+      for (const row of m.rows) out.push(`  ${row.map((v) => (typeof v === "number" ? v.toLocaleString("en", { maximumFractionDigits: 2 }) : clip(v, 40))).join(" | ")}`);
+      if (m.note) out.push(`  Note: ${m.note}`);
     }
     out.push("");
   }

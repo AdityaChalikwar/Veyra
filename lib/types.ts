@@ -683,6 +683,8 @@ export type InvestigationRecord = {
   plan: InvestigationPlan | null;
   /** Uploaded files and the evidence made from them, newest first. */
   uploads: UploadedEvidence[];
+  /** Evidence taken from connected sources (e.g. Demo ERP), newest first. */
+  sourceEvidence: SourceEvidence[];
   /** AI analysis runs, newest first. */
   analysisRuns: AnalysisRunRecord[];
   createdAt: string; // ISO
@@ -740,4 +742,66 @@ export type LiveInvestigation = {
   dataSources: DataSource[];
   /** The latest analysis that completed, if any. */
   run?: AnalysisRunRecord & { result: AnalysisResult };
+};
+
+/* ── Data onboarding ─────────────────────────────────────────────────── */
+
+/** A validation result shown to people: fine, worth knowing, or blocking. */
+export type DataCheck = { level: "ok" | "warning" | "error"; text: string };
+
+/** A calculation over a dataset, worked out in code (lib/data-layer/metrics.ts). */
+export type DataMetric = { id: string; title: string; unit: string; columns: string[]; rows: (string | number)[][]; note?: string };
+
+/** A connected source and its datasets, as the Data Sources pages show it. */
+export type ConnectedSource = {
+  id: string;
+  kind: string;
+  connector: string;
+  name: string;
+  status: "connected" | "error";
+  lastSyncedAt?: string;
+  createdAt: string;
+  datasets: SourceDatasetView[];
+};
+
+export type SourceDatasetView = {
+  id: string;
+  key: string;
+  name: string;
+  description: string;
+  approxRows: number;
+  selected: boolean;
+  entity: string | null;
+  schema: { fields: { name: string; sourceType: string; description?: string }[]; sample: Record<string, string>[] } | null;
+  mapping: Record<string, string | null>;
+  mappingConfirmed: boolean;
+  /** The newest snapshot, if it has been synced. */
+  latest?: SnapshotView;
+};
+
+export type SnapshotView = {
+  id: string;
+  name: string;
+  sourceName: string;
+  entity: string;
+  rowCount: number;
+  rejectedCount: number;
+  coverage?: string;
+  summary: string;
+  checks: DataCheck[];
+  metrics: DataMetric[];
+  createdAt: string;
+};
+
+/** Evidence taken from a connected source, as an investigation shows it. */
+export type SourceEvidence = {
+  evidenceId: string;
+  snapshotId?: string;
+  name: string;
+  source: string;
+  coverage?: string;
+  summary: string;
+  profile?: DatasetProfile;
+  metrics: DataMetric[];
+  addedAt: string;
 };

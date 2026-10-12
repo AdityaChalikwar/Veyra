@@ -18,7 +18,18 @@ const STALE_RUN_MS = 10 * 60 * 1000;
  * they're here after a refresh; a run in progress on another tab or after a
  * reload is picked up by checking back every few seconds.
  */
-export function AnalysisSection({ investigationId, runs, uploads }: { investigationId: string; runs: AnalysisRunRecord[]; uploads: UploadedEvidence[] }) {
+export function AnalysisSection({
+  investigationId,
+  runs,
+  uploads,
+  sourceEvidenceIds = [],
+}: {
+  investigationId: string;
+  runs: AnalysisRunRecord[];
+  uploads: UploadedEvidence[];
+  /** Evidence taken from connected sources. */
+  sourceEvidenceIds?: string[];
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -29,7 +40,7 @@ export function AnalysisSection({ investigationId, runs, uploads }: { investigat
   const lastGood = runs.find((r): r is AnalysisRunRecord & { result: NonNullable<AnalysisRunRecord["result"]> } => r.status === "completed" && !!r.result);
   const failed = latest && latest.status !== "completed" && latest.status !== "running" ? latest : undefined;
 
-  const readyIds = uploads.filter((u) => u.status === "ready" && u.evidenceId).map((u) => u.evidenceId!);
+  const readyIds = [...uploads.filter((u) => u.status === "ready" && u.evidenceId).map((u) => u.evidenceId!), ...sourceEvidenceIds];
   const analysedIds = new Set(lastGood?.datasets.map((d) => d.evidenceId));
   const stale = !!lastGood && (readyIds.some((id) => !analysedIds.has(id)) || [...analysedIds].some((id) => !readyIds.includes(id!)));
 
