@@ -21,8 +21,10 @@ next step, validation) and to run analysis over company data, not to host a chat
 | 3. CSV upload (private Storage) and profiling in code → evidence | **Done** (`supabase/migrations/20261006*`, `lib/analysis/profile.ts`) |
 | Persistence gaps — investigation objective, current stage, stage history, edit details | **Done** (`supabase/migrations/20261008*`) |
 | 4. AI analysis pipeline (Claude) — analysis pack in code, one structured Claude call, stored runs, stage moves to Problem validation | **Done** — confirmed with a real call (`supabase/migrations/20261009*`, `lib/analysis/`); real investigations use the full workspace |
-| 5. Decisions, validation, Decision Brief | |
-| 6. Business Memory, clean-up of mocks | |
+| 5. Data onboarding layer + Demo ERP (see "Data onboarding" below) | Next |
+| 6. Decisions, validation, Decision Brief | |
+| 7. Business Memory, clean-up of mocks | |
+| Later. Real connectors (ERP, CRM, analytics, support, finance), scheduled sync | |
 
 Every workspace gets a **sample investigation** (DAU Decline): a real row, so it can
 be listed and removed, whose content is the demo in `/mocks` until evidence and
@@ -67,6 +69,61 @@ Architecture: everything server-side runs in the Next.js app (server components,
 actions, `app/auth/callback`). The server acts as the signed-in user, so Row Level
 Security applies to every query; no secret key is used. Membership checks live in the
 `private` schema so they aren't exposed through the API.
+
+## Data onboarding (core product direction)
+
+Company systems, ERP first, are a primary evidence source, not a future mock. Data reaches
+an investigation through one pipeline whatever its origin:
+
+```
+Business onboarding → Data source onboarding → Connection → Dataset selection
+→ Schema discovery → Field mapping → Validation → Sync (snapshot)
+→ Veyra business data layer → Evidence → Investigation engine
+```
+
+**Rule: the investigation engine never knows where data came from.** It reads normalized
+evidence (a dataset snapshot's profile, computed metrics and provenance). ERP, CRM, product
+analytics, support, finance, CSV and uploaded research all end up in that same shape.
+
+### Pieces
+
+| Piece | What it is |
+|---|---|
+| Connector (code, `lib/connectors/`) | One module per source type with the same interface: `listDatasets`, `describe` (schema discovery: fields, types, sample), `read` (rows, paged, optionally since a point in time). Built: **Demo ERP**, **CSV upload**. Later: SAP, Oracle, Dynamics, NetSuite, CRM, analytics… added without touching the engine. |
+| `data_sources` | A workspace's connected source: type, name, status, settings. Credentials for real connectors are never stored in plain tables (Supabase Vault, server-side only). |
+| `source_datasets` | The datasets chosen from a source (e.g. ERP Orders) with the discovered schema. |
+| `field_mappings` | Source field → Veyra field, per dataset. Suggested automatically (names and types; AI can help later), confirmed by a person. |
+| Canonical model (the Veyra business data layer) | A small set of business entities: customers, products, orders (+ lines), inventory, purchases, returns, invoices. Anything that doesn't map (most CSVs) stays a generic table. |
+| `sync_runs` | Each import: when, rows read, rows rejected and why (validation), status. |
+| `dataset_snapshots` | What a sync produced: the normalized rows (or, for large sources, aggregates), a profile and standard metrics computed in code. Snapshots don't change, so findings stay traceable to the exact data they used. |
+| Evidence | Points to a snapshot (today it points to an uploaded file; CSV moves onto the same path). Carries provenance: source, dataset, period, sync time. |
+| Metrics layer (code) | Standard, pre-defined calculations per entity — orders and revenue by week, return rate by product, stock-outs, customer counts by segment — computed in code from snapshots. The AI reads results; it never writes queries. |
+
+### Demo ERP
+
+A built-in source with realistic, connected data for one fictional company: customers,
+products, orders, inventory, purchases, returns, invoices — about a year of history, with
+stories in it (e.g. a supplier change followed by a returns spike) so analysis has something
+real to find. It goes through every step of the pipeline (selection, discovery, mapping,
+validation, sync), so a real connector later is a new module, not a redesign.
+
+### Known risks and decisions
+
+- **Volume and cost.** A real ERP can have millions of rows; the Supabase free tier holds 500 MB.
+  Store full rows only for small sources (Demo ERP, CSV); for large ones, sync aggregates and
+  keep raw rows in the source.
+- **Background work.** Syncs can outlast a web request (Vercel limit ~5 min) and need a server
+  identity. Real connectors need a job runner (Supabase Edge Functions + cron, or a queue) and
+  a narrowly-scoped service role. Demo ERP and CSV import within a request.
+- **Privacy.** ERP data includes personal data (names, emails, addresses). Only aggregates and
+  profiles go to the AI; sample rows sent to it are masked. Today the analysis pack includes a
+  few raw preview rows from CSVs — masking them is part of this milestone.
+- **Mapping is the hard part.** Every ERP names things differently (SAP's VBAK/VBAP for orders).
+  The canonical model stays small and the mapping step is where a person confirms meaning.
+- **Freshness vs traceability.** Re-syncing creates a new snapshot; analyses keep citing the
+  snapshot they used, and the workspace says when newer data exists.
+- **Real connectors need each vendor's access** (API credentials, often a paid tier, IT approval)
+  — that's why they come after the MVP.
 
 ## Principles the backend must preserve
 

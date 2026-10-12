@@ -31,6 +31,11 @@ same workspace as the sample, built from saved data (`lib/data/live-workspace.ts
 backed by real data yet say "comes next". Findings and hypotheses live inside the run's JSON;
 they are not rows yet.
 
+## Next: Milestone 5 — Data onboarding + Demo ERP
+See "Data onboarding" in `docs/backend-plan.md`. The investigation engine must only read
+normalized evidence; ERP is a core evidence source, not a mock. Then Milestone 6 (decisions,
+validation, report) and 7 (memory).
+
 ## Later
 - Secondary research with Claude's web search, feedback themes, interview guide, validation,
   Ask Veyra, decision brief, memory.
