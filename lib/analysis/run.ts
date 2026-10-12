@@ -2,7 +2,7 @@ import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import type { BusinessContext, InvestigationTrigger, InvestigationOutcome } from "@/lib/types";
-import { outcomeLabel, triggerLabel } from "@/lib/options";
+import { outcomesLabel, triggersLabel } from "@/lib/options";
 import { renderPack, type AnalysisPack } from "./pack";
 import { analysisSchema, type AnalysisResult } from "./schema";
 import { checkCitations } from "./validate";
@@ -20,8 +20,8 @@ export type AnalysisInput = {
   context: BusinessContext;
   problem: string;
   objective: string;
-  trigger: InvestigationTrigger | null;
-  outcome: InvestigationOutcome | null;
+  triggers: InvestigationTrigger[];
+  outcomes: InvestigationOutcome[];
   knownContext: string;
   questions: { question: string; answer: string }[];
   pack: AnalysisPack;
@@ -65,8 +65,8 @@ function describeInput(i: AnalysisInput): string {
     `<context>\n${business.join("\n") || "No business context was given."}\n</context>`,
     `<problem>\n${i.problem}\n</problem>`,
     `<objective>\n${i.objective.trim() || "Not given."}\n</objective>`,
-    i.trigger ? `What triggered the investigation: ${triggerLabel(i.trigger)}` : null,
-    i.outcome ? `Outcome the team wants: ${outcomeLabel(i.outcome)}` : null,
+    i.triggers.length ? `What triggered the investigation: ${triggersLabel(i.triggers)}` : null,
+    i.outcomes.length ? `Outcomes the team wants: ${outcomesLabel(i.outcomes)}` : null,
     `<answers>\nWhat the team already knows: ${i.knownContext.trim() || "Nothing added."}\n\n${answers || "No clarifying questions were asked."}\n</answers>`,
     `<evidence_pack>\n${renderPack(i.pack)}\n</evidence_pack>`,
     "Analyse this evidence against the problem and objective.",

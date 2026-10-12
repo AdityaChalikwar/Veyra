@@ -1,11 +1,11 @@
 /**
  * Helpers for the New Investigation flow, used in the browser while the draft
- * is being written. Clarifying questions and plans come from fixed sets until
- * the AI planner arrives (Milestone 4). Saving happens in
+ * is being written. Plans come from fixed sets for now; clarifying questions
+ * are written by AI (`suggestQuestions`). Saving happens in
  * app/(app)/investigations/actions.ts.
  */
-import { dauPlan, demoQuestions, exampleProblems, genericQuestions, planTemplates } from "@/mocks/new-investigation";
-import type { ClarifyingQuestion, InvestigationDraft, InvestigationPlan } from "@/lib/types";
+import { dauPlan, exampleProblems, planTemplates } from "@/mocks/new-investigation";
+import type { InvestigationDraft, InvestigationPlan } from "@/lib/types";
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -21,17 +21,12 @@ export function listExampleProblems(): string[] {
 }
 
 export function emptyDraft(problem = ""): InvestigationDraft {
-  return { problem, objective: "", trigger: null, outcome: null, knownContext: "", attachments: [], dataSourceIds: [] };
-}
-
-export async function generateClarifyingQuestions(draft: InvestigationDraft): Promise<ClarifyingQuestion[]> {
-  await delay(900);
-  return structuredClone(isDemoProblem(draft.problem) ? demoQuestions : genericQuestions);
+  return { problem, objective: "", triggers: [], outcomes: [], knownContext: "", attachments: [], dataSourceIds: [] };
 }
 
 /** Veyra chooses methods for this problem — and says which it's leaving out. */
 export async function planInvestigation(draft: InvestigationDraft): Promise<InvestigationPlan> {
   await delay(1100);
   if (isDemoProblem(draft.problem)) return structuredClone(dauPlan);
-  return structuredClone(planTemplates[draft.trigger ?? "other"]);
+  return structuredClone(planTemplates[draft.triggers[0] ?? "other"]);
 }

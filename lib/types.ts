@@ -141,6 +141,9 @@ export type ClarifyingQuestion = {
   hint?: string;
 };
 
+/** A piece of information needed to solve a problem, and whether the team has already given it. */
+export type NeededInfo = { item: string; why: string; status: "known" | "partly-known" | "unknown" };
+
 /** A method Veyra chose (or deliberately didn't) for this investigation. */
 export type PlannedMethod = {
   id: ID;
@@ -163,8 +166,10 @@ export type InvestigationDraft = {
   problem: string;
   /** What the team wants to achieve or decide, in their own words. Optional. */
   objective?: string;
-  trigger: InvestigationTrigger | null;
-  outcome: InvestigationOutcome | null;
+  /** What prompted the investigation; can be several. */
+  triggers: InvestigationTrigger[];
+  /** What the team wants out of it; can be several. */
+  outcomes: InvestigationOutcome[];
   /** What the team already knows, in their words. */
   knownContext: string;
   /** Names of files, links or research attached at the start. */
@@ -173,6 +178,8 @@ export type InvestigationDraft = {
   dataSourceIds: ID[];
   /** Cached once generated, so going back and forth keeps edited answers. */
   questions?: ClarifyingQuestion[];
+  /** What Veyra worked out it needs to know to solve the problem; the questions fill the gaps. */
+  needed?: NeededInfo[];
   plan?: InvestigationPlan;
 };
 
@@ -667,8 +674,8 @@ export type InvestigationRecord = {
   currentStage: StageKey;
   /** Every stage in order, with its status from the stage history. */
   stages: DiscoveryStage[];
-  trigger: InvestigationTrigger | null;
-  outcome: InvestigationOutcome | null;
+  triggers: InvestigationTrigger[];
+  outcomes: InvestigationOutcome[];
   knownContext: string;
   attachments: string[];
   dataSourceIds: ID[];
@@ -683,8 +690,8 @@ export type InvestigationRecord = {
 
 export type Investigation = InvestigationSummary & {
   subtitle: string;
-  trigger: InvestigationTrigger;
-  outcome: InvestigationOutcome;
+  triggers: InvestigationTrigger[];
+  outcomes: InvestigationOutcome[];
   createdAt: string; // ISO
 };
 

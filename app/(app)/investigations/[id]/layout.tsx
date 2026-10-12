@@ -46,8 +46,8 @@ export default async function InvestigationLayout({
                   title: summary.title,
                   problem: summary.problem,
                   objective: live.record.objective,
-                  trigger: live.record.trigger,
-                  outcome: live.record.outcome,
+                  triggers: live.record.triggers,
+                  outcomes: live.record.outcomes,
                 }}
               />
             ) : (

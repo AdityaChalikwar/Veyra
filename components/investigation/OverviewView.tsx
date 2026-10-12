@@ -6,7 +6,7 @@ import { useState } from "react";
 import { ConfidenceBadge } from "@/components/ui/ConfidenceBadge";
 import { KindBadge } from "@/components/ui/KindBadge";
 import { cn } from "@/lib/cn";
-import { outcomeLabel, triggerLabel } from "@/lib/options";
+import { outcomesLabel, triggersLabel } from "@/lib/options";
 import { routes } from "@/lib/routes";
 import type { DataSource, LiveInvestigation } from "@/lib/types";
 import { AnalysisSection } from "./AnalysisSection";
@@ -290,7 +290,7 @@ function Brief() {
         <span>
           <span className="block text-[15px] font-semibold uppercase tracking-wide">Investigation brief</span>
           <span className="mt-0.5 block text-xs text-ink-subtle">
-            Trigger: {triggerLabel(inv.trigger)} · Outcome: {outcomeLabel(inv.outcome)} · {workspace.questions.length} contextual questions
+            Trigger: {triggersLabel(inv.triggers)} · Outcome: {outcomesLabel(inv.outcomes)} · {workspace.questions.length} contextual questions
           </span>
         </span>
         <ChevronDown className={cn("h-4 w-4 shrink-0 text-ink-subtle transition-transform", open && "rotate-180")} />
@@ -368,8 +368,8 @@ function LiveOverview({ live, tab }: { live: LiveInvestigation; tab: (slug: stri
           <h2 className="text-[15px] font-semibold uppercase tracking-wide">Context</h2>
           <dl className="mt-3 space-y-3 text-[13px]">
             <ContextItem label="Objective" value={record.objective || "Not given"} />
-            <ContextItem label="What triggered it" value={record.trigger ? triggerLabel(record.trigger) : "Not given"} />
-            <ContextItem label="Outcome wanted" value={record.outcome ? outcomeLabel(record.outcome) : "Not given"} />
+            <ContextItem label="What triggered it" value={record.triggers.length ? triggersLabel(record.triggers) : "Not given"} />
+            <ContextItem label="Outcome wanted" value={record.outcomes.length ? outcomesLabel(record.outcomes) : "Not given"} />
             <ContextItem label="What you already know" value={record.knownContext || "Nothing added"} />
             <ContextItem label="Data sources named" value={sources.length ? sources.map((d) => d.name).join(", ") : "None"} />
             {record.attachments.length > 0 && <ContextItem label="Attached" value={record.attachments.join(", ")} />}

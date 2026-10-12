@@ -37,8 +37,8 @@ Stages: each investigation has a `current_stage` and an `investigation_stages` h
 (when each stage started and finished). Only the database moves them, with triggers:
 creating an investigation puts it at **Add data**; the first evidence moves it to
 **Analysis**; removing the last evidence moves it back. Members can read stages but not
-write them, and a direct edit can't change the stage or the sample flag. Title, problem,
-objective, trigger and outcome can be edited from the workspace header ("Edit details").
+write them, and a direct edit can't change the stage or the sample flag. Triggers and outcomes are multi-select (`triggers`, `outcomes` arrays). Title, problem,
+objective, triggers and outcomes can be edited from the workspace header ("Edit details").
 The status badge follows the stage. New
 investigations start from a blank form.
 
@@ -100,7 +100,7 @@ Security applies to every query; no secret key is used. Membership checks live i
 | `listMemoryHighlights`, `getBusinessMemory` (`index.ts`) | Memory entries (validated problems, rejected hypotheses, experiments, learnings…) plus "problem → decision → experiment → result → learning" stories, written when investigations close. |
 | `listDataSources` (`index.ts`) | Connector registry grouped as company systems (analytics, ERP, CRM, sales, docs, finance), customer evidence (support, feedback, surveys, research) and external. Sync status and headline metrics per source. |
 | `getInvestigationWorkspace` (`index.ts`) | Aggregates an investigation's stages, plan, KPIs, charts, map, evidence, findings, open questions, hypotheses, research tasks, customer understanding, market context, problem statement, opportunities, next step, validations, related memory, conversation and proposals. Likely several endpoints. |
-| `generateClarifyingQuestions` (`investigations.ts`) | AI call using the problem, trigger, outcome, known context, selected data sources and business context. Questions should reference what the data already shows (e.g. a release date). |
+| ✅ `suggestQuestions` (`app/(app)/investigations/actions.ts`, `lib/ai/clarify.ts`) | One structured Claude call: first lists what information solving this problem needs (known, partly known, unknown), then asks 5–6 questions about the gaps. Falls back to standard questions if the AI can't be reached. |
 | `planInvestigation` (`investigations.ts`) | Chooses methods for this problem and explains which frameworks it *won't* use and why. Adaptive, not a fixed checklist. |
 | `createInvestigation` (`investigations.ts`) | Persist the draft, answers and plan; start the first analyses on connected data. |
 | `runResearchTask` (`research.ts`) | Run an analysis task against connected data (e.g. activation by channel, before/after a release) or a public-research scan. Returns new evidence, a finding, answered questions and proposals. Asynchronous. |

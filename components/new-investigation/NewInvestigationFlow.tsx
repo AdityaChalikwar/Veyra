@@ -50,7 +50,7 @@ function FlowInner({ dataSources, context, examples }: Props) {
   const [d, setD] = useState<InvestigationDraft>(initial);
   const update = (patch: Partial<InvestigationDraft>) => setD((cur) => ({ ...cur, ...patch }));
 
-  const canContinue = [d.problem.trim().length > 0, d.trigger !== null && d.outcome !== null, d.dataSourceIds.length > 0][step];
+  const canContinue = [d.problem.trim().length > 0, d.triggers.length > 0 && d.outcomes.length > 0, d.dataSourceIds.length > 0][step];
 
   function next(e?: React.FormEvent) {
     e?.preventDefault();
@@ -60,9 +60,16 @@ function FlowInner({ dataSources, context, examples }: Props) {
       return;
     }
     const next: InvestigationDraft = { ...d, problem: d.problem.trim() };
-    // Keep generated questions and plan unless the problem itself changed.
-    const unchanged = saved && saved.problem === next.problem && saved.trigger === next.trigger;
-    appActions.saveDraft(unchanged ? { ...next, questions: saved.questions, plan: saved.plan } : next);
+    // Keep generated questions and plan unless something they're based on changed.
+    const unchanged =
+      saved &&
+      saved.problem === next.problem &&
+      (saved.objective ?? "") === (next.objective ?? "") &&
+      saved.knownContext === next.knownContext &&
+      sameItems(saved.triggers, next.triggers) &&
+      sameItems(saved.outcomes, next.outcomes) &&
+      sameItems(saved.dataSourceIds, next.dataSourceIds);
+    appActions.saveDraft(unchanged ? { ...next, questions: saved.questions, needed: saved.needed, plan: saved.plan } : next);
     router.push(routes.clarifyingQuestions);
   }
 
@@ -98,6 +105,9 @@ function FlowInner({ dataSources, context, examples }: Props) {
     </form>
   );
 }
+
+const toggle = <T,>(list: T[], value: T) => (list.includes(value) ? list.filter((x) => x !== value) : [...list, value]);
+const sameItems = <T,>(a: T[], b: T[]) => a.length === b.length && a.every((x) => b.includes(x));
 
 type StepProps = { draft: InvestigationDraft; update: (patch: Partial<InvestigationDraft>) => void };
 
@@ -145,24 +155,28 @@ function ContextStep({ draft, update }: StepProps) {
     <>
       <section className="rounded-xl border border-line bg-surface p-5 shadow-card">
         <h2 className="text-[15px] font-semibold">What triggered this investigation?</h2>
-        <p className="mb-4 mt-0.5 text-[13px] text-ink-subtle">Helps Veyra decide where to start looking.</p>
+        <p className="mb-4 mt-0.5 text-[13px] text-ink-subtle">Choose all that apply. Helps Veyra decide where to start looking.</p>
         <OptionGrid
           ariaLabel="Trigger"
+          multiple
           columns={3}
           options={TRIGGERS.map((t) => ({ value: t.value, title: t.label }))}
-          selected={draft.trigger ? [draft.trigger] : []}
-          onToggle={(v) => update({ trigger: v })}
+          selected={draft.triggers}
+          onToggle={(v) => update({ triggers: toggle(draft.triggers, v) })}
         />
       </section>
       <section className="rounded-xl border border-line bg-surface p-5 shadow-card">
         <h2 className="text-[15px] font-semibold">What outcome are you trying to achieve?</h2>
-        <p className="mb-4 mt-0.5 text-[13px] text-ink-subtle">Veyra chooses methods to match — explaining a change needs different evidence than evaluating a market.</p>
+        <p className="mb-4 mt-0.5 text-[13px] text-ink-subtle">
+          Choose all that apply. Veyra chooses methods to match — explaining a change needs different evidence than evaluating a market.
+        </p>
         <OptionGrid
           ariaLabel="Outcome"
+          multiple
           columns={3}
           options={OUTCOMES.map((o) => ({ value: o.value, title: o.label }))}
-          selected={draft.outcome ? [draft.outcome] : []}
-          onToggle={(v) => update({ outcome: v })}
+          selected={draft.outcomes}
+          onToggle={(v) => update({ outcomes: toggle(draft.outcomes, v) })}
         />
         <label htmlFor="objective" className="mt-5 block text-[13px] font-medium text-ink">
           In your own words: what do you want to achieve or decide? <span className="font-normal text-ink-subtle">(optional)</span>

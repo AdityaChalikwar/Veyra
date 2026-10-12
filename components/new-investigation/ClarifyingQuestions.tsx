@@ -1,18 +1,19 @@
 "use client";
 
-import { ArrowLeft, ArrowRight, Pencil } from "lucide-react";
+import { ArrowLeft, ArrowRight, ChevronDown, Pencil, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { LogoMark } from "@/components/brand/Logo";
 import { QuestionCard } from "@/components/investigation/QuestionCard";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/Spinner";
-import { generateClarifyingQuestions, isDemoProblem } from "@/lib/data/investigations";
-import { outcomeLabel, triggerLabel } from "@/lib/options";
+import { suggestQuestions } from "@/app/(app)/investigations/actions";
+import { outcomesLabel, triggersLabel } from "@/lib/options";
 import { routes } from "@/lib/routes";
 import { appActions, useAppState, useHydrated } from "@/lib/store/app-store";
-import type { InvestigationDraft } from "@/lib/types";
+import { cn } from "@/lib/cn";
+import type { InvestigationDraft, NeededInfo } from "@/lib/types";
 import { NewInvestigationSteps } from "./NewInvestigationSteps";
 
 export function ClarifyingQuestions({ sourceNames }: { sourceNames: Record<string, string> }) {
@@ -27,17 +28,32 @@ export function ClarifyingQuestions({ sourceNames }: { sourceNames: Record<strin
 function QuestionsView({ draft, sourceNames }: { draft: InvestigationDraft; sourceNames: Record<string, string> }) {
   const router = useRouter();
   const questions = draft.questions;
+  const [notice, setNotice] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
 
+  // Veyra works out what it needs to know for this problem, then asks about the gaps.
   useEffect(() => {
     if (questions) return;
     let cancelled = false;
-    generateClarifyingQuestions(draft).then((generated) => {
-      if (!cancelled) appActions.saveDraft({ ...draft, questions: generated });
-    });
+    suggestQuestions(draft)
+      .then((r) => {
+        if (cancelled) return;
+        if (r.error) setNotice(`${r.error} These are standard questions instead.`);
+        appActions.saveDraft({ ...draft, questions: r.questions, needed: r.needed });
+      })
+      .catch(() => {
+        if (!cancelled) setNotice("Couldn't reach Veyra. Check your connection and try again.");
+      });
     return () => {
       cancelled = true;
     };
-  }, [draft, questions]);
+  }, [draft, questions, attempt]);
+
+  function regenerate() {
+    setNotice(null);
+    appActions.saveDraft({ ...draft, questions: undefined, needed: undefined });
+    setAttempt((a) => a + 1);
+  }
 
   function updateAnswer(id: string, answer: string) {
     if (!questions) return;
@@ -74,6 +90,19 @@ function QuestionsView({ draft, sourceNames }: { draft: InvestigationDraft; sour
 
       <ProblemSummary draft={draft} sourceNames={sourceNames} />
 
+      {questions && draft.needed && draft.needed.length > 0 && <NeededList needed={draft.needed} />}
+
+      {notice && (
+        <p role="status" className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-uncertain-200 bg-uncertain-50 px-3.5 py-2.5 text-[13px] text-uncertain-600 sm:ml-[54px]">
+          <span>{notice}</span>
+          {questions && (
+            <button type="button" onClick={regenerate} className="inline-flex items-center gap-1 font-medium text-brand-700 hover:underline">
+              <RefreshCw className="h-3.5 w-3.5" /> Try again
+            </button>
+          )}
+        </p>
+      )}
+
       <div className="mt-6 space-y-3" aria-busy={!questions}>
         {questions
           ? questions.map((q, i) => (
@@ -82,10 +111,10 @@ function QuestionsView({ draft, sourceNames }: { draft: InvestigationDraft; sour
           : <QuestionsLoading />}
       </div>
 
-      {questions && !isDemoProblem(draft.problem) && (
-        <p className="mt-4 text-xs text-ink-faint">
-          Preview build: the workspace shows the DAU Decline demo for any problem, though the plan adapts to what you entered.
-        </p>
+      {questions && !notice && (
+        <button type="button" onClick={regenerate} className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-ink-subtle hover:text-ink">
+          <RefreshCw className="h-3.5 w-3.5" /> Ask different questions
+        </button>
       )}
 
       <div className="sticky bottom-0 -mx-4 mt-8 border-t border-line bg-canvas/95 px-4 py-4 backdrop-blur-sm sm:-mx-8 sm:px-8">
@@ -113,8 +142,8 @@ function QuestionsView({ draft, sourceNames }: { draft: InvestigationDraft; sour
 
 function ProblemSummary({ draft, sourceNames }: { draft: InvestigationDraft; sourceNames: Record<string, string> }) {
   const chips = [
-    draft.trigger && `Trigger: ${triggerLabel(draft.trigger)}`,
-    draft.outcome && `Outcome: ${outcomeLabel(draft.outcome)}`,
+    draft.triggers.length > 0 && `Trigger: ${triggersLabel(draft.triggers)}`,
+    draft.outcomes.length > 0 && `Outcome: ${outcomesLabel(draft.outcomes)}`,
   ].filter(Boolean) as string[];
   const sources = draft.dataSourceIds.map((id) => sourceNames[id]).filter(Boolean);
   return (
@@ -157,9 +186,9 @@ function QuestionsLoading() {
   return (
     <>
       <p className="flex items-center gap-2 text-sm text-ink-subtle">
-        <Spinner className="text-brand-600" /> Veyra is reading your problem…
+        <Spinner className="text-brand-600" /> Veyra is working out what it needs to know to solve this… this can take up to a minute.
       </p>
-      {Array.from({ length: 4 }, (_, i) => (
+      {Array.from({ length: 5 }, (_, i) => (
         <div key={i} className="animate-pulse rounded-xl border border-line bg-surface p-5">
           <div className="flex gap-3.5">
             <div className="h-7 w-7 rounded-full bg-line" />
@@ -189,3 +218,42 @@ function NoDraft() {
   );
 }
 
+
+const statusStyle: Record<NeededInfo["status"], { label: string; className: string }> = {
+  known: { label: "Known", className: "bg-confirmed-50 text-confirmed-600" },
+  "partly-known": { label: "Partly known", className: "bg-uncertain-50 text-uncertain-600" },
+  unknown: { label: "Unknown", className: "bg-slate-100 text-slate-600" },
+};
+
+/** What Veyra worked out it needs to know; the questions below ask about the gaps. */
+function NeededList({ needed }: { needed: NeededInfo[] }) {
+  const [open, setOpen] = useState(false);
+  const gaps = needed.filter((n) => n.status !== "known").length;
+  return (
+    <section className="mt-4 rounded-xl border border-line bg-surface shadow-card sm:ml-[54px]">
+      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left">
+        <span className="text-[13px]">
+          <span className="font-medium text-ink">What Veyra needs to know</span>{" "}
+          <span className="text-ink-subtle">
+            · {needed.length} things, {gaps} not yet known
+          </span>
+        </span>
+        <ChevronDown className={cn("h-4 w-4 shrink-0 text-ink-subtle transition-transform", open && "rotate-180")} />
+      </button>
+      {open && (
+        <ul className="space-y-2 border-t border-line px-4 py-3">
+          {needed.map((n) => (
+            <li key={n.item} className="flex items-start justify-between gap-3 text-[13px]">
+              <span className="min-w-0">
+                <span className="font-medium text-ink">{n.item}.</span> <span className="text-ink-muted">{n.why}</span>
+              </span>
+              <span className={cn("shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium", statusStyle[n.status].className)}>
+                {statusStyle[n.status].label}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}

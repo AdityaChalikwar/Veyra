@@ -4,13 +4,15 @@ import { revalidatePath } from "next/cache";
 import { buildPack } from "@/lib/analysis/pack";
 import { profileCsv } from "@/lib/analysis/profile";
 import { ANALYSIS_MODEL, runAnalysis } from "@/lib/analysis/run";
-import { getBusinessContext } from "@/lib/data";
+import { clarify } from "@/lib/ai/clarify";
+import { getBusinessContext, listDataSources } from "@/lib/data";
 import { requireWorkspace } from "@/lib/auth";
 import { deriveTitle, inferTopic } from "@/lib/investigation-text";
 import { OUTCOMES, TRIGGERS } from "@/lib/options";
 import { createClient } from "@/lib/supabase/server";
 import type { Json } from "@/lib/supabase/database.types";
-import type { DatasetProfile, InvestigationDraft, InvestigationOutcome, InvestigationTrigger } from "@/lib/types";
+import { genericQuestions } from "@/mocks/new-investigation";
+import type { ClarifyingQuestion, DatasetProfile, InvestigationDraft, InvestigationOutcome, InvestigationTrigger, NeededInfo } from "@/lib/types";
 
 const MAX_PROBLEM = 2000;
 /** Must match the bucket's limit (supabase/migrations/20261006000001_uploads_and_evidence.sql). */
@@ -27,8 +29,6 @@ export async function createInvestigation(draft: InvestigationDraft): Promise<{ 
   if (!problem) return { error: "Describe the problem first." };
   if (problem.length > MAX_PROBLEM) return { error: "Shorten the problem description a little." };
 
-  const trigger = TRIGGERS.some((t) => t.value === draft.trigger) ? draft.trigger : null;
-  const outcome = OUTCOMES.some((o) => o.value === draft.outcome) ? draft.outcome : null;
   const questions = (draft.questions ?? []).slice(0, MAX_ITEMS).map((q) => ({
     question: q.question.trim().slice(0, 1000),
     hint: (q.hint ?? "").slice(0, 1000),
@@ -42,8 +42,8 @@ export async function createInvestigation(draft: InvestigationDraft): Promise<{ 
     p_problem: problem,
     p_objective: (draft.objective ?? "").trim().slice(0, MAX_OBJECTIVE),
     p_topic: inferTopic(problem),
-    p_trigger: trigger,
-    p_outcome: outcome,
+    p_triggers: validTriggers(draft.triggers),
+    p_outcomes: validOutcomes(draft.outcomes),
     p_known_context: draft.knownContext.trim().slice(0, MAX_TEXT),
     p_attachments: draft.attachments.slice(0, MAX_ITEMS).map((a) => a.slice(0, 300)),
     p_data_source_ids: draft.dataSourceIds.slice(0, MAX_ITEMS),
@@ -56,15 +56,55 @@ export async function createInvestigation(draft: InvestigationDraft): Promise<{ 
   return { id: data };
 }
 
+/**
+ * Clarifying questions written for this problem: Veyra works out what it needs
+ * to know, then asks about the gaps. On failure the standard questions are
+ * returned with the reason, so the flow can carry on.
+ */
+export async function suggestQuestions(
+  draft: InvestigationDraft,
+): Promise<{ questions: ClarifyingQuestion[]; needed: NeededInfo[]; error?: string }> {
+  await requireWorkspace();
+  const fallback = (error: string) => ({ questions: structuredClone(genericQuestions), needed: [], error });
+  const problem = draft.problem.trim();
+  if (!problem || problem.length > MAX_PROBLEM) return fallback("Describe the problem first.");
+
+  const [context, sources] = await Promise.all([getBusinessContext(), listDataSources()]);
+  const result = await clarify({
+    draft: {
+      ...draft,
+      problem,
+      objective: (draft.objective ?? "").slice(0, MAX_OBJECTIVE),
+      knownContext: draft.knownContext.slice(0, MAX_TEXT),
+      triggers: validTriggers(draft.triggers),
+      outcomes: validOutcomes(draft.outcomes),
+      attachments: draft.attachments.slice(0, MAX_ITEMS),
+    },
+    context,
+    sources: sources.filter((s) => draft.dataSourceIds.includes(s.id)).map((s) => s.name),
+  });
+  if (result.status !== "ok") return fallback(result.error);
+  return {
+    questions: result.questions.map((q, i) => ({ id: `q-${i + 1}`, question: q.question, hint: q.why, answer: "" })),
+    needed: result.needed,
+  };
+}
+
 export type InvestigationEdit = {
   title: string;
   problem: string;
   objective: string;
-  trigger: InvestigationTrigger | null;
-  outcome: InvestigationOutcome | null;
+  triggers: InvestigationTrigger[];
+  outcomes: InvestigationOutcome[];
 };
 
-/** Updates an investigation's title, problem, objective, trigger and outcome. The sample can't be edited. */
+/** Only known values, each once (also guarded by the database). */
+const validTriggers = (list: unknown) =>
+  Array.isArray(list) ? [...new Set(list.filter((v): v is InvestigationTrigger => TRIGGERS.some((t) => t.value === v)))] : [];
+const validOutcomes = (list: unknown) =>
+  Array.isArray(list) ? [...new Set(list.filter((v): v is InvestigationOutcome => OUTCOMES.some((o) => o.value === v)))] : [];
+
+/** Updates an investigation's title, problem, objective, triggers and outcomes. The sample can't be edited. */
 export async function updateInvestigation(investigationId: string, edit: InvestigationEdit): Promise<{ ok: true } | { error: string }> {
   await requireWorkspace();
   const title = edit.title.trim();
@@ -83,8 +123,8 @@ export async function updateInvestigation(investigationId: string, edit: Investi
         title,
         problem,
         objective: edit.objective.trim(),
-        trigger: TRIGGERS.some((t) => t.value === edit.trigger) ? edit.trigger : null,
-        outcome: OUTCOMES.some((o) => o.value === edit.outcome) ? edit.outcome : null,
+        triggers: validTriggers(edit.triggers),
+        outcomes: validOutcomes(edit.outcomes),
       },
       { count: "exact" },
     )
@@ -227,7 +267,7 @@ export async function analyseInvestigation(investigationId: string): Promise<{ o
 
   const { data: inv } = await supabase
     .from("investigations")
-    .select("id, is_sample, problem, objective, trigger, outcome, known_context, clarifying_questions (position, question, answer)")
+    .select("id, is_sample, problem, objective, triggers, outcomes, known_context, clarifying_questions (position, question, answer)")
     .eq("id", investigationId)
     .maybeSingle();
   if (!inv) return { error: "This investigation no longer exists." };
@@ -269,8 +309,8 @@ export async function analyseInvestigation(investigationId: string): Promise<{ o
     context: await getBusinessContext(),
     problem: inv.problem,
     objective: inv.objective,
-    trigger: inv.trigger as InvestigationTrigger | null,
-    outcome: inv.outcome as InvestigationOutcome | null,
+    triggers: inv.triggers as InvestigationTrigger[],
+    outcomes: inv.outcomes as InvestigationOutcome[],
     knownContext: inv.known_context,
     questions: [...inv.clarifying_questions].sort((a, b) => a.position - b.position),
     pack,

@@ -172,7 +172,7 @@ export async function getInvestigationRecord(id: string): Promise<InvestigationR
   const { data } = await supabase
     .from("investigations")
     .select(
-      "trigger, outcome, objective, current_stage, known_context, attachments, data_source_ids, plan, created_at, clarifying_questions (id, position, question, hint, answer), files (id, name, size_bytes, status, error, created_at, evidence (id, summary, coverage, profile)), investigation_stages (stage, completed_at), analysis_runs (id, status, model, created_at, completed_at, error, result, pack, usage)",
+      "triggers, outcomes, objective, current_stage, known_context, attachments, data_source_ids, plan, created_at, clarifying_questions (id, position, question, hint, answer), files (id, name, size_bytes, status, error, created_at, evidence (id, summary, coverage, profile)), investigation_stages (stage, completed_at), analysis_runs (id, status, model, created_at, completed_at, error, result, pack, usage)",
     )
     .eq("id", id)
     .maybeSingle();
@@ -185,8 +185,8 @@ export async function getInvestigationRecord(id: string): Promise<InvestigationR
       const row = data.investigation_stages.find((s) => s.stage === key);
       return { id: key, label, status: !row ? "pending" : row.completed_at ? "done" : "in-progress" };
     }),
-    trigger: data.trigger as InvestigationTrigger | null,
-    outcome: data.outcome as InvestigationOutcome | null,
+    triggers: data.triggers as InvestigationTrigger[],
+    outcomes: data.outcomes as InvestigationOutcome[],
     knownContext: data.known_context,
     attachments: data.attachments,
     dataSourceIds: data.data_source_ids,
