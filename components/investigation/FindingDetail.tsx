@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/Button";
 import { ConfidenceBadge } from "@/components/ui/ConfidenceBadge";
 import { KindBadge } from "@/components/ui/KindBadge";
 import { EvidenceRoleBadge } from "@/components/ui/EvidenceRoleBadge";
-import { EvidenceChip, FindingChip } from "./ArtifactChips";
+import { FindingChip } from "./ArtifactChips";
+import { EvidenceCitation } from "./EvidenceCitation";
 import { EvidenceTrail } from "./EvidenceTrail";
 import { useWorkspace } from "./workspace-context";
 
@@ -17,6 +18,7 @@ export function FindingDetail({ id }: { id: string }) {
   const finding = workspace.findings.find((f) => f.id === id);
   if (!finding) return <p className="p-5 text-sm text-ink-subtle">This finding no longer exists.</p>;
   const d = finding.detail;
+  const links = finding.evidenceLinks ?? finding.evidenceIds.map((e) => ({ evidenceId: e, relation: "supports" as const, shows: "" }));
   const related = workspace.hypotheses.filter(
     (h) => h.supportingFindingIds.includes(id) || h.contradictingFindingIds.includes(id),
   );
@@ -33,23 +35,27 @@ export function FindingDetail({ id }: { id: string }) {
         <p className="mt-1.5 text-[13px] text-ink-subtle">{finding.confidenceReason}</p>
       </div>
 
+      {finding.observed && (
+        <div className="rounded-lg border border-line px-4 py-3">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-faint">Observed</p>
+          <p className="mt-1 text-xl font-semibold text-ink">{finding.observed.values}</p>
+          <p className="mt-0.5 text-xs text-ink-subtle">
+            {finding.observed.measure}
+            {finding.observed.period && ` · ${finding.observed.period}`}
+          </p>
+        </div>
+      )}
+
       <Section title="Evidence">
-        <ul className="space-y-1.5">
-          {finding.evidenceIds.map((id) => {
-            const e = workspace.evidence.find((x) => x.id === id);
-            if (!e) return null;
-            return (
-              <li key={id} className="rounded-lg border border-line px-3 py-2">
-                <EvidenceChip id={id} />
-                <p className="mt-1 text-xs text-ink-subtle">
-                  {e.source}
-                  {e.dataset && ` · ${e.dataset}`}
-                  {e.coverage && ` · ${e.coverage}`}
-                </p>
-              </li>
-            );
-          })}
-        </ul>
+        {links.length ? (
+          <ul className="space-y-2">
+            {links.map((l) => (
+              <EvidenceCitation key={l.evidenceId} evidenceId={l.evidenceId} relation={l.relation} shows={l.shows} />
+            ))}
+          </ul>
+        ) : (
+          <p className="text-[13px] text-ink-faint">The evidence this rested on has been removed from the investigation.</p>
+        )}
       </Section>
 
       {finding.basedOnFindingIds && finding.basedOnFindingIds.length > 0 && (

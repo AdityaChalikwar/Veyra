@@ -1,26 +1,51 @@
-import type { AnalysisPack } from "./pack";
-import type { AnalysisResult } from "./schema";
+import { renderPack, type AnalysisPack } from "./pack";
+import type { AnalysisCitation, AnalysisResult } from "./schema";
 
 /**
  * Traceability check, in code. The model cites datasets ("E1") and findings
- * ("F1") by reference; anything citing something that doesn't exist, or
- * citing nothing, is removed rather than shown. The notes say what was removed
- * so a run can be audited.
+ * ("F1") by reference; anything citing something that doesn't exist is
+ * removed rather than shown, and so is a finding no dataset supports.
+ * Observed values must be figures that appear in the evidence pack. The notes
+ * say what was removed so a run can be audited.
  */
 export function checkCitations(raw: AnalysisResult, pack: AnalysisPack): { result: AnalysisResult; removed: string[] } {
   const removed: string[] = [];
   const refs = new Set(pack.datasets.map((d) => d.ref));
+  const packNumbers = new Set(numbersIn(renderPack(pack)));
+
+  // One citation per dataset (the first wins), and only datasets that exist.
+  const cleanCitations = (list: AnalysisCitation[], owner: string, allowInsufficient: boolean) => {
+    const out = new Map<string, AnalysisCitation>();
+    for (const c of list) {
+      if (!refs.has(c.ref)) {
+        removed.push(`${owner} cited ${c.ref || "a dataset"}, which doesn't exist; that citation was removed.`);
+        continue;
+      }
+      if (!allowInsufficient && c.relation === "insufficient") continue;
+      if (!out.has(c.ref)) out.set(c.ref, { ...c, shows: c.shows.trim() });
+    }
+    return [...out.values()];
+  };
 
   const seen = new Set<string>();
   const findings = raw.findings
-    .map((f) => ({ ...f, evidence: [...new Set(f.evidence.filter((r) => refs.has(r)))] }))
+    .map((f) => {
+      const observed = f.observed && f.observed.values.trim() ? f.observed : { measure: "", values: "", period: "" };
+      const unverified = numbersIn(observed.values).filter((n) => !packNumbers.has(n));
+      if (unverified.length) removed.push(`Finding ${f.id}: the observed values (${observed.values}) aren't figures from the data, so they were left out.`);
+      return {
+        ...f,
+        observed: unverified.length ? { measure: "", values: "", period: "" } : observed,
+        evidence: cleanCitations(f.evidence, `Finding ${f.id}`, false),
+      };
+    })
     .filter((f) => {
       if (!f.id || seen.has(f.id)) {
         removed.push(`A finding with a repeated or missing id (${f.id || "none"}).`);
         return false;
       }
-      if (f.evidence.length === 0) {
-        removed.push(`Finding ${f.id} cited no dataset that exists.`);
+      if (!f.evidence.some((c) => c.relation === "supports")) {
+        removed.push(`Finding ${f.id} wasn't supported by any dataset that exists, so it was removed.`);
         return false;
       }
       seen.add(f.id);
@@ -33,16 +58,18 @@ export function checkCitations(raw: AnalysisResult, pack: AnalysisPack): { resul
   // Interpretations and insights rest on other findings; observations rest on data.
   const checkedFindings = findings.map((f) => ({ ...f, basedOnFindings: known(f.basedOnFindings).filter((id) => id !== f.id) }));
 
+  // Hypotheses stay even when nothing settles them: they then show as having insufficient evidence.
   const hypSeen = new Set<string>();
   const hypotheses = raw.hypotheses
-    .map((h) => ({ ...h, supportingFindings: known(h.supportingFindings), contradictingFindings: known(h.contradictingFindings) }))
+    .map((h) => ({
+      ...h,
+      supportingFindings: known(h.supportingFindings),
+      contradictingFindings: known(h.contradictingFindings),
+      evidence: cleanCitations(h.evidence ?? [], `Hypothesis ${h.id}`, true),
+    }))
     .filter((h) => {
       if (!h.id || hypSeen.has(h.id)) {
         removed.push(`A hypothesis with a repeated or missing id (${h.id || "none"}).`);
-        return false;
-      }
-      if (h.supportingFindings.length + h.contradictingFindings.length === 0) {
-        removed.push(`Hypothesis ${h.id} was not tied to any finding.`);
         return false;
       }
       hypSeen.add(h.id);
@@ -69,4 +96,12 @@ export function checkCitations(raw: AnalysisResult, pack: AnalysisPack): { resul
     },
     removed,
   };
+}
+
+/** The numbers in a piece of text, normalised ("1,234.50" → "1234.5"). */
+export function numbersIn(text: string): string[] {
+  return (text.match(/\d[\d,]*(?:\.\d+)?/g) ?? []).map((n) => {
+    const plain = n.replace(/,/g, "");
+    return plain.includes(".") ? plain.replace(/\.?0+$/, "") : plain;
+  });
 }

@@ -1,4 +1,5 @@
 import type { ColumnProfile, DataMetric, DatasetProfile } from "@/lib/types";
+import { assessEvidence } from "./confidence";
 import { clip, fmtInt, formatNumber, formatRange, pct } from "./format";
 
 /**
@@ -36,6 +37,8 @@ export type PackDataset = {
   source?: string;
   /** Calculations over the full dataset, worked out in code (trends, breakdowns, rates). */
   metrics?: DataMetric[];
+  /** How far this evidence can be trusted, worked out in code. */
+  confidence?: { level: "low" | "medium" | "high"; reason: string };
 };
 
 export type AnalysisPack = {
@@ -78,6 +81,7 @@ export function buildPack(items: PackInput[]): AnalysisPack {
       issues: p.issues,
       source: item.source,
       metrics: item.metrics?.length ? item.metrics : undefined,
+      confidence: assessEvidence(p, item.metrics),
       columns: p.columns.slice(0, MAX_COLUMNS).map((c) => ({
         name: c.name,
         type: c.type,
@@ -118,6 +122,7 @@ export function renderPack(pack: AnalysisPack): string {
   for (const d of pack.datasets) {
     out.push(`## ${d.ref}: ${d.name}${d.source ? ` (from ${d.source})` : ""}`);
     out.push(`Rows: ${fmtInt(d.rows)}${d.period ? ` · Period: ${formatRange(d.period.from, d.period.to)} (column “${d.dateColumn}”)` : " · Period: unknown"}`);
+    if (d.confidence) out.push(`Evidence confidence: ${d.confidence.level}. ${d.confidence.reason}`);
     if (d.issues.length) out.push(`Data issues: ${d.issues.join(" | ")}`);
     out.push("Columns:");
     for (const c of d.columns) out.push(`- ${renderColumn(c)}`);

@@ -9,7 +9,8 @@ import { normalize, profileNormalized, type NormalizedRow } from "@/lib/data-lay
 import { createClient } from "@/lib/supabase/server";
 import type { Json, Tables } from "@/lib/supabase/database.types";
 import { DEMO_CONTEXT } from "@/lib/connectors/demo-erp/context";
-import type { DataCheck } from "@/lib/types";
+import { assessEvidence } from "@/lib/analysis/confidence";
+import type { DataCheck, DataMetric, DatasetProfile } from "@/lib/types";
 
 type Result<T = object> = ({ ok: true } & T) | { error: string };
 
@@ -302,14 +303,19 @@ export async function addSnapshotEvidence(investigationId: string, snapshotId: s
   const supabase = await createClient();
   const [{ data: inv }, { data: snap }] = await Promise.all([
     supabase.from("investigations").select("id, is_sample").eq("id", investigationId).maybeSingle(),
-    supabase.from("dataset_snapshots").select("id, name, source_name, coverage, summary, profile, metrics").eq("id", snapshotId).maybeSingle(),
+    supabase.from("dataset_snapshots").select("id, data_source_id, name, source_name, coverage, summary, profile, metrics").eq("id", snapshotId).maybeSingle(),
   ]);
   if (!inv || inv.is_sample) return { error: "This investigation can't take evidence." };
   if (!snap) return { error: "That dataset is no longer available. Sync it again." };
+  const trust = assessEvidence(snap.profile as unknown as DatasetProfile, (snap.metrics ?? []) as unknown as DataMetric[]);
   const { error } = await supabase.from("evidence").insert({
     investigation_id: investigationId,
     workspace_id: company.id,
     snapshot_id: snap.id,
+    source_kind: "connector",
+    data_source_id: snap.data_source_id,
+    confidence: trust.level,
+    metadata: { confidenceReason: trust.reason },
     name: snap.name,
     source: snap.source_name,
     format: "dataset",

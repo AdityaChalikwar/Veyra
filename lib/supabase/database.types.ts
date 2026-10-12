@@ -11,6 +11,227 @@ export type Database = {
   };
   public: {
     Tables: {
+      findings: {
+        Row: {
+          id: string;
+          investigation_id: string;
+          workspace_id: string;
+          created_at: string;
+          analysis_run_id: string;
+          ref: string;
+          position: number;
+          kind: string;
+          statement: string;
+          observed: Json | null;
+          confidence: string;
+          confidence_reason: string;
+          based_on: string[];
+        };
+        Insert: {
+          id?: string;
+          investigation_id: string;
+          workspace_id?: string;
+          created_at?: string;
+          analysis_run_id: string;
+          ref: string;
+          position?: number;
+          kind: string;
+          statement: string;
+          observed?: Json | null;
+          confidence: string;
+          confidence_reason?: string;
+          based_on?: string[];
+        };
+        Update: {
+          id?: string;
+          investigation_id?: string;
+          workspace_id?: string;
+          created_at?: string;
+          analysis_run_id?: string;
+          ref?: string;
+          position?: number;
+          kind?: string;
+          statement?: string;
+          observed?: Json | null;
+          confidence?: string;
+          confidence_reason?: string;
+          based_on?: string[];
+        };
+        Relationships: [
+          {
+            foreignKeyName: "findings_investigation_id_fkey";
+            columns: ["investigation_id"];
+            isOneToOne: false;
+            referencedRelation: "investigations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "findings_workspace_id_fkey";
+            columns: ["workspace_id"];
+            isOneToOne: false;
+            referencedRelation: "workspaces";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "findings_analysis_run_id_fkey";
+            columns: ["analysis_run_id"];
+            isOneToOne: false;
+            referencedRelation: "analysis_runs";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      hypotheses: {
+        Row: {
+          id: string;
+          investigation_id: string;
+          workspace_id: string;
+          created_at: string;
+          analysis_run_id: string;
+          ref: string;
+          position: number;
+          statement: string;
+          rationale: string;
+          confidence: string;
+          evidence_strength: string;
+          evidence_status: string;
+          supporting_findings: string[];
+          contradicting_findings: string[];
+          validation_method: string;
+          status: string;
+        };
+        Insert: {
+          id?: string;
+          investigation_id: string;
+          workspace_id?: string;
+          created_at?: string;
+          analysis_run_id: string;
+          ref: string;
+          position?: number;
+          statement: string;
+          rationale?: string;
+          confidence: string;
+          evidence_strength: string;
+          evidence_status: string;
+          supporting_findings?: string[];
+          contradicting_findings?: string[];
+          validation_method?: string;
+          status?: string;
+        };
+        Update: {
+          id?: string;
+          investigation_id?: string;
+          workspace_id?: string;
+          created_at?: string;
+          analysis_run_id?: string;
+          ref?: string;
+          position?: number;
+          statement?: string;
+          rationale?: string;
+          confidence?: string;
+          evidence_strength?: string;
+          evidence_status?: string;
+          supporting_findings?: string[];
+          contradicting_findings?: string[];
+          validation_method?: string;
+          status?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "hypotheses_investigation_id_fkey";
+            columns: ["investigation_id"];
+            isOneToOne: false;
+            referencedRelation: "investigations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "hypotheses_workspace_id_fkey";
+            columns: ["workspace_id"];
+            isOneToOne: false;
+            referencedRelation: "workspaces";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "hypotheses_analysis_run_id_fkey";
+            columns: ["analysis_run_id"];
+            isOneToOne: false;
+            referencedRelation: "analysis_runs";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      evidence_links: {
+        Row: {
+          id: string;
+          investigation_id: string;
+          workspace_id: string;
+          created_at: string;
+          evidence_id: string;
+          finding_id: string | null;
+          hypothesis_id: string | null;
+          relation: string;
+          shows: string;
+        };
+        Insert: {
+          id?: string;
+          investigation_id: string;
+          workspace_id?: string;
+          created_at?: string;
+          evidence_id: string;
+          finding_id?: string | null;
+          hypothesis_id?: string | null;
+          relation: string;
+          shows?: string;
+        };
+        Update: {
+          id?: string;
+          investigation_id?: string;
+          workspace_id?: string;
+          created_at?: string;
+          evidence_id?: string;
+          finding_id?: string | null;
+          hypothesis_id?: string | null;
+          relation?: string;
+          shows?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "evidence_links_investigation_id_fkey";
+            columns: ["investigation_id"];
+            isOneToOne: false;
+            referencedRelation: "investigations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "evidence_links_workspace_id_fkey";
+            columns: ["workspace_id"];
+            isOneToOne: false;
+            referencedRelation: "workspaces";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "evidence_links_evidence_id_fkey";
+            columns: ["evidence_id"];
+            isOneToOne: false;
+            referencedRelation: "evidence";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "evidence_links_finding_id_fkey";
+            columns: ["finding_id"];
+            isOneToOne: false;
+            referencedRelation: "findings";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "evidence_links_hypothesis_id_fkey";
+            columns: ["hypothesis_id"];
+            isOneToOne: false;
+            referencedRelation: "hypotheses";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       ai_usage: {
         Row: {
           created_at: string;
@@ -325,54 +546,66 @@ export type Database = {
       evidence: {
         Row: {
           category: string;
+          confidence: string | null;
           coverage: string | null;
           created_at: string;
           created_by: string | null;
+          data_source_id: string | null;
           file_id: string | null;
           format: string;
           id: string;
           investigation_id: string;
+          metadata: Json;
           metrics: Json | null;
           name: string;
           profile: Json | null;
           snapshot_id: string | null;
           source: string;
+          source_kind: string;
           summary: string;
           updated_at: string;
           workspace_id: string;
         };
         Insert: {
           category?: string;
+          confidence?: string | null;
           coverage?: string | null;
           created_at?: string;
           created_by?: string | null;
+          data_source_id?: string | null;
           file_id?: string | null;
           format?: string;
           id?: string;
           investigation_id: string;
+          metadata?: Json;
           metrics?: Json | null;
           name: string;
           profile?: Json | null;
           snapshot_id?: string | null;
           source?: string;
+          source_kind?: string;
           summary?: string;
           updated_at?: string;
           workspace_id: string;
         };
         Update: {
           category?: string;
+          confidence?: string | null;
           coverage?: string | null;
           created_at?: string;
           created_by?: string | null;
+          data_source_id?: string | null;
           file_id?: string | null;
           format?: string;
           id?: string;
           investigation_id?: string;
+          metadata?: Json;
           metrics?: Json | null;
           name?: string;
           profile?: Json | null;
           snapshot_id?: string | null;
           source?: string;
+          source_kind?: string;
           summary?: string;
           updated_at?: string;
           workspace_id?: string;

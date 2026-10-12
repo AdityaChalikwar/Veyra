@@ -4,6 +4,7 @@ import { AlertTriangle, CalendarRange, ChevronDown, FileSpreadsheet, Rows3, Tras
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { deleteUpload } from "@/app/(app)/investigations/actions";
+import { ConfidenceBadge } from "@/components/ui/ConfidenceBadge";
 import { Spinner } from "@/components/ui/Spinner";
 import { formatNumber, formatRange } from "@/lib/analysis/format";
 import { cn } from "@/lib/cn";
@@ -83,6 +84,12 @@ export function UploadedEvidenceCard({ upload: u }: { upload: UploadedEvidence }
                 </div>
               </dl>
               {u.summary && <p className="mt-2 text-[13.5px] leading-relaxed text-ink">{u.summary}</p>}
+              {u.confidence && (
+                <p className="mt-2 flex flex-wrap items-center gap-2 text-xs text-ink-subtle">
+                  <ConfidenceBadge level={u.confidence} />
+                  {u.confidenceReason}
+                </p>
+              )}
 
               {p.issues.length > 0 && (
                 <div className="mt-3 rounded-lg border border-uncertain-200 bg-uncertain-50/60 px-3 py-2.5">

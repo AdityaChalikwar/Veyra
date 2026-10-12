@@ -1,9 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { assessEvidence } from "@/lib/analysis/confidence";
 import { buildPack } from "@/lib/analysis/pack";
 import { profileCsv } from "@/lib/analysis/profile";
 import { ANALYSIS_MODEL, runAnalysis } from "@/lib/analysis/run";
+import { saveEvidenceRows } from "@/lib/analysis/save";
 import { clarify } from "@/lib/ai/clarify";
 import { takeAiAllowance } from "@/lib/ai/usage";
 import { getBusinessContext, listDataSources } from "@/lib/data";
@@ -222,8 +224,12 @@ export async function processUpload(fileId: string): Promise<{ ok: true } | { er
   const result = profileCsv(await blob.text());
   if (!result.ok) return fail(result.error);
 
+  const trust = assessEvidence(result.profile);
   const { error } = await supabase.from("evidence").insert({
     investigation_id: file.investigation_id,
+    source_kind: "upload",
+    confidence: trust.level,
+    metadata: { confidenceReason: trust.reason },
     workspace_id: company.id, // the database also enforces the investigation's own workspace
     file_id: file.id,
     name: file.name.replace(/\.csv$/i, ""),
@@ -355,6 +361,12 @@ export async function analyseInvestigation(investigationId: string): Promise<{ o
             completed_at: finished,
           })
           .eq("id", run.id);
+
+  // Findings, hypotheses and their evidence links as rows. If this fails, the screens read the run's JSON instead.
+  if (!saveError && outcome.status === "completed") {
+    const saved = await saveEvidenceRows(supabase, investigationId, run.id, outcome.result, pack);
+    if ("error" in saved) console.error(`Couldn't save evidence rows for run ${run.id}: ${saved.error}`);
+  }
 
   revalidatePath("/", "layout");
   if (saveError) return { error: "The analysis finished but couldn't be saved. Try again." };

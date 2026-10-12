@@ -1,5 +1,6 @@
 import "server-only";
 import type { AnalysisResult } from "@/lib/analysis/schema";
+import { structureRun } from "@/lib/analysis/structure";
 import type {
   AnalysisRunRecord,
   Confidence,
@@ -37,6 +38,8 @@ export function buildLiveWorkspace(record: InvestigationRecord, dataSources: Dat
       format: "csv",
       addedAt: u.addedAt,
       description: u.summary,
+      confidence: u.confidence,
+      confidenceReason: u.confidenceReason,
       preview: u.profile ? { columns: u.profile.preview.columns, rows: u.profile.preview.rows.slice(0, 5) } : undefined,
     }))
     .concat(
@@ -51,30 +54,42 @@ export function buildLiveWorkspace(record: InvestigationRecord, dataSources: Dat
         format: "dataset",
         addedAt: e.addedAt,
         description: e.summary,
+        confidence: e.confidence,
+        confidenceReason: e.confidenceReason,
         preview: e.profile ? { columns: e.profile.preview.columns, rows: e.profile.preview.rows.slice(0, 5) } : undefined,
       })),
     );
 
-  // The analysis cites datasets as "E1", "E2"…; map them back to evidence ids.
+  // Findings and hypotheses come from the saved rows; runs saved before the rows existed are read from their JSON.
   const refs = new Map(run?.datasets.map((d) => [d.ref, d.evidenceId]) ?? []);
-  const toEvidence = (list: string[]) => list.map((r) => refs.get(r)).filter((e): e is string => !!e && evidence.some((x) => x.id === e));
-  const nameOf = (ref: string) => run?.datasets.find((d) => d.ref === ref)?.name;
+  const present = new Set(evidence.map((e) => e.id));
+  const structured = run?.structured ?? (result ? structureRun(result, (ref) => refs.get(ref)) : { findings: [], hypotheses: [] });
+  const live = <T extends { evidenceId: string }>(links: T[]) => links.filter((l) => present.has(l.evidenceId));
+  const nameOfEvidence = (id: string) => evidence.find((e) => e.id === id)?.name ?? "a dataset";
 
-  const findings: Finding[] = (result?.findings ?? []).map((f) => ({
-    id: f.id,
-    investigationId: id,
-    kind: f.kind,
-    statement: f.statement,
-    confidence: f.confidence,
-    confidenceReason: f.confidenceReason,
-    evidenceIds: toEvidence(f.evidence),
-    basedOnFindingIds: f.basedOnFindings.length ? f.basedOnFindings : undefined,
-    trail: [
-      ...f.evidence.map((r) => ({ text: `Read from ${nameOf(r) ?? r}, using figures worked out by plain calculation.`, evidenceId: refs.get(r) })),
-      ...(f.basedOnFindings.length ? [{ text: `Builds on ${f.basedOnFindings.join(", ")}.` }] : []),
-      { text: f.confidenceReason },
-    ],
-  }));
+  const findings: Finding[] = structured.findings.map((f) => {
+    const links = live(f.links);
+    return {
+      id: f.ref,
+      investigationId: id,
+      kind: f.kind,
+      statement: f.statement,
+      confidence: f.confidence,
+      confidenceReason: f.confidenceReason,
+      evidenceIds: links.filter((l) => l.relation === "supports").map((l) => l.evidenceId),
+      evidenceLinks: links,
+      observed: f.observed,
+      basedOnFindingIds: f.basedOn.length ? f.basedOn : undefined,
+      trail: [
+        ...links.map((l) => ({
+          text: `${l.relation === "contradicts" ? "Checked against" : "Read from"} ${nameOfEvidence(l.evidenceId)}${l.shows ? `: ${l.shows}` : ", using figures worked out by plain calculation."}`,
+          evidenceId: l.evidenceId,
+        })),
+        ...(f.basedOn.length ? [{ text: `Builds on ${f.basedOn.join(", ")}.` }] : []),
+        { text: f.confidenceReason },
+      ],
+    };
+  });
 
   const openQuestions: OpenQuestion[] = result
     ? result.openQuestions.map((q, i) => ({
@@ -88,20 +103,29 @@ export function buildLiveWorkspace(record: InvestigationRecord, dataSources: Dat
         .filter((q) => !q.answer.trim())
         .map((q) => ({ id: q.id, investigationId: id, question: q.question, whyItMatters: q.hint ?? "Unanswered when the investigation was created." }));
 
-  const hypotheses: Hypothesis[] = (result?.hypotheses ?? []).map((h) => ({
-    id: h.id,
-    investigationId: id,
-    label: h.id,
-    statement: h.statement,
-    confidence: h.confidence,
-    evidenceStrength: h.evidenceStrength,
-    rationale: h.rationale,
-    supportingFindingIds: h.supportingFindings,
-    contradictingFindingIds: h.contradictingFindings,
-    openQuestions: [],
-    validationMethod: h.validationMethod,
-    status: "open",
-  }));
+  const hypotheses: Hypothesis[] = structured.hypotheses.map((h) => {
+    const links = live(h.links);
+    const ids = (relation: string) => links.filter((l) => l.relation === relation).map((l) => l.evidenceId);
+    return {
+      id: h.ref,
+      investigationId: id,
+      label: h.ref,
+      statement: h.statement,
+      confidence: h.confidence,
+      evidenceStrength: h.evidenceStrength,
+      rationale: h.rationale,
+      supportingFindingIds: h.supportingFindings,
+      contradictingFindingIds: h.contradictingFindings,
+      supportingEvidenceIds: ids("supports"),
+      contradictingEvidenceIds: ids("contradicts"),
+      insufficientEvidenceIds: ids("insufficient"),
+      evidenceLinks: links,
+      evidenceStatus: h.evidenceStatus,
+      openQuestions: [],
+      validationMethod: h.validationMethod,
+      status: "open",
+    };
+  });
 
   const opportunities: Opportunity[] = (result?.opportunities ?? []).map((o, i) => ({
     id: `o${i + 1}`,

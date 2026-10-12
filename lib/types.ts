@@ -8,6 +8,7 @@
  */
 
 import type { AnalysisResult } from "@/lib/analysis/schema";
+import type { EvidenceRelation, EvidenceStatus, Observed, StructuredFinding, StructuredHypothesis } from "@/lib/analysis/structure";
 
 export type ID = string;
 
@@ -214,7 +215,14 @@ export type EvidenceItem = {
   analysis?: EvidenceAnalysis;
   /** Shown on public research: what limits its reliability. */
   qualityNote?: string;
+  /** How far this evidence can be trusted, worked out in code, and why. */
+  confidence?: "low" | "medium" | "high";
+  confidenceReason?: string;
 };
+
+/** A finding or hypothesis's link to one evidence item: how it relates, and what the evidence shows. */
+export type EvidenceLink = { evidenceId: ID; relation: EvidenceRelation; shows: string };
+export type { EvidenceRelation, EvidenceStatus, Observed };
 
 /* ── Uploaded data ─────────────────────────────────────────────────────── */
 
@@ -260,6 +268,8 @@ export type UploadedEvidence = {
   summary?: string;
   coverage?: string;
   profile?: DatasetProfile;
+  confidence?: "low" | "medium" | "high";
+  confidenceReason?: string;
   addedAt: string; // ISO
 };
 
@@ -305,6 +315,10 @@ export type Finding = {
   /** Why the confidence is what it is. */
   confidenceReason: string;
   evidenceIds: ID[];
+  /** Every evidence item cited, with whether it supports or contradicts the finding and what it shows. */
+  evidenceLinks?: EvidenceLink[];
+  /** What was measured and the values seen, copied from the data. */
+  observed?: Observed;
   /** For interpretations and insights: the observations they build on. */
   basedOnFindingIds?: ID[];
   detail?: {
@@ -345,6 +359,11 @@ export type Hypothesis = {
   /** Evidence linked directly (e.g. accepted from a suggestion). */
   supportingEvidenceIds?: ID[];
   contradictingEvidenceIds?: ID[];
+  /** Evidence checked that can't settle it. */
+  insufficientEvidenceIds?: ID[];
+  evidenceLinks?: EvidenceLink[];
+  /** What the evidence says overall. */
+  evidenceStatus?: EvidenceStatus;
   openQuestions: string[];
   /** How Veyra suggests testing it. */
   validationMethod: string;
@@ -666,6 +685,8 @@ export type AnalysisRunRecord = {
   datasets: { ref: string; evidenceId: ID; name: string; period?: string }[];
   /** What was dropped for not tracing back to the data. */
   removed: string[];
+  /** The run's findings and hypotheses as saved rows, with their evidence links. Absent for runs saved before the rows existed. */
+  structured?: { findings: StructuredFinding[]; hypotheses: StructuredHypothesis[] };
 };
 
 export type InvestigationRecord = {
@@ -803,5 +824,7 @@ export type SourceEvidence = {
   summary: string;
   profile?: DatasetProfile;
   metrics: DataMetric[];
+  confidence?: "low" | "medium" | "high";
+  confidenceReason?: string;
   addedAt: string;
 };

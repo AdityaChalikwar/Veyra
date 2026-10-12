@@ -22,8 +22,9 @@ next step, validation) and to run analysis over company data, not to host a chat
 | Persistence gaps — investigation objective, current stage, stage history, edit details | **Done** (`supabase/migrations/20261008*`) |
 | 4. AI analysis pipeline (Claude) — analysis pack in code, one structured Claude call, stored runs, stage moves to Problem validation | **Done** — confirmed with a real call (`supabase/migrations/20261009*`, `lib/analysis/`); real investigations use the full workspace |
 | 5. Data onboarding layer + Demo ERP (see "Data onboarding" below) | **Built** (`supabase/migrations/20261013*`, `lib/connectors/`, `lib/data-layer/`); analysis with ERP metrics needs one live check |
-| 6. Decisions, validation, Decision Brief | |
-| 7. Business Memory, clean-up of mocks | |
+| 6. Evidence engine — evidence confidence and source, findings, hypotheses and evidence links as rows; every finding cites evidence IDs | **Built** (`supabase/migrations/20261015*`, `lib/analysis/structure.ts`, `save.ts`, `confidence.ts`); checked with a simulated run, needs one live Claude check |
+| 7. Decisions, validation, Decision Brief | |
+| 8. Business Memory, clean-up of mocks | |
 | Later. Real connectors (ERP, CRM, analytics, support, finance), scheduled sync | |
 
 Every workspace gets a **sample investigation** (Kitchen Returns Spike at Northwind Home, the Demo ERP's fictional retailer; its numbers match the Demo ERP): a real row, so it can
@@ -56,8 +57,34 @@ run is saved in `analysis_runs` (pack, result, usage), and a completed run moves
 investigation from Analysis to Problem validation via a trigger. The server action is
 `analyseInvestigation`; `AnalysisSection` (Overview and Evidence tabs) runs it and summarises
 the latest result.
-Findings are not yet separate rows: they live in the run's `result`, so accepting or editing
-them individually comes later.
+
+## Evidence engine (Milestone 6)
+
+Every conclusion traces back to evidence rows.
+
+- **Evidence** (`evidence`): source (`source_kind` upload / connector / research / manual, and
+  `data_source_id` for connected systems — `data_sources` is the sources table, so CRM or
+  analytics connectors slot in the same way), type (`category`: company data, customer evidence,
+  uploaded research, public research), title, summary, profile and metrics, `metadata`, and a
+  `confidence` worked out in code (`lib/analysis/confidence.ts`: rows, period, missing values,
+  issues; the reason is kept in `metadata.confidenceReason`).
+- **Findings** (`findings`) and **hypotheses** (`hypotheses`): one row each per analysis run,
+  with the run's reference (F1, H1). A finding stores what was `observed` (measure, values,
+  period); a hypothesis stores `evidence_status` (supported / contradicted / mixed /
+  insufficient), worked out in code from what supports and contradicts it.
+- **Evidence links** (`evidence_links`): finding or hypothesis → evidence item, with `relation`
+  (supports / contradicts / insufficient) and `shows` (what that evidence shows for it). RLS only
+  allows links within one investigation.
+
+The model must cite datasets by reference with a relation and what each shows (the prompt
+forbids "based on the data"). `validate.ts` removes citations of datasets that don't exist,
+drops findings no dataset supports, and drops observed values whose numbers aren't in the
+evidence pack. `save.ts` writes the rows after a completed run (all or nothing); the
+workspace reads them, and falls back to the run's JSON for runs saved before Milestone 6.
+On screen: finding cards show evidence, dataset and period, observed values, evidence
+confidence and "View evidence"; the finding drawer lists every cited item with its relation;
+hypotheses show supporting, contradicting and "can't tell yet" evidence; the evidence viewer
+shows its confidence and every finding and hypothesis that cites it.
 
 Uploads: the browser sends the CSV straight to the private `uploads` bucket at
 `{workspace_id}/{investigation_id}/{file_id}.csv` (server actions are capped at 1 MB);

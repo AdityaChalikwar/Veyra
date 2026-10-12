@@ -37,7 +37,14 @@ Connect (Data Sources → Connect Demo ERP) → choose datasets → map fields �
 (interface + Demo ERP generator), the business model, mapping, validation, normalization and
 metrics in `lib/data-layer/`. Snapshots become evidence on an investigation's Evidence tab
 ("Add from your data"); the analysis pack includes their metrics. Not yet checked with a live
-Claude call. Next: Milestone 6 (decisions, validation, report), then 7 (memory).
+Claude call.
+
+## Milestone 6 — Evidence engine: built
+Evidence confidence and source, findings, hypotheses and evidence links as rows; the AI must
+cite evidence IDs with supports / contradicts / insufficient. See "Evidence engine" in
+`docs/backend-plan.md`. Checked with a simulated analysis (real validation and save code, as a
+test user); needs one live Claude run. Next: Milestone 7 (decisions, validation, Decision
+Brief), then 8 (Business Memory).
 
 ## Since Milestone 5
 - No business details at sign-up; workspace created automatically; context optional.
