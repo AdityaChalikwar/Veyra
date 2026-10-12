@@ -24,7 +24,10 @@ export const getSession = cache(async (): Promise<Session | null> => {
   const claims = data?.claims;
   if (!claims?.sub) return null;
 
-  const { data: profile } = await supabase.from("profiles").select("full_name, email").eq("id", claims.sub).maybeSingle();
+  const { data: profile, error } = await supabase.from("profiles").select("full_name, email").eq("id", claims.sub).maybeSingle();
+  // Every account has a profile, so none means the account was deleted while
+  // the browser still held its login: treat the visitor as signed out.
+  if (!error && !profile) return null;
   const email = profile?.email || (typeof claims.email === "string" ? claims.email : "");
   const name = profile?.full_name?.trim() || email.split("@")[0] || "You";
   const provider = (claims.app_metadata as { provider?: string } | undefined)?.provider;
