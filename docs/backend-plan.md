@@ -20,22 +20,44 @@ next step, validation) and to run analysis over company data, not to host a chat
 | 2. Investigations, clarifying questions, plan, sample investigation, password reset | **Done** (`supabase/migrations/20261005*`) |
 | 3. CSV upload (private Storage) and profiling in code → evidence | **Done** (`supabase/migrations/20261006*`, `lib/analysis/profile.ts`) |
 | Persistence gaps — investigation objective, current stage, stage history, edit details | **Done** (`supabase/migrations/20261008*`) |
-| 4. AI analysis pipeline (Claude) | Next |
-| 5. Decisions, validation, Decision Brief | |
-| 6. Business Memory, clean-up of mocks | |
+| 4. AI analysis pipeline (Claude) — analysis pack in code, one structured Claude call, stored runs, stage moves to Problem validation | **Done** — confirmed with a real call (`supabase/migrations/20261009*`, `lib/analysis/`); real investigations use the full workspace |
+| 5. Data onboarding layer + Demo ERP (see "Data onboarding" below) | **Built** (`supabase/migrations/20261013*`, `lib/connectors/`, `lib/data-layer/`); analysis with ERP metrics needs one live check |
+| 6. Decisions, validation, Decision Brief | |
+| 7. Business Memory, clean-up of mocks | |
+| Later. Real connectors (ERP, CRM, analytics, support, finance), scheduled sync | |
 
-Every workspace gets a **sample investigation** (DAU Decline): a real row, so it can
+Every workspace gets a **sample investigation** (Kitchen Returns Spike at Northwind Home, the Demo ERP's fictional retailer; its numbers match the Demo ERP): a real row, so it can
 be listed and removed, whose content is the demo in `/mocks` until evidence and
-analysis are stored. Real investigations show a **brief** (problem, context,
-clarifying questions with editable answers, plan) until their data is analysed.
+analysis are stored. Real investigations use the **same workspace** (tabs, progress,
+side panel), built only from saved data by `buildLiveWorkspace` (`lib/data/live-workspace.ts`):
+uploads become evidence, and the latest completed analysis fills findings, hypotheses, open
+questions, the refined problem, opportunities and the next step. Parts not backed by real
+data yet (research, customers & market, validation, notes, report, Ask Veyra) say so
+instead of showing demo content, and simulated actions are hidden.
 
 Stages: each investigation has a `current_stage` and an `investigation_stages` history
 (when each stage started and finished). Only the database moves them, with triggers:
 creating an investigation puts it at **Add data**; the first evidence moves it to
 **Analysis**; removing the last evidence moves it back. Members can read stages but not
-write them, and a direct edit can't change the stage or the sample flag. Title, problem,
-objective, trigger and outcome can be edited from the brief ("Edit details"). New
+write them, and a direct edit can't change the stage or the sample flag. Triggers and outcomes are multi-select (`triggers`, `outcomes` arrays). Title, problem,
+objective, triggers and outcomes can be edited from the workspace header ("Edit details").
+The status badge follows the stage. New
 investigations start from a blank form.
+
+AI analysis (`lib/analysis/`): `pack.ts` builds the analysis pack from the stored evidence
+profiles in code and gives each dataset a reference (E1, E2…). `run.ts` makes one streamed,
+structured-output Claude call (`claude-opus-5-5`, override with `ANALYSIS_MODEL`; server-side
+refusal fallback on) with the business context, problem, objective and clarifying answers.
+The answer must match the zod schema in `schema.ts`: findings, hypotheses, open questions,
+a refined problem, first opportunities, a next step and data limits, each citing datasets or
+findings by reference. `validate.ts` drops anything citing something that doesn't exist.
+Refusals and cut-off answers are stored as their own run statuses and nothing is shown. Each
+run is saved in `analysis_runs` (pack, result, usage), and a completed run moves the
+investigation from Analysis to Problem validation via a trigger. The server action is
+`analyseInvestigation`; `AnalysisSection` (Overview and Evidence tabs) runs it and summarises
+the latest result.
+Findings are not yet separate rows: they live in the run's `result`, so accepting or editing
+them individually comes later.
 
 Uploads: the browser sends the CSV straight to the private `uploads` bucket at
 `{workspace_id}/{investigation_id}/{file_id}.csv` (server actions are capped at 1 MB);
@@ -47,6 +69,78 @@ Architecture: everything server-side runs in the Next.js app (server components,
 actions, `app/auth/callback`). The server acts as the signed-in user, so Row Level
 Security applies to every query; no secret key is used. Membership checks live in the
 `private` schema so they aren't exposed through the API.
+
+## Getting started (no business details)
+
+Sign-up asks for nothing about the business. On first visit Veyra creates the person's
+workspace (`ensureWorkspace` in `lib/auth.ts`, named "<first name>'s workspace") with the
+sample investigation. Business context is optional (`/context`), and has its own company name
+(`business_contexts.company_name`).
+
+**Try with demo data** (dashboard, Data Sources) runs `setUpDemo`: connect the Demo ERP, select
+every dataset, accept the suggested mappings, sync, and open a new investigation into its story.
+Connecting the demo switches the business context to Northwind Home (`DEMO_CONTEXT`); if the
+team had written their own, they're asked first, and it's kept in the data source's `settings`
+and restored on disconnect. The sidebar shows "Demo data: Northwind Home" while it's connected.
+
+**AI usage limit:** each person gets `AI_DAILY_LIMIT` AI calls (analysis and question writing)
+per 24 hours, default 25, recorded in `ai_usage` (`lib/ai/usage.ts`).
+
+## Data onboarding (core product direction)
+
+Company systems, ERP first, are a primary evidence source, not a future mock. Data reaches
+an investigation through one pipeline whatever its origin:
+
+```
+Business onboarding → Data source onboarding → Connection → Dataset selection
+→ Schema discovery → Field mapping → Validation → Sync (snapshot)
+→ Veyra business data layer → Evidence → Investigation engine
+```
+
+**Rule: the investigation engine never knows where data came from.** It reads normalized
+evidence (a dataset snapshot's profile, computed metrics and provenance). ERP, CRM, product
+analytics, support, finance, CSV and uploaded research all end up in that same shape.
+
+### Pieces
+
+| Piece | What it is |
+|---|---|
+| Connector (code, `lib/connectors/`) | One module per source type with the same interface: `listDatasets`, `describe` (schema discovery: fields, types, sample), `read` (rows, paged, optionally since a point in time). Built: **Demo ERP**, **CSV upload**. Later: SAP, Oracle, Dynamics, NetSuite, CRM, analytics… added without touching the engine. |
+| `data_sources` | A workspace's connected source: type, name, status, settings. Credentials for real connectors are never stored in plain tables (Supabase Vault, server-side only). |
+| `source_datasets` | The datasets chosen from a source (e.g. ERP Orders) with the discovered schema. |
+| Field mapping (`source_datasets.mapping`) | Veyra field → source field, per dataset. Suggested from field names and descriptions (`suggestMapping`; AI can help later), confirmed by a person. |
+| Canonical model (the Veyra business data layer) | A small set of business entities: customers, products, orders (+ lines), inventory, purchases, returns, invoices. Anything that doesn't map (most CSVs) stays a generic table. |
+| `sync_runs` | Each import: when, rows read, rows rejected and why (validation), status. |
+| `dataset_snapshots` | What a sync produced: a profile (personal fields masked) and standard metrics computed in code from the normalized rows. Rows themselves aren't stored (Demo ERP regenerates them; real sources keep them). Snapshots don't change, so findings stay traceable to the exact data they used. |
+| Evidence | Either an uploaded file or a snapshot (`evidence.snapshot_id`), each with its own copy of profile and metrics, so it outlives a disconnected source. Carries provenance: source, dataset, period. The analysis pack treats both the same (`buildPack`). |
+| Metrics layer (code) | Standard, pre-defined calculations per entity — orders and revenue by week, return rate by product, stock-outs, customer counts by segment — computed in code from snapshots. The AI reads results; it never writes queries. |
+
+### Demo ERP
+
+A built-in source with realistic, connected data for one fictional company: customers,
+products, orders, inventory, purchases, returns, invoices — about a year of history, with
+stories in it (e.g. a supplier change followed by a returns spike) so analysis has something
+real to find. It goes through every step of the pipeline (selection, discovery, mapping,
+validation, sync), so a real connector later is a new module, not a redesign.
+
+### Known risks and decisions
+
+- **Volume and cost.** A real ERP can have millions of rows; the Supabase free tier holds 500 MB.
+  Store full rows only for small sources (Demo ERP, CSV); for large ones, sync aggregates and
+  keep raw rows in the source.
+- **Background work.** Syncs can outlast a web request (Vercel limit ~5 min) and need a server
+  identity. Real connectors need a job runner (Supabase Edge Functions + cron, or a queue) and
+  a narrowly-scoped service role. Demo ERP and CSV import within a request.
+- **Privacy.** ERP data includes personal data (names, emails, addresses). Only aggregates and
+  profiles go to the AI; sample rows sent to it are masked. Today the analysis pack includes a
+  few raw preview rows from CSVs — now masked by column name (`isPersonalColumn`), and connected
+  data is masked by field (`personal` in the canonical model).
+- **Mapping is the hard part.** Every ERP names things differently (SAP's VBAK/VBAP for orders).
+  The canonical model stays small and the mapping step is where a person confirms meaning.
+- **Freshness vs traceability.** Re-syncing creates a new snapshot; analyses keep citing the
+  snapshot they used, and the workspace says when newer data exists.
+- **Real connectors need each vendor's access** (API credentials, often a paid tier, IT approval)
+  — that's why they come after the MVP.
 
 ## Principles the backend must preserve
 
@@ -80,7 +174,7 @@ Security applies to every query; no secret key is used. Membership checks live i
 | `listMemoryHighlights`, `getBusinessMemory` (`index.ts`) | Memory entries (validated problems, rejected hypotheses, experiments, learnings…) plus "problem → decision → experiment → result → learning" stories, written when investigations close. |
 | `listDataSources` (`index.ts`) | Connector registry grouped as company systems (analytics, ERP, CRM, sales, docs, finance), customer evidence (support, feedback, surveys, research) and external. Sync status and headline metrics per source. |
 | `getInvestigationWorkspace` (`index.ts`) | Aggregates an investigation's stages, plan, KPIs, charts, map, evidence, findings, open questions, hypotheses, research tasks, customer understanding, market context, problem statement, opportunities, next step, validations, related memory, conversation and proposals. Likely several endpoints. |
-| `generateClarifyingQuestions` (`investigations.ts`) | AI call using the problem, trigger, outcome, known context, selected data sources and business context. Questions should reference what the data already shows (e.g. a release date). |
+| ✅ `suggestQuestions` (`app/(app)/investigations/actions.ts`, `lib/ai/clarify.ts`) | One structured Claude call: first lists what information solving this problem needs (known, partly known, unknown), then asks 5–6 questions about the gaps. Falls back to standard questions if the AI can't be reached. |
 | `planInvestigation` (`investigations.ts`) | Chooses methods for this problem and explains which frameworks it *won't* use and why. Adaptive, not a fixed checklist. |
 | `createInvestigation` (`investigations.ts`) | Persist the draft, answers and plan; start the first analyses on connected data. |
 | `runResearchTask` (`research.ts`) | Run an analysis task against connected data (e.g. activation by channel, before/after a release) or a public-research scan. Returns new evidence, a finding, answered questions and proposals. Asynchronous. |

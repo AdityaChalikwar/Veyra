@@ -6,6 +6,7 @@ import { InvestigationCard } from "@/components/dashboard/InvestigationCard";
 import { MemoryPreview } from "@/components/dashboard/MemoryPreview";
 import { OpenQuestions } from "@/components/dashboard/OpenQuestions";
 import { RecentEvidence } from "@/components/dashboard/RecentEvidence";
+import { TryDemoButton } from "@/components/data-sources/TryDemoButton";
 import { ButtonLink } from "@/components/ui/Button";
 import { EmptyNote } from "@/components/ui/EmptyNote";
 import { Panel } from "@/components/ui/Panel";
@@ -18,19 +19,22 @@ import {
   listRecentEvidence,
 } from "@/lib/data";
 import { listExampleProblems } from "@/lib/data/investigations";
+import { listConnectedSources } from "@/lib/data/sources";
 import { routes } from "@/lib/routes";
 
 export const metadata = { title: "Product Discovery" };
 
 export default async function DashboardPage() {
-  const [active, sources, questions, evidence, decisions, memory] = await Promise.all([
+  const [active, sources, questions, evidence, decisions, memory, connected] = await Promise.all([
     listActiveInvestigations(3),
     listDataSources(),
     listOpenQuestions(),
     listRecentEvidence(4),
     listRecentDecisions(3),
     listMemoryHighlights(3),
+    listConnectedSources(),
   ]);
+  const hasDemo = connected.some((c) => c.connector === "demo-erp");
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-8 lg:py-10">
@@ -54,6 +58,19 @@ export default async function DashboardPage() {
           </ButtonLink>
         </div>
       </div>
+
+      {!hasDemo && (
+        <section className="mt-6 flex flex-col gap-4 rounded-xl border-2 border-brand-200 bg-brand-50/40 p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-[15px] font-semibold">See Veyra work on a real-looking business</h2>
+            <p className="mt-0.5 max-w-2xl text-[13px] text-ink-muted">
+              One click connects the Demo ERP — a year of data from Northwind Home, a fictional home-goods retailer — and starts an
+              investigation into why its Kitchen returns are rising. No company details needed.
+            </p>
+          </div>
+          <TryDemoButton />
+        </section>
+      )}
 
       <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <ConnectedData sources={sources} />

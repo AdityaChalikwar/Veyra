@@ -1,13 +1,19 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { buildPack } from "@/lib/analysis/pack";
 import { profileCsv } from "@/lib/analysis/profile";
+import { ANALYSIS_MODEL, runAnalysis } from "@/lib/analysis/run";
+import { clarify } from "@/lib/ai/clarify";
+import { takeAiAllowance } from "@/lib/ai/usage";
+import { getBusinessContext, listDataSources } from "@/lib/data";
 import { requireWorkspace } from "@/lib/auth";
 import { deriveTitle, inferTopic } from "@/lib/investigation-text";
 import { OUTCOMES, TRIGGERS } from "@/lib/options";
 import { createClient } from "@/lib/supabase/server";
 import type { Json } from "@/lib/supabase/database.types";
-import type { InvestigationDraft, InvestigationOutcome, InvestigationTrigger } from "@/lib/types";
+import { genericQuestions } from "@/mocks/new-investigation";
+import type { ClarifyingQuestion, DataMetric, DatasetProfile, InvestigationDraft, InvestigationOutcome, InvestigationTrigger, NeededInfo } from "@/lib/types";
 
 const MAX_PROBLEM = 2000;
 /** Must match the bucket's limit (supabase/migrations/20261006000001_uploads_and_evidence.sql). */
@@ -24,8 +30,6 @@ export async function createInvestigation(draft: InvestigationDraft): Promise<{ 
   if (!problem) return { error: "Describe the problem first." };
   if (problem.length > MAX_PROBLEM) return { error: "Shorten the problem description a little." };
 
-  const trigger = TRIGGERS.some((t) => t.value === draft.trigger) ? draft.trigger : null;
-  const outcome = OUTCOMES.some((o) => o.value === draft.outcome) ? draft.outcome : null;
   const questions = (draft.questions ?? []).slice(0, MAX_ITEMS).map((q) => ({
     question: q.question.trim().slice(0, 1000),
     hint: (q.hint ?? "").slice(0, 1000),
@@ -39,8 +43,8 @@ export async function createInvestigation(draft: InvestigationDraft): Promise<{ 
     p_problem: problem,
     p_objective: (draft.objective ?? "").trim().slice(0, MAX_OBJECTIVE),
     p_topic: inferTopic(problem),
-    p_trigger: trigger,
-    p_outcome: outcome,
+    p_triggers: validTriggers(draft.triggers),
+    p_outcomes: validOutcomes(draft.outcomes),
     p_known_context: draft.knownContext.trim().slice(0, MAX_TEXT),
     p_attachments: draft.attachments.slice(0, MAX_ITEMS).map((a) => a.slice(0, 300)),
     p_data_source_ids: draft.dataSourceIds.slice(0, MAX_ITEMS),
@@ -53,15 +57,58 @@ export async function createInvestigation(draft: InvestigationDraft): Promise<{ 
   return { id: data };
 }
 
+/**
+ * Clarifying questions written for this problem: Veyra works out what it needs
+ * to know, then asks about the gaps. On failure the standard questions are
+ * returned with the reason, so the flow can carry on.
+ */
+export async function suggestQuestions(
+  draft: InvestigationDraft,
+): Promise<{ questions: ClarifyingQuestion[]; needed: NeededInfo[]; error?: string }> {
+  const { company } = await requireWorkspace();
+  const fallback = (error: string) => ({ questions: structuredClone(genericQuestions), needed: [], error });
+  const problem = draft.problem.trim();
+  if (!problem || problem.length > MAX_PROBLEM) return fallback("Describe the problem first.");
+
+  const allowance = await takeAiAllowance(company.id, "questions");
+  if ("error" in allowance) return fallback(allowance.error);
+
+  const [context, sources] = await Promise.all([getBusinessContext(), listDataSources()]);
+  const result = await clarify({
+    draft: {
+      ...draft,
+      problem,
+      objective: (draft.objective ?? "").slice(0, MAX_OBJECTIVE),
+      knownContext: draft.knownContext.slice(0, MAX_TEXT),
+      triggers: validTriggers(draft.triggers),
+      outcomes: validOutcomes(draft.outcomes),
+      attachments: draft.attachments.slice(0, MAX_ITEMS),
+    },
+    context,
+    sources: sources.filter((s) => draft.dataSourceIds.includes(s.id)).map((s) => s.name),
+  });
+  if (result.status !== "ok") return fallback(result.error);
+  return {
+    questions: result.questions.map((q, i) => ({ id: `q-${i + 1}`, question: q.question, hint: q.why, answer: "" })),
+    needed: result.needed,
+  };
+}
+
 export type InvestigationEdit = {
   title: string;
   problem: string;
   objective: string;
-  trigger: InvestigationTrigger | null;
-  outcome: InvestigationOutcome | null;
+  triggers: InvestigationTrigger[];
+  outcomes: InvestigationOutcome[];
 };
 
-/** Updates an investigation's title, problem, objective, trigger and outcome. The sample can't be edited. */
+/** Only known values, each once (also guarded by the database). */
+const validTriggers = (list: unknown) =>
+  Array.isArray(list) ? [...new Set(list.filter((v): v is InvestigationTrigger => TRIGGERS.some((t) => t.value === v)))] : [];
+const validOutcomes = (list: unknown) =>
+  Array.isArray(list) ? [...new Set(list.filter((v): v is InvestigationOutcome => OUTCOMES.some((o) => o.value === v)))] : [];
+
+/** Updates an investigation's title, problem, objective, triggers and outcomes. The sample can't be edited. */
 export async function updateInvestigation(investigationId: string, edit: InvestigationEdit): Promise<{ ok: true } | { error: string }> {
   await requireWorkspace();
   const title = edit.title.trim();
@@ -80,8 +127,8 @@ export async function updateInvestigation(investigationId: string, edit: Investi
         title,
         problem,
         objective: edit.objective.trim(),
-        trigger: TRIGGERS.some((t) => t.value === edit.trigger) ? edit.trigger : null,
-        outcome: OUTCOMES.some((o) => o.value === edit.outcome) ? edit.outcome : null,
+        triggers: validTriggers(edit.triggers),
+        outcomes: validOutcomes(edit.outcomes),
       },
       { count: "exact" },
     )
@@ -205,4 +252,111 @@ export async function deleteUpload(fileId: string): Promise<{ ok: true } | { err
   await supabase.storage.from("uploads").remove([file.storage_path]);
   revalidatePath("/", "layout");
   return { ok: true };
+}
+
+/* ── AI analysis ──────────────────────────────────────────────────────── */
+
+/** A run still "running" after this long died with its request. */
+const STALE_RUN_MS = 10 * 60 * 1000;
+
+/**
+ * Analyses an investigation's evidence. The numbers come from the stored
+ * profiles (worked out in code); Claude reads them and returns findings,
+ * hypotheses and a recommended next step. The run is saved either way, and a
+ * finished run moves the investigation on (the database does that).
+ */
+export async function analyseInvestigation(investigationId: string): Promise<{ ok: true } | { error: string }> {
+  const { company } = await requireWorkspace();
+  const supabase = await createClient();
+
+  const { data: inv } = await supabase
+    .from("investigations")
+    .select("id, is_sample, problem, objective, triggers, outcomes, known_context, clarifying_questions (position, question, answer)")
+    .eq("id", investigationId)
+    .maybeSingle();
+  if (!inv) return { error: "This investigation no longer exists." };
+  if (inv.is_sample) return { error: "The sample investigation is already analysed." };
+
+  const { data: evidence } = await supabase
+    .from("evidence")
+    .select("id, name, source, profile, metrics, created_at")
+    .eq("investigation_id", investigationId)
+    .not("profile", "is", null)
+    .order("created_at");
+  if (!evidence?.length) return { error: "Add some data first. Veyra needs at least one dataset to analyse." };
+
+  const { data: running } = await supabase
+    .from("analysis_runs")
+    .select("id, created_at")
+    .eq("investigation_id", investigationId)
+    .eq("status", "running");
+  const now = Date.now();
+  const stale = (running ?? []).filter((r) => now - new Date(r.created_at).getTime() > STALE_RUN_MS);
+  if ((running?.length ?? 0) > stale.length) return { error: "An analysis is already running. It usually takes a minute or two." };
+  for (const r of stale) {
+    await supabase
+      .from("analysis_runs")
+      .update({ status: "failed", error: "This analysis didn't finish.", completed_at: new Date().toISOString() })
+      .eq("id", r.id);
+  }
+
+  const allowance = await takeAiAllowance(company.id, "analysis");
+  if ("error" in allowance) return allowance;
+
+  // Every kind of evidence arrives in the same shape — a profile, plus metrics for connected data — whatever its source.
+  const pack = buildPack(
+    evidence.map((e) => ({
+      id: e.id,
+      name: e.name,
+      source: e.source,
+      profile: e.profile as unknown as DatasetProfile,
+      metrics: (e.metrics ?? undefined) as DataMetric[] | undefined,
+    })),
+  );
+  const { data: run, error: insertError } = await supabase
+    .from("analysis_runs")
+    .insert({ investigation_id: investigationId, workspace_id: company.id, model: ANALYSIS_MODEL, pack: pack as unknown as Json })
+    .select("id")
+    .single();
+  if (insertError || !run) return { error: "Couldn't start the analysis. Try again in a moment." };
+  revalidatePath("/", "layout");
+
+  const outcome = await runAnalysis({
+    context: await getBusinessContext(),
+    problem: inv.problem,
+    objective: inv.objective,
+    triggers: inv.triggers as InvestigationTrigger[],
+    outcomes: inv.outcomes as InvestigationOutcome[],
+    knownContext: inv.known_context,
+    questions: [...inv.clarifying_questions].sort((a, b) => a.position - b.position),
+    pack,
+  });
+
+  const finished = new Date().toISOString();
+  const { error: saveError } =
+    outcome.status === "completed"
+      ? await supabase
+          .from("analysis_runs")
+          .update({
+            status: "completed",
+            result: outcome.result as unknown as Json,
+            stop_reason: outcome.stopReason,
+            usage: { ...outcome.usage, removed: outcome.removed } as Json,
+            completed_at: finished,
+          })
+          .eq("id", run.id)
+      : await supabase
+          .from("analysis_runs")
+          .update({
+            status: outcome.status,
+            error: outcome.error,
+            stop_reason: outcome.stopReason ?? null,
+            usage: (outcome.usage ?? null) as Json | null,
+            completed_at: finished,
+          })
+          .eq("id", run.id);
+
+  revalidatePath("/", "layout");
+  if (saveError) return { error: "The analysis finished but couldn't be saved. Try again." };
+  return outcome.status === "completed" ? { ok: true } : { error: outcome.error };
 }

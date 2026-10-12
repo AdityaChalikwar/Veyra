@@ -4,6 +4,7 @@ import { CircleHelp } from "lucide-react";
 import { KindBadge } from "@/components/ui/KindBadge";
 import type { FindingKind } from "@/lib/types";
 import { FindingCard } from "./FindingCard";
+import { EmptyNote } from "@/components/ui/EmptyNote";
 import { useWorkspace } from "./workspace-context";
 
 const lanes: { kind: FindingKind; title: string; description: string }[] = [
@@ -19,6 +20,7 @@ export function FindingsView() {
 
   return (
     <div className="mt-6 space-y-8">
+      {workspace.findings.length === 0 && <EmptyNote>Findings appear here once Veyra has analysed your data. {workspace.evidence.length ? "Nothing yet — run the analysis on the Evidence tab." : "Nothing yet — add data on the Evidence tab, then run the analysis."}</EmptyNote>}
       {lanes.map((lane) => {
         const items = workspace.findings.filter((f) => f.kind === lane.kind);
         if (!items.length) return null;
@@ -42,6 +44,7 @@ export function FindingsView() {
           <h2 className="text-[15px] font-semibold">Open questions</h2>
           <span className="text-xs text-ink-subtle">Important things Veyra doesn&rsquo;t know yet.</span>
         </div>
+        {open.length === 0 && <EmptyNote>No open questions right now.</EmptyNote>}
         <ul className="grid grid-cols-1 gap-3 lg:grid-cols-2">
           {open.map((q) => (
             <li key={q.id} className="rounded-xl border border-dashed border-line-strong bg-canvas/50 p-4">

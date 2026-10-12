@@ -9,24 +9,31 @@
  * and investigations (problem, context, clarifying questions, plan).
  *
  * Every workspace also has a sample investigation. Its row is real (so it can
- * be listed and removed) but its content is the DAU Decline demo from /mocks,
+ * be listed and removed) but its content is the Kitchen Returns Spike demo from /mocks,
  * until evidence and analysis are stored in the database.
  */
 import "server-only";
-import { getSession, getWorkspace } from "@/lib/auth";
+import { getSession, requireWorkspace } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { buildDataSources } from "@/mocks/data-sources";
 import { cache } from "react";
-import { buildDauWorkspace, dauOpenQuestions } from "@/mocks/dau-investigation";
+import { formatRange } from "@/lib/analysis/format";
+import type { AnalysisPack } from "@/lib/analysis/pack";
+import { buildLiveWorkspace } from "./live-workspace";
+import { listConnectedSources } from "./sources";
+import type { AnalysisResult } from "@/lib/analysis/schema";
+import { buildSampleWorkspace, SAMPLE_ID, sampleOpenQuestions } from "@/mocks/sample-investigation";
 import { buildDecisions } from "@/mocks/decisions";
 import { buildEvidence } from "@/mocks/evidence";
 import { buildSampleSummary } from "@/mocks/investigations";
 import type { Tables } from "@/lib/supabase/database.types";
 import type {
+  AnalysisRunRecord,
   BusinessContext,
   BusinessMemory,
   Company,
   Confidence,
+  DataMetric,
   DatasetProfile,
   DataSource,
   DecisionRecord,
@@ -53,33 +60,24 @@ export async function getCurrentUser(): Promise<User | null> {
   return (await getSession())?.user ?? null;
 }
 
-/** The signed-in user's company (workspace), or null before onboarding. */
+/** The signed-in user's workspace (created on first use). */
 export async function getCompany(): Promise<Company | null> {
-  return getWorkspace();
+  return (await requireWorkspace()).company;
 }
 
-/** Persistent business context shared by every investigation. Empty fields until the team fills them in. */
+/** Persistent business context shared by every investigation. Optional: empty until someone fills it in. */
 export async function getBusinessContext(): Promise<BusinessContext> {
-  const company = await getWorkspace();
-  const empty: BusinessContext = {
-    company: company?.name ?? "",
-    product: "",
-    businessModel: "",
-    targetCustomers: "",
-    goals: [],
-    priorities: [],
-    keyMetrics: [],
-  };
-  if (!company) return empty;
+  const { company } = await requireWorkspace();
+  const empty: BusinessContext = { company: "", product: "", businessModel: "", targetCustomers: "", goals: [], priorities: [], keyMetrics: [] };
   const supabase = await createClient();
   const { data } = await supabase
     .from("business_contexts")
-    .select("product, business_model, target_customers, goals, priorities, key_metrics")
+    .select("company_name, product, business_model, target_customers, goals, priorities, key_metrics")
     .eq("workspace_id", company.id)
     .maybeSingle();
   if (!data) return empty;
   return {
-    company: company.name,
+    company: data.company_name,
     product: data.product,
     businessModel: data.business_model,
     targetCustomers: data.target_customers,
@@ -101,13 +99,22 @@ const STAGES: { key: StageKey; label: string }[] = [
 ];
 
 /** The sample's content still uses these IDs inside /mocks. */
-const SAMPLE_MOCK_ID = "dau-decline";
+const SAMPLE_MOCK_ID = SAMPLE_ID;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type InvestigationRow = Pick<
   Tables<"investigations">,
-  "id" | "title" | "problem" | "topic" | "status" | "confidence" | "is_sample" | "updated_at"
+  "id" | "title" | "problem" | "topic" | "status" | "confidence" | "is_sample" | "updated_at" | "current_stage"
 > & { clarifying_questions: { answer: string }[]; evidence: { count: number }[] };
+
+/** Where an investigation is, in the words the status badge uses, follows its stage. */
+const stageStatus: Record<StageKey, InvestigationStatus> = {
+  problem_definition: "planning",
+  add_data: "investigating",
+  analysis: "investigating",
+  problem_validation: "validating",
+  opportunity_discovery: "opportunity-discovery",
+};
 
 function toSummary(row: InvestigationRow): InvestigationSummary {
   if (row.is_sample) return { ...buildSampleSummary(), id: row.id };
@@ -115,7 +122,7 @@ function toSummary(row: InvestigationRow): InvestigationSummary {
     id: row.id,
     title: row.title,
     topic: row.topic as InvestigationTopic,
-    status: row.status as InvestigationStatus,
+    status: row.status === "completed" ? "completed" : stageStatus[row.current_stage as StageKey],
     problem: row.problem,
     evidenceCount: row.evidence[0]?.count ?? 0,
     hypothesisCount: 0,
@@ -128,10 +135,12 @@ function toSummary(row: InvestigationRow): InvestigationSummary {
 
 /** All investigations in the user's workspace, most recently updated first. */
 export const listInvestigations = cache(async (): Promise<InvestigationSummary[]> => {
+  // On someone's first visit the workspace (and its sample) is created here, before reading.
+  await requireWorkspace();
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("investigations")
-    .select("id, title, problem, topic, status, confidence, is_sample, updated_at, clarifying_questions (answer), evidence (count)")
+    .select("id, title, problem, topic, status, confidence, is_sample, updated_at, current_stage, clarifying_questions (answer), evidence (count)")
     .order("updated_at", { ascending: false });
   if (error) throw new Error(`Couldn't load investigations: ${error.message}`);
   // Real investigations first; the sample after them.
@@ -158,7 +167,7 @@ export async function getInvestigationRecord(id: string): Promise<InvestigationR
   const { data } = await supabase
     .from("investigations")
     .select(
-      "trigger, outcome, objective, current_stage, known_context, attachments, data_source_ids, plan, created_at, clarifying_questions (id, position, question, hint, answer), files (id, name, size_bytes, status, error, created_at, evidence (id, summary, coverage, profile)), investigation_stages (stage, completed_at)",
+      "triggers, outcomes, objective, current_stage, known_context, attachments, data_source_ids, plan, created_at, clarifying_questions (id, position, question, hint, answer), files (id, name, size_bytes, status, error, created_at, evidence (id, summary, coverage, profile)), investigation_stages (stage, completed_at), evidence (id, name, source, coverage, summary, profile, metrics, snapshot_id, file_id, created_at), analysis_runs (id, status, model, created_at, completed_at, error, result, pack, usage)",
     )
     .eq("id", id)
     .maybeSingle();
@@ -171,13 +180,17 @@ export async function getInvestigationRecord(id: string): Promise<InvestigationR
       const row = data.investigation_stages.find((s) => s.stage === key);
       return { id: key, label, status: !row ? "pending" : row.completed_at ? "done" : "in-progress" };
     }),
-    trigger: data.trigger as InvestigationTrigger | null,
-    outcome: data.outcome as InvestigationOutcome | null,
+    triggers: data.triggers as InvestigationTrigger[],
+    outcomes: data.outcomes as InvestigationOutcome[],
     knownContext: data.known_context,
     attachments: data.attachments,
     dataSourceIds: data.data_source_ids,
     plan: data.plan as InvestigationPlan | null,
     createdAt: data.created_at,
+    analysisRuns: [...data.analysis_runs]
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+      .slice(0, 10)
+      .map(toAnalysisRun),
     uploads: [...data.files]
       .sort((a, b) => b.created_at.localeCompare(a.created_at))
       .map((f) => ({
@@ -192,21 +205,61 @@ export async function getInvestigationRecord(id: string): Promise<InvestigationR
         profile: (f.evidence?.profile ?? undefined) as DatasetProfile | undefined,
         addedAt: f.created_at,
       })),
+    sourceEvidence: [...data.evidence]
+      .filter((e) => !e.file_id)
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+      .map((e) => ({
+        evidenceId: e.id,
+        snapshotId: e.snapshot_id ?? undefined,
+        name: e.name,
+        source: e.source,
+        coverage: e.coverage ?? undefined,
+        summary: e.summary,
+        profile: (e.profile ?? undefined) as DatasetProfile | undefined,
+        metrics: (e.metrics ?? []) as DataMetric[],
+        addedAt: e.created_at,
+      })),
     questions: [...data.clarifying_questions]
       .sort((a, b) => a.position - b.position)
       .map((q) => ({ id: q.id, investigationId: id, question: q.question, hint: q.hint || undefined, answer: q.answer })),
   };
 }
 
+type AnalysisRunRow = Pick<Tables<"analysis_runs">, "id" | "status" | "model" | "created_at" | "completed_at" | "error" | "result" | "pack" | "usage">;
+
+function toAnalysisRun(r: AnalysisRunRow): AnalysisRunRecord {
+  const pack = r.pack as unknown as AnalysisPack | null;
+  const usage = r.usage as { removed?: string[] } | null;
+  return {
+    id: r.id,
+    status: r.status as AnalysisRunRecord["status"],
+    model: r.model,
+    createdAt: r.created_at,
+    completedAt: r.completed_at ?? undefined,
+    error: r.error ?? undefined,
+    result: (r.result ?? undefined) as AnalysisResult | undefined,
+    datasets: (pack?.datasets ?? []).map((d) => ({
+      ref: d.ref,
+      evidenceId: d.evidenceId,
+      name: d.name,
+      period: d.period ? formatRange(d.period.from, d.period.to) : undefined,
+    })),
+    removed: usage?.removed ?? [],
+  };
+}
+
 /**
- * The full workspace (evidence, findings, hypotheses…). Only the sample has one
- * until analysis is stored; for other investigations this returns undefined
- * and the brief page is shown instead.
+ * The full workspace (evidence, findings, hypotheses…). The sample's comes from
+ * the demo content; the team's own is built from what is saved.
  */
 export async function getInvestigationWorkspace(id: string): Promise<InvestigationWorkspace | undefined> {
   const summary = await getInvestigationSummary(id);
-  if (!summary?.isSample) return undefined;
-  const ws = buildDauWorkspace(buildEvidence().filter((e) => e.investigationId === SAMPLE_MOCK_ID));
+  if (!summary) return undefined;
+  if (!summary.isSample) {
+    const [record, dataSources] = await Promise.all([getInvestigationRecord(id), listDataSources()]);
+    return record ? buildLiveWorkspace(record, dataSources) : undefined;
+  }
+  const ws = buildSampleWorkspace(buildEvidence().filter((e) => e.investigationId === SAMPLE_MOCK_ID));
   return { ...ws, investigation: { ...ws.investigation, id: summary.id } };
 }
 
@@ -277,8 +330,36 @@ export async function getBusinessMemory(): Promise<BusinessMemory> {
   return { entries: [], stories: [] };
 }
 
+/**
+ * The data sources Veyra knows about, with what is really connected: uploaded
+ * files are always available; the ERP is connected once the Demo ERP (or, later,
+ * a real ERP) has been set up. Other systems are listed but not yet connectable.
+ */
 export async function listDataSources(): Promise<DataSource[]> {
-  return buildDataSources();
+  const connected = await listConnectedSources();
+  const erp = connected.find((c) => c.kind === "erp");
+  const synced = erp?.datasets.filter((d) => d.latest) ?? [];
+  const uploads: DataSource = {
+    id: "ds-uploads",
+    name: "Uploaded files",
+    group: "company-systems",
+    description: "CSV exports you upload to an investigation.",
+    status: "connected",
+  };
+  return [
+    uploads,
+    ...buildDataSources().map<DataSource>((s) =>
+      s.id === "ds-erp" && erp
+        ? {
+            ...s,
+            name: erp.name,
+            status: "connected",
+            lastSyncedAt: erp.lastSyncedAt,
+            metrics: synced.slice(0, 3).map((d) => ({ label: d.name, value: d.latest!.rowCount.toLocaleString("en") })),
+          }
+        : { ...s, status: "not-connected", lastSyncedAt: undefined, metrics: undefined },
+    ),
+  ];
 }
 
 /** Open questions across active investigations: unanswered clarifying questions, plus the sample's. */
@@ -296,7 +377,7 @@ export async function listOpenQuestions(): Promise<{ investigationId: string; in
     .sort((a, b) => b.investigations.updated_at.localeCompare(a.investigations.updated_at) || a.position - b.position)
     .map((q) => ({ investigationId: q.investigation_id, investigationTitle: q.investigations.title, question: q.question }));
   const fromSample = sample
-    ? dauOpenQuestions.map((q) => ({ investigationId: sample.id, investigationTitle: sampleTitle(sample), question: q.question }))
+    ? sampleOpenQuestions.map((q) => ({ investigationId: sample.id, investigationTitle: sampleTitle(sample), question: q.question }))
     : [];
   return [...real, ...fromSample];
 }
@@ -318,16 +399,16 @@ export async function listProblems(): Promise<ProblemSummary[]> {
     .filter((i) => !i.isSample)
     .map((i) => ({ investigationId: i.id, investigationTitle: i.title, refined: i.problem, status: "draft", confidence: i.confidence }));
   if (!sample) return real;
-  const dau = buildDauWorkspace([]);
+  const sampleWs = buildSampleWorkspace([]);
   return [
     ...real,
     {
       investigationId: sample.id,
       investigationTitle: sampleTitle(sample),
-      original: dau.problem.original,
-      refined: dau.problem.refined,
+      original: sampleWs.problem.original,
+      refined: sampleWs.problem.refined,
       status: "refined",
-      confidence: dau.problem.confidence,
+      confidence: sampleWs.problem.confidence,
     },
   ];
 }
@@ -337,7 +418,7 @@ export type OpportunitySummary = {
   investigationTitle: string;
   title: string;
   evidenceStrength: EvidenceStrength;
-  impact: Level;
+  impact?: Level;
   confidence: Confidence;
 };
 
@@ -345,7 +426,7 @@ export type OpportunitySummary = {
 export async function listOpportunities(): Promise<OpportunitySummary[]> {
   const sample = await getSample();
   if (!sample) return [];
-  return buildDauWorkspace([]).opportunities.map((o) => ({
+  return buildSampleWorkspace([]).opportunities.map((o) => ({
     investigationId: sample.id,
     investigationTitle: sampleTitle(sample),
     title: o.title,
@@ -368,7 +449,7 @@ export type ValidationSummary = {
 export async function listValidations(): Promise<ValidationSummary[]> {
   const sample = await getSample();
   if (!sample) return [];
-  return buildDauWorkspace([]).validations.map((v) => ({
+  return buildSampleWorkspace([]).validations.map((v) => ({
     investigationId: sample.id,
     investigationTitle: sampleTitle(sample),
     hypothesis: v.belief,

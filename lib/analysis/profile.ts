@@ -56,6 +56,15 @@ export function profileCsv(raw: string): ProfileResult {
     issues.push(`The file has ${fmtInt(allRows.length)} rows. Veyra read the first ${fmtInt(MAX_ROWS)}.`);
   }
 
+  return profileRows(headers, rows, issues, truncated);
+}
+
+/**
+ * Profiles rows already split into columns: types, totals, date range, issues
+ * and a short preview. Used for uploaded CSVs and for data synced from
+ * connected sources. `issues` may already hold problems found earlier.
+ */
+export function profileRows(headers: string[], rows: string[][], issues: string[] = [], truncated = false): ProfileResult & { ok: true } {
   const columns = headers.map((name, i) => profileColumn(name, rows.map((r) => (r[i] ?? "").trim()), rows.length, issues));
 
   const dateColumn = pickDateColumn(columns);

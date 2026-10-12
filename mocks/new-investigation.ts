@@ -1,8 +1,8 @@
 import type { ClarifyingQuestion, InvestigationPlan, InvestigationTrigger } from "@/lib/types";
 
-/** The primary demo, used to pre-fill the New Investigation flow. */
+/** Example problems to start from; the first is the Demo ERP's story. */
 export const exampleProblems = [
-  "Our DAU dropped 40%.",
+  "Kitchen product returns are rising and repeat purchases are falling.",
   "Our customers are abandoning checkout.",
   "Sales are declining in our SMB segment.",
   "We are considering entering the healthcare market.",
@@ -10,31 +10,31 @@ export const exampleProblems = [
   "Retention fell after our latest release.",
 ];
 
-/** Contextual questions (with answers) for the demo problem. */
-export const demoQuestions: ClarifyingQuestion[] = [
+/** Contextual questions (with answers) for the sample investigation. */
+export const sampleQuestions: ClarifyingQuestion[] = [
   {
     id: "q-when",
-    question: "When did the drop start, and over what period?",
-    answer: "Early August. It's fallen steadily for about 8 weeks.",
-    hint: "Sets the before-and-after periods Veyra compares.",
-  },
-  {
-    id: "q-who",
-    question: "Which users seem most affected?",
-    answer: "Mostly new merchants who signed up recently. Long-standing customers look fine.",
-    hint: "Tells Veyra which segments to break the data down by.",
+    question: "When did returns start rising, and in which products?",
+    answer: "From July, and it seems to be kitchenware — plates, bowls and mugs especially.",
+    hint: "Sets the before-and-after periods, and which products to compare.",
   },
   {
     id: "q-changes",
-    question: "What changed in the product around that time?",
-    answer: "We released a new onboarding flow (release 4.2) on 4 August.",
-    hint: "Releases are a common cause of sudden changes.",
+    question: "Did anything change in sourcing, products or delivery around then?",
+    answer: "Purchasing moved Kitchen to a cheaper supplier, Quanta Homewares, in June.",
+    hint: "Supplier and product changes are common causes of sudden quality shifts.",
   },
   {
-    id: "q-acquisition",
-    question: "Has anything changed in how you acquire new users?",
-    answer: "Marketing increased the paid search budget in July.",
-    hint: "A different mix of new users can change activation without any product change.",
+    id: "q-reasons",
+    question: "What do customers say when they return Kitchen items?",
+    answer: "Support mentions a lot of chipped and cracked items. We haven't looked properly.",
+    hint: "Tells Veyra which return reasons to break down.",
+  },
+  {
+    id: "q-decision",
+    question: "What decision will this investigation inform?",
+    answer: "Whether to stay with Quanta, renegotiate, or move some lines back to Hartwell.",
+    hint: "Keeps the investigation focused on what you need to decide.",
   },
 ];
 
@@ -46,24 +46,24 @@ export const genericQuestions: ClarifyingQuestion[] = [
   { id: "q-decision", question: "What decision will this investigation inform?", answer: "", hint: "Keeps the investigation focused on what you need to decide." },
 ];
 
-/** The plan Veyra proposes for the DAU demo. */
-export const dauPlan: InvestigationPlan = {
+/** The plan Veyra proposes for the sample investigation. */
+export const samplePlan: InvestigationPlan = {
   summary:
-    "A metric changed, so Veyra starts with your own data — where the decline sits and when it began — then uses customer evidence to explain why. Market research is secondary.",
+    "A metric changed and customers are complaining, so Veyra starts with your own data — which products, which reasons, and what changed in purchasing — then uses customer evidence to explain why. Market research is secondary.",
   methods: [
-    { id: "m-trend", name: "Trend & cohort analysis", why: "Find when the decline started and which users it affects.", uses: ["Product Analytics"], status: "done" },
-    { id: "m-funnel", name: "Funnel analysis", why: "See where new users stop on the way to activation.", uses: ["Product Analytics"], status: "done" },
-    { id: "m-release", name: "Release history review", why: "Check what changed in the product when the decline began.", uses: ["Internal Documents"], status: "done" },
-    { id: "m-business", name: "Business impact check", why: "Measure the effect on orders, not just usage.", uses: ["ERP"], status: "done" },
-    { id: "m-channels", name: "Acquisition channel analysis", why: "Check whether a different mix of new users explains the change.", uses: ["CRM"], status: "in-progress" },
-    { id: "m-feedback", name: "Support & feedback analysis", why: "Hear what new users say, in their own words.", uses: ["Support", "Customer Feedback"], status: "in-progress" },
-    { id: "m-interviews", name: "Customer interviews", why: "Explain why new users stall — data can't tell us that.", uses: ["Recently acquired users"], status: "planned" },
-    { id: "m-competitors", name: "Competitor scan", why: "Rule out outside causes. Secondary for this problem.", uses: ["Public research"], status: "planned" },
+    { id: "m-trend", name: "Returns trend by category", why: "Find when returns rose and whether it's one category or all of them.", uses: ["ERP · Returns", "ERP · Sales orders"], status: "done" },
+    { id: "m-reasons", name: "Return reason analysis", why: "See what kind of problem customers are returning items for.", uses: ["ERP · Returns"], status: "done" },
+    { id: "m-supply", name: "Supplier and purchasing review", why: "Check what changed in sourcing when returns began.", uses: ["ERP · Purchase orders", "Internal Documents"], status: "done" },
+    { id: "m-business", name: "Business impact check", why: "Measure the effect on sales and refunds, not just returns.", uses: ["ERP · Sales orders"], status: "done" },
+    { id: "m-batches", name: "Defects by supplier batch", why: "Test whether faults are concentrated in the new supplier's goods.", uses: ["ERP"], status: "in-progress" },
+    { id: "m-feedback", name: "Return notes & reviews analysis", why: "Hear what customers say is wrong, in their own words.", uses: ["Support", "Customer Feedback"], status: "in-progress" },
+    { id: "m-interviews", name: "Customer interviews", why: "Find out what's wrong with the items and whether customers will buy again.", uses: ["Customers who returned Kitchen items"], status: "planned" },
+    { id: "m-competitors", name: "Competitor scan", why: "Rule out a market-wide problem with budget ceramics. Secondary here.", uses: ["Public research"], status: "planned" },
   ],
   notUsed: [
-    { name: "Segmentation, targeting & positioning (STP)", why: "This is a change in an existing product, not a new market." },
-    { name: "Personas", why: "Too early — interviews should come first." },
-    { name: "Jobs To Be Done", why: "The job is well understood; the question is what blocks it." },
+    { name: "Segmentation, targeting & positioning (STP)", why: "This is a change in an existing range, not a new market." },
+    { name: "Personas", why: "Not needed to explain a product-quality change." },
+    { name: "Jobs To Be Done", why: "The job is clear; the question is what's failing it." },
     { name: "RICE scoring", why: "There are no solutions to rank until the problem is validated." },
   ],
 };

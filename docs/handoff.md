@@ -25,15 +25,29 @@ Read this, `docs/backend-plan.md` and `README.md` before starting.
 Milestones 1–3 plus the persistence gaps (objective, current stage, stage history moved by
 database triggers, edit details, blank new-investigation form). See `docs/backend-plan.md`.
 
-## Next: Milestone 4 — AI analysis
-- Compute an analysis pack from the stored evidence profiles in code (numbers never come
-  from the model).
-- One structured-output Claude call (Anthropic TypeScript SDK, zod schema, streaming) that
-  returns findings, hypotheses, open questions, a refined problem statement, first
-  opportunities and a recommended next step, each citing the evidence it used.
-- Feed in the business context, the problem, objective and clarifying answers.
-- Handle refusals and cut-off answers; store each run so results survive a refresh; move the
-  stage forward with the database (as the existing triggers do).
-- Show results with the existing workspace UI components; hide simulated actions.
-- Later: secondary research with Claude's web search, feedback themes, interview guide,
-  validation, Ask Veyra, decision brief, memory.
+## Milestone 4 — AI analysis: done
+Confirmed working on the Vercel preview with a real Claude call. Real investigations use the
+same workspace as the sample, built from saved data (`lib/data/live-workspace.ts`); tabs not
+backed by real data yet say "comes next". Findings and hypotheses live inside the run's JSON;
+they are not rows yet.
+
+## Milestone 5 — Data onboarding + Demo ERP: built
+Connect (Data Sources → Connect Demo ERP) → choose datasets → map fields → check → sync
+(`app/(app)/data-sources/`, `components/data-sources/`). Connectors in `lib/connectors/`
+(interface + Demo ERP generator), the business model, mapping, validation, normalization and
+metrics in `lib/data-layer/`. Snapshots become evidence on an investigation's Evidence tab
+("Add from your data"); the analysis pack includes their metrics. Not yet checked with a live
+Claude call. Next: Milestone 6 (decisions, validation, report), then 7 (memory).
+
+## Since Milestone 5
+- No business details at sign-up; workspace created automatically; context optional.
+- One-click demo (`setUpDemo`). Connecting the Demo ERP always switches the business context to
+  Northwind Home (own context saved on the source, restored on disconnect), so the AI sees one company.
+  The old onboarding "Company profile" card was removed from Business Context.
+- Sample investigation rebuilt as "Kitchen Returns Spike" (`mocks/sample-investigation.ts`),
+  numbers matching the Demo ERP.
+- Daily AI usage limit per person (`AI_DAILY_LIMIT`, default 25).
+
+## Later
+- Secondary research with Claude's web search, feedback themes, interview guide, validation,
+  Ask Veyra, decision brief, memory.

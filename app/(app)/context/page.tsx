@@ -1,12 +1,13 @@
 import { BusinessContextEditor } from "@/components/org/BusinessContextEditor";
-import { CompanyProfileCard } from "@/components/org/CompanyProfileCard";
 import { PageContainer, PageHeader } from "@/components/org/PageHeader";
 import { getBusinessContext } from "@/lib/data";
+import { listConnectedSources } from "@/lib/data/sources";
 
 export const metadata = { title: "Business Context" };
 
 export default async function BusinessContextPage() {
-  const context = await getBusinessContext();
+  const [context, sources] = await Promise.all([getBusinessContext(), listConnectedSources()]);
+  const demo = sources.some((s) => s.connector === "demo-erp");
 
   return (
     <PageContainer>
@@ -15,7 +16,12 @@ export default async function BusinessContextPage() {
         description="What Veyra knows about your business before any investigation starts. Every investigation reuses it, so you don't explain your business from scratch each time."
       />
       <div className="mt-8 space-y-6">
-        <CompanyProfileCard />
+        {demo && (
+          <p className="rounded-xl border border-brand-200 bg-brand-50/40 p-4 text-[13px] text-ink-muted">
+            You&rsquo;re using the demo data, so this is Northwind Home&rsquo;s business context. Your own is kept and comes back
+            when you disconnect the Demo ERP on Data Sources.
+          </p>
+        )}
         <BusinessContextEditor context={context} />
         <section className="rounded-xl border border-line bg-surface p-5 shadow-card">
           <h2 className="text-[15px] font-semibold">Customer segments</h2>

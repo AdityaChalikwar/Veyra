@@ -4,10 +4,10 @@ import type { InvestigationSummary } from "@/lib/types";
 /** The sample investigation's headline numbers. Built on each call so "updated 2 hours ago" stays true. */
 export function buildSampleSummary(): Omit<InvestigationSummary, "id"> {
   return {
-    title: "DAU Decline",
-    topic: "engagement",
+    title: "Kitchen Returns Spike",
+    topic: "operations",
     status: "investigating",
-    problem: "DAU has fallen 40% over the last 8 weeks.",
+    problem: "Kitchen product returns have roughly tripled since July.",
     evidenceCount: 8,
     hypothesisCount: 3,
     openQuestionCount: 4,

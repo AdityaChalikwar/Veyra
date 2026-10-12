@@ -3,7 +3,13 @@
 import { createContext, useContext } from "react";
 import type { Company, User } from "@/lib/types";
 
-export type ClientSession = { user: User; company: Company; method: "email" | "google" };
+export type ClientSession = {
+  user: User;
+  company: Company;
+  method: "email" | "google";
+  /** Set while the Demo ERP is connected: its data source, for the sidebar's "Demo data" label. */
+  demo?: { sourceId: string; name: string };
+};
 
 const SessionContext = createContext<ClientSession | null>(null);
 

@@ -8,10 +8,10 @@ import { Button } from "@/components/ui/Button";
 import { Field, inputClass, textareaClass } from "@/components/ui/Field";
 import { Modal } from "@/components/ui/Modal";
 import { Spinner } from "@/components/ui/Spinner";
+import { cn } from "@/lib/cn";
 import { OUTCOMES, TRIGGERS } from "@/lib/options";
-import type { InvestigationOutcome, InvestigationTrigger } from "@/lib/types";
 
-/** Edit an investigation's title, problem, objective, trigger and outcome. */
+/** Edit an investigation's title, problem, objective, triggers and outcomes. */
 export function EditInvestigationButton({ investigationId, initial }: { investigationId: string; initial: InvestigationEdit }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -36,8 +36,6 @@ export function EditInvestigationButton({ investigationId, initial }: { investig
     }
     setSaving(false);
   }
-
-  const select = "h-10 w-full rounded-lg border border-line-strong bg-surface px-3 text-sm text-ink outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100";
 
   return (
     <>
@@ -72,38 +70,18 @@ export function EditInvestigationButton({ investigationId, initial }: { investig
               className={textareaClass}
             />
           </Field>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="What triggered it" htmlFor="edit-trigger">
-              <select
-                id="edit-trigger"
-                value={form.trigger ?? ""}
-                onChange={(e) => set("trigger", (e.target.value || null) as InvestigationTrigger | null)}
-                className={select}
-              >
-                <option value="">Not given</option>
-                {TRIGGERS.map((t) => (
-                  <option key={t.value} value={t.value}>
-                    {t.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Outcome wanted" htmlFor="edit-outcome">
-              <select
-                id="edit-outcome"
-                value={form.outcome ?? ""}
-                onChange={(e) => set("outcome", (e.target.value || null) as InvestigationOutcome | null)}
-                className={select}
-              >
-                <option value="">Not given</option>
-                {OUTCOMES.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-          </div>
+          <ChoiceList
+            legend="What triggered it"
+            options={TRIGGERS}
+            selected={form.triggers}
+            onToggle={(v) => set("triggers", toggle(form.triggers, v))}
+          />
+          <ChoiceList
+            legend="Outcome wanted"
+            options={OUTCOMES}
+            selected={form.outcomes}
+            onToggle={(v) => set("outcomes", toggle(form.outcomes, v))}
+          />
           {error && (
             <p role="alert" className="text-sm text-danger-600">
               {error}
@@ -120,5 +98,48 @@ export function EditInvestigationButton({ investigationId, initial }: { investig
         </form>
       </Modal>
     </>
+  );
+}
+
+const toggle = <T,>(list: T[], value: T) => (list.includes(value) ? list.filter((x) => x !== value) : [...list, value]);
+
+/** A compact set of tick-boxes; any number can be chosen. */
+function ChoiceList<T extends string>({
+  legend,
+  options,
+  selected,
+  onToggle,
+}: {
+  legend: string;
+  options: readonly { value: T; label: string }[];
+  selected: T[];
+  onToggle: (value: T) => void;
+}) {
+  return (
+    <fieldset>
+      <legend className="text-[13px] font-medium text-ink">
+        {legend} <span className="font-normal text-ink-subtle">(choose all that apply)</span>
+      </legend>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {options.map((o) => {
+          const on = selected.includes(o.value);
+          return (
+            <button
+              key={o.value}
+              type="button"
+              role="checkbox"
+              aria-checked={on}
+              onClick={() => onToggle(o.value)}
+              className={cn(
+                "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[13px] transition-colors",
+                on ? "border-brand-500 bg-brand-50 text-brand-700" : "border-line bg-surface text-ink-muted hover:border-line-strong hover:text-ink",
+              )}
+            >
+              {on && <Check className="h-3.5 w-3.5" />} {o.label}
+            </button>
+          );
+        })}
+      </div>
+    </fieldset>
   );
 }

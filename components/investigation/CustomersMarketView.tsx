@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/Spinner";
 import { cn } from "@/lib/cn";
 import type { CustomerTool } from "@/lib/types";
+import { ComingNext } from "./ComingNext";
 import { useWorkspace } from "./workspace-context";
 
 const toolStatus: Record<CustomerTool["status"], { label: string; className: string }> = {
@@ -24,6 +25,19 @@ export function CustomersMarketView() {
   const { customers, market } = workspace;
   const external = workspace.evidence.filter((e) => e.category === "public-research" || e.category === "uploaded-research");
   const competitorTask = workspace.researchTasks.find((t) => t.id === "r-competitors");
+
+  if (workspace.live) {
+    return (
+      <ComingNext title="Customer and market research come next">
+        <p>
+          <b className="font-semibold text-ink">Quantitative evidence tells us what is happening. Customer research explains why.</b> Here
+          Veyra will group support tickets and feedback into themes, prepare interview guides, and search the web for competitor and market
+          context — kept separate from your own data and labelled by quality.
+        </p>
+        <p>For now, upload exports of feedback or support tickets as CSV on the Evidence tab and they&rsquo;ll be included in the analysis.</p>
+      </ComingNext>
+    );
+  }
 
   return (
     <div className="mt-6 space-y-8">
@@ -70,11 +84,11 @@ export function CustomersMarketView() {
                 <p className="mt-1 text-[13px] italic text-ink-subtle">{t.example}</p>
               </li>
             ))}
-            <li className="text-xs text-ink-faint">From Support and Customer Feedback · 186 tickets and 412 comments</li>
+            <li className="text-xs text-ink-faint">From Support and Customer Feedback · 214 return notes and 412 reviews</li>
           </ul>
         ) : (
           <p className="rounded-xl border border-dashed border-line-strong px-4 py-5 text-center text-[13px] text-ink-subtle">
-            Support tickets and in-app feedback are connected but haven&rsquo;t been grouped into themes yet.
+            Return notes and product reviews are connected but haven&rsquo;t been grouped into themes yet.
           </p>
         )}
       </section>

@@ -27,6 +27,9 @@ export function NextStepView() {
   const type = nextStepTypeLabel[step.type];
   const Icon = type.icon;
   const tasks = workspace.researchTasks.filter((t) => step.researchTaskIds.includes(t.id));
+  const live = workspace.live;
+  // Before analysis, the next step is simply getting there; it's explained in place.
+  const provisional = !!live && !live.run;
 
   return (
     <div className="mt-6 space-y-6">
@@ -37,75 +40,90 @@ export function NextStepView() {
             <span className={cn("inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium", type.className)}>
               <Icon className="h-3 w-3" /> {type.label}
             </span>
-            <ConfidenceBadge level={step.confidence} />
+            {step.confidence && <ConfidenceBadge level={step.confidence} />}
           </div>
           <h2 className="mt-2 text-lg font-semibold leading-snug sm:text-xl">{step.title}</h2>
           <p className="mt-1 text-[14px] text-ink">{step.detail}</p>
         </div>
 
-        <div className="grid grid-cols-1 gap-6 p-5 sm:p-6 lg:grid-cols-2">
+        <div className={cn("grid grid-cols-1 gap-6 p-5 sm:p-6", tasks.length > 0 && "lg:grid-cols-2")}>
           <div className="space-y-5">
             <Block title="Why this step">{step.why}</Block>
             {step.whyNotBuildYet && <Block title="Why not build something yet">{step.whyNotBuildYet}</Block>}
+            {step.wouldChangeIf.length > 0 && (
+              <div>
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-ink-faint">What could change this</h3>
+                <ul className="mt-2 space-y-2">
+                  {step.wouldChangeIf.map((c) => (
+                    <li key={c} className="flex gap-2.5 rounded-lg border border-dashed border-uncertain-200 bg-uncertain-50/50 px-3 py-2 text-[13px]">
+                      <GitBranch className="mt-0.5 h-4 w-4 shrink-0 text-uncertain-600" /> {c}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+          {tasks.length > 0 && (
             <div>
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-ink-faint">What could change this</h3>
-              <ul className="mt-2 space-y-2">
-                {step.wouldChangeIf.map((c) => (
-                  <li key={c} className="flex gap-2.5 rounded-lg border border-dashed border-uncertain-200 bg-uncertain-50/50 px-3 py-2 text-[13px]">
-                    <GitBranch className="mt-0.5 h-4 w-4 shrink-0 text-uncertain-600" /> {c}
-                  </li>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-ink-faint">The research involved</h3>
+              <div className="mt-2 space-y-2">
+                {tasks.map((t) => (
+                  <ResearchTaskCard key={t.id} task={t} />
                 ))}
-              </ul>
+              </div>
             </div>
-          </div>
-          <div>
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-ink-faint">The research involved</h3>
-            <div className="mt-2 space-y-2">
-              {tasks.map((t) => (
-                <ResearchTaskCard key={t.id} task={t} />
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-3 border-t border-line bg-canvas/50 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
-          <p className="flex items-center gap-2 text-[13px] text-ink-muted">
-            <UserCheck className="h-4 w-4 shrink-0 text-ink-subtle" />
-            {nextStepAcceptedAt
-              ? `Accepted ${formatRelative(nextStepAcceptedAt).toLowerCase()} and added to the Decision Log. The H1 validation has started.`
-              : "Veyra recommends. You decide — accepting records the decision and starts the validation."}
-          </p>
-          {!nextStepAcceptedAt ? (
-            <Button type="button" onClick={acceptNextStep}>
-              <Check className="h-4 w-4" /> Accept next step
-            </Button>
-          ) : (
-            <span className="inline-flex items-center gap-1.5 text-sm font-medium text-confirmed-600">
-              <Check className="h-4 w-4" /> Decision recorded
-            </span>
           )}
         </div>
+
+        {live ? (
+          <p className="flex items-center gap-2 border-t border-line bg-canvas/50 p-5 text-[13px] text-ink-muted sm:p-6">
+            <UserCheck className="h-4 w-4 shrink-0 text-ink-subtle" />
+            {provisional
+              ? "Go to the Evidence tab to do this."
+              : "Veyra recommends; you decide. Recording the decision arrives with the Decision Brief."}
+          </p>
+        ) : (
+          <div className="flex flex-col gap-3 border-t border-line bg-canvas/50 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+            <p className="flex items-center gap-2 text-[13px] text-ink-muted">
+              <UserCheck className="h-4 w-4 shrink-0 text-ink-subtle" />
+              {nextStepAcceptedAt
+                ? `Accepted ${formatRelative(nextStepAcceptedAt).toLowerCase()} and added to the Decision Log. The H1 validation has started.`
+                : "Veyra recommends. You decide — accepting records the decision and starts the validation."}
+            </p>
+            {!nextStepAcceptedAt ? (
+              <Button type="button" onClick={acceptNextStep}>
+                <Check className="h-4 w-4" /> Accept next step
+              </Button>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 text-sm font-medium text-confirmed-600">
+                <Check className="h-4 w-4" /> Decision recorded
+              </span>
+            )}
+          </div>
+        )}
       </section>
 
-      <section>
-        <h2 className="text-[15px] font-semibold">Other reasonable next steps</h2>
-        <p className="mt-0.5 text-xs text-ink-subtle">Not ranked. Each makes sense under different priorities.</p>
-        <ul className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
-          {step.alternatives.map((a) => {
-            const t = nextStepTypeLabel[a.type];
-            const AltIcon = t.icon;
-            return (
-              <li key={a.title} className="rounded-xl border border-line bg-surface p-4 shadow-card">
-                <span className={cn("inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium", t.className)}>
-                  <AltIcon className="h-3 w-3" /> {t.label}
-                </span>
-                <p className="mt-2 text-[14px] font-semibold leading-snug">{a.title}</p>
-                <p className="mt-1 text-[13px] text-ink-muted">{a.why}</p>
-              </li>
-            );
-          })}
-        </ul>
-      </section>
+      {step.alternatives.length > 0 && (
+        <section>
+          <h2 className="text-[15px] font-semibold">Other reasonable next steps</h2>
+          <p className="mt-0.5 text-xs text-ink-subtle">Not ranked. Each makes sense under different priorities.</p>
+          <ul className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
+            {step.alternatives.map((a) => {
+              const t = nextStepTypeLabel[a.type];
+              const AltIcon = t.icon;
+              return (
+                <li key={a.title} className="rounded-xl border border-line bg-surface p-4 shadow-card">
+                  <span className={cn("inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium", t.className)}>
+                    <AltIcon className="h-3 w-3" /> {t.label}
+                  </span>
+                  <p className="mt-2 text-[14px] font-semibold leading-snug">{a.title}</p>
+                  <p className="mt-1 text-[13px] text-ink-muted">{a.why}</p>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
     </div>
   );
 }

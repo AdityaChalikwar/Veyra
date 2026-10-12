@@ -19,6 +19,7 @@ export const routes = {
   validation: "/validation",
   memory: "/memory",
   dataSources: "/data-sources",
+  dataSource: (id: string) => `/data-sources/${id}`,
   context: "/context",
   settings: "/settings",
 } as const;

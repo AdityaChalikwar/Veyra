@@ -1,7 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import type { InvestigationDraft } from "@/lib/types";
+import type { InvestigationDraft, InvestigationOutcome, InvestigationTrigger } from "@/lib/types";
 
 /**
  * Browser-only state, saved in localStorage. Sign-in and the company profile
@@ -33,6 +33,12 @@ function load() {
     window.localStorage.removeItem("veyra:app-state:v1");
     // Drafts saved by an older version of the New Investigation flow have a different shape.
     if (state.draft && !Array.isArray(state.draft.dataSourceIds)) state = { ...state, draft: null };
+    // Drafts from before triggers and outcomes allowed several choices.
+    if (state.draft && !Array.isArray(state.draft.triggers)) {
+      const old = state.draft as InvestigationDraft & { trigger?: InvestigationTrigger | null; outcome?: InvestigationOutcome | null };
+      const { trigger, outcome, ...rest } = old;
+      state = { ...state, draft: { ...rest, triggers: trigger ? [trigger] : [], outcomes: outcome ? [outcome] : [] } };
+    }
   } catch {
     // Storage unavailable (private mode, blocked) — run without persistence.
   }

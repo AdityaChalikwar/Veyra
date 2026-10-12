@@ -2,6 +2,7 @@
 
 import { Info } from "lucide-react";
 import { HypothesisCard } from "./HypothesisCard";
+import { EmptyNote } from "@/components/ui/EmptyNote";
 import { useWorkspace } from "./workspace-context";
 
 export function HypothesesView() {
@@ -16,6 +17,9 @@ export function HypothesesView() {
         </p>
       </div>
       <h2 className="mb-3 text-[15px] font-semibold">Active Hypotheses</h2>
+      {workspace.hypotheses.length === 0 && (
+        <EmptyNote>Hypotheses appear here once Veyra has analysed your data. {workspace.evidence.length ? "Nothing yet — run the analysis on the Evidence tab." : "Nothing yet — add data on the Evidence tab, then run the analysis."}</EmptyNote>
+      )}
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
         {workspace.hypotheses.map((h) => (
           <HypothesisCard key={h.id} hypothesis={h} />

@@ -12,3 +12,11 @@ export const chartTheme = {
 
 /** The part of Recharts' tooltip props our custom tooltips read. */
 export type TooltipProps = { active?: boolean; payload?: ReadonlyArray<{ payload?: unknown }> };
+
+/** A rounded top for the axis and four even ticks, so any range reads cleanly. */
+export function niceScale(max: number): { top: number; ticks: number[] } {
+  const raw = Math.max(max * 1.15, 1) / 4;
+  const mag = 10 ** Math.floor(Math.log10(raw));
+  const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((s) => s >= raw) ?? 10 * mag;
+  return { top: step * 4, ticks: [0, step, step * 2, step * 3, step * 4] };
+}

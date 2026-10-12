@@ -7,6 +7,8 @@
  * next step → validation → learning. Types below follow that order.
  */
 
+import type { AnalysisResult } from "@/lib/analysis/schema";
+
 export type ID = string;
 
 /**
@@ -139,6 +141,9 @@ export type ClarifyingQuestion = {
   hint?: string;
 };
 
+/** A piece of information needed to solve a problem, and whether the team has already given it. */
+export type NeededInfo = { item: string; why: string; status: "known" | "partly-known" | "unknown" };
+
 /** A method Veyra chose (or deliberately didn't) for this investigation. */
 export type PlannedMethod = {
   id: ID;
@@ -161,8 +166,10 @@ export type InvestigationDraft = {
   problem: string;
   /** What the team wants to achieve or decide, in their own words. Optional. */
   objective?: string;
-  trigger: InvestigationTrigger | null;
-  outcome: InvestigationOutcome | null;
+  /** What prompted the investigation; can be several. */
+  triggers: InvestigationTrigger[];
+  /** What the team wants out of it; can be several. */
+  outcomes: InvestigationOutcome[];
   /** What the team already knows, in their words. */
   knownContext: string;
   /** Names of files, links or research attached at the start. */
@@ -171,6 +178,8 @@ export type InvestigationDraft = {
   dataSourceIds: ID[];
   /** Cached once generated, so going back and forth keeps edited answers. */
   questions?: ClarifyingQuestion[];
+  /** What Veyra worked out it needs to know to solve the problem; the questions fill the gaps. */
+  needed?: NeededInfo[];
   plan?: InvestigationPlan;
 };
 
@@ -431,7 +440,8 @@ export type Opportunity = {
   title: string;
   description: string;
   evidenceStrength: EvidenceStrength;
-  impact: Level;
+  /** Absent when nothing in the evidence supports an estimate. */
+  impact?: Level;
   confidence: Confidence;
   assessment: Assessment[];
   /** Solution directions — explored only once the problem is understood. */
@@ -454,7 +464,7 @@ export type NextStep = {
   whyNotBuildYet?: string;
   researchTaskIds: ID[];
   wouldChangeIf: string[];
-  confidence: Confidence;
+  confidence?: Confidence;
   /** Other reasonable next steps, not ranked. */
   alternatives: { type: NextStepType; title: string; why: string }[];
 };
@@ -641,14 +651,31 @@ export type DiscoveryStage = { id: ID; label: string; status: "done" | "in-progr
 /** Where an investigation is. Stored in the database and moved by it. */
 export type StageKey = "problem_definition" | "add_data" | "analysis" | "problem_validation" | "opportunity_discovery";
 
+/** One AI analysis of an investigation's evidence, as stored. */
+export type AnalysisRunRecord = {
+  id: ID;
+  status: "running" | "completed" | "failed" | "refused" | "truncated";
+  model: string;
+  createdAt: string; // ISO
+  completedAt?: string; // ISO
+  /** Plain-English reason when the run didn't complete. */
+  error?: string;
+  /** Set when status is "completed". */
+  result?: AnalysisResult;
+  /** The datasets analysed, by reference ("E1"…) in the order the analysis cites them. */
+  datasets: { ref: string; evidenceId: ID; name: string; period?: string }[];
+  /** What was dropped for not tracing back to the data. */
+  removed: string[];
+};
+
 export type InvestigationRecord = {
   summary: InvestigationSummary;
   objective: string;
   currentStage: StageKey;
   /** Every stage in order, with its status from the stage history. */
   stages: DiscoveryStage[];
-  trigger: InvestigationTrigger | null;
-  outcome: InvestigationOutcome | null;
+  triggers: InvestigationTrigger[];
+  outcomes: InvestigationOutcome[];
   knownContext: string;
   attachments: string[];
   dataSourceIds: ID[];
@@ -656,13 +683,17 @@ export type InvestigationRecord = {
   plan: InvestigationPlan | null;
   /** Uploaded files and the evidence made from them, newest first. */
   uploads: UploadedEvidence[];
+  /** Evidence taken from connected sources (e.g. Demo ERP), newest first. */
+  sourceEvidence: SourceEvidence[];
+  /** AI analysis runs, newest first. */
+  analysisRuns: AnalysisRunRecord[];
   createdAt: string; // ISO
 };
 
 export type Investigation = InvestigationSummary & {
   subtitle: string;
-  trigger: InvestigationTrigger;
-  outcome: InvestigationOutcome;
+  triggers: InvestigationTrigger[];
+  outcomes: InvestigationOutcome[];
   createdAt: string; // ISO
 };
 
@@ -699,4 +730,78 @@ export type InvestigationWorkspace = {
   /** Suggested changes from analysing new evidence. */
   proposals: EvidenceProposal[];
   notes: InvestigationNote[];
+  /**
+   * The team's own investigation: its saved record and latest completed analysis.
+   * Absent on the sample, whose content is demo data.
+   */
+  live?: LiveInvestigation;
+};
+
+export type LiveInvestigation = {
+  record: InvestigationRecord;
+  dataSources: DataSource[];
+  /** The latest analysis that completed, if any. */
+  run?: AnalysisRunRecord & { result: AnalysisResult };
+};
+
+/* ── Data onboarding ─────────────────────────────────────────────────── */
+
+/** A validation result shown to people: fine, worth knowing, or blocking. */
+export type DataCheck = { level: "ok" | "warning" | "error"; text: string };
+
+/** A calculation over a dataset, worked out in code (lib/data-layer/metrics.ts). */
+export type DataMetric = { id: string; title: string; unit: string; columns: string[]; rows: (string | number)[][]; note?: string };
+
+/** A connected source and its datasets, as the Data Sources pages show it. */
+export type ConnectedSource = {
+  id: string;
+  kind: string;
+  connector: string;
+  name: string;
+  status: "connected" | "error";
+  lastSyncedAt?: string;
+  createdAt: string;
+  datasets: SourceDatasetView[];
+};
+
+export type SourceDatasetView = {
+  id: string;
+  key: string;
+  name: string;
+  description: string;
+  approxRows: number;
+  selected: boolean;
+  entity: string | null;
+  schema: { fields: { name: string; sourceType: string; description?: string }[]; sample: Record<string, string>[] } | null;
+  mapping: Record<string, string | null>;
+  mappingConfirmed: boolean;
+  /** The newest snapshot, if it has been synced. */
+  latest?: SnapshotView;
+};
+
+export type SnapshotView = {
+  id: string;
+  name: string;
+  sourceName: string;
+  entity: string;
+  rowCount: number;
+  rejectedCount: number;
+  coverage?: string;
+  summary: string;
+  checks: DataCheck[];
+  metrics: DataMetric[];
+  createdAt: string;
+};
+
+/** Evidence taken from a connected source, as an investigation shows it. */
+export type SourceEvidence = {
+  evidenceId: string;
+  snapshotId?: string;
+  name: string;
+  source: string;
+  coverage?: string;
+  summary: string;
+  profile?: DatasetProfile;
+  metrics: DataMetric[];
+  addedAt: string;
 };
