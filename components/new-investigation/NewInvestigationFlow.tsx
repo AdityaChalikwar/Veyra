@@ -69,7 +69,12 @@ function FlowInner({ dataSources, context, examples }: Props) {
       sameItems(saved.triggers, next.triggers) &&
       sameItems(saved.outcomes, next.outcomes) &&
       sameItems(saved.dataSourceIds, next.dataSourceIds);
-    appActions.saveDraft(unchanged ? { ...next, questions: saved.questions, needed: saved.needed, plan: saved.plan } : next);
+    // Otherwise drop them (the form may have started from an earlier draft that had some), so they're written afresh.
+    appActions.saveDraft(
+      unchanged
+        ? { ...next, questions: saved.questions, needed: saved.needed, plan: saved.plan }
+        : { ...next, questions: undefined, needed: undefined, plan: undefined },
+    );
     router.push(routes.clarifyingQuestions);
   }
 
