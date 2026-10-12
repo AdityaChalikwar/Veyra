@@ -25,15 +25,11 @@ Read this, `docs/backend-plan.md` and `README.md` before starting.
 Milestones 1–3 plus the persistence gaps (objective, current stage, stage history moved by
 database triggers, edit details, blank new-investigation form). See `docs/backend-plan.md`.
 
-## Milestone 4 — AI analysis: built, needs a live check
-Built on `claude/eager-albattani-rpn2r4` (see `docs/backend-plan.md`, "AI analysis"). The
-migration `20261009000001_analysis_runs.sql` is applied. Not yet done:
-- Run it once for real: `ANTHROPIC_API_KEY` was not set in the cloud session that built it, so
-  the Claude call itself (including the `server-side-fallback-2026-07-01` beta and
-  `output_config.format`) has never run. Pack, citation checking and the schema were tested
-  in code; the stage trigger test timed out over the Supabase MCP (rolled back, no leftovers).
-- Check the trigger by hand: complete a run and see `current_stage` become `problem_validation`.
-- Findings and hypotheses live inside the run's JSON; they are not rows yet.
+## Milestone 4 — AI analysis: done
+Confirmed working on the Vercel preview with a real Claude call. Real investigations use the
+same workspace as the sample, built from saved data (`lib/data/live-workspace.ts`); tabs not
+backed by real data yet say "comes next". Findings and hypotheses live inside the run's JSON;
+they are not rows yet.
 
 ## Later
 - Secondary research with Claude's web search, feedback themes, interview guide, validation,
