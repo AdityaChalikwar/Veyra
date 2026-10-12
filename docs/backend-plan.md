@@ -20,7 +20,7 @@ next step, validation) and to run analysis over company data, not to host a chat
 | 2. Investigations, clarifying questions, plan, sample investigation, password reset | **Done** (`supabase/migrations/20261005*`) |
 | 3. CSV upload (private Storage) and profiling in code → evidence | **Done** (`supabase/migrations/20261006*`, `lib/analysis/profile.ts`) |
 | Persistence gaps — investigation objective, current stage, stage history, edit details | **Done** (`supabase/migrations/20261008*`) |
-| 4. AI analysis pipeline (Claude) — analysis pack in code, one structured Claude call, stored runs, stage moves to Problem validation | **Built; live call untested** (`supabase/migrations/20261009*`, `lib/analysis/`). Needs `ANTHROPIC_API_KEY` to run |
+| 4. AI analysis pipeline (Claude) — analysis pack in code, one structured Claude call, stored runs, stage moves to Problem validation | **Done** — confirmed with a real call (`supabase/migrations/20261009*`, `lib/analysis/`); real investigations use the full workspace |
 | 5. Decisions, validation, Decision Brief | |
 | 6. Business Memory, clean-up of mocks | |
 
