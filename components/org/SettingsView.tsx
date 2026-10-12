@@ -18,11 +18,11 @@ export function SettingsView() {
         <Row label="Signed in with" value={method === "google" ? "Google" : "Email and password"} />
       </Section>
       <Section title="Workspace">
-        <Row label="Company" value={company.name} />
+        <Row label="Name" value={company.name} />
         <Row label="Members" value="Just you — inviting teammates comes later." />
         <p className="mt-3 text-[13px]">
-          <Link href={routes.onboarding} className="font-medium text-brand-600 hover:text-brand-700">
-            Update company profile
+          <Link href={routes.context} className="font-medium text-brand-600 hover:text-brand-700">
+            Edit your business context
           </Link>
         </p>
       </Section>

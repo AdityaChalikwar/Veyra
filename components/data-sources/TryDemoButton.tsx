@@ -8,23 +8,21 @@ import { Button } from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/Spinner";
 import { DEMO_PROBLEM } from "@/lib/connectors/demo-erp/context";
 import { routes } from "@/lib/routes";
-import { confirmContextSwitch } from "./demo-context";
 
 /**
  * Sets up the Demo ERP in one go — connect, choose every dataset, accept the
  * suggested mappings, sync — then starts an investigation into its story.
  */
-export function TryDemoButton({ ownContext, label = "Try with demo data" }: { ownContext: boolean; label?: string }) {
+export function TryDemoButton({ label = "Try with demo data" }: { label?: string }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function run() {
-    const switchContext = confirmContextSwitch(ownContext);
     setBusy(true);
     setError(null);
     try {
-      const r = await setUpDemo({ switchContext });
+      const r = await setUpDemo();
       if ("error" in r) {
         setError(r.error);
         setBusy(false);

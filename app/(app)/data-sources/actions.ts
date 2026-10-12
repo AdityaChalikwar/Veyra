@@ -19,10 +19,11 @@ const done = () => revalidatePath("/", "layout");
 /**
  * Connects the Demo ERP: creates the source and discovers its datasets, with
  * a suggested Veyra entity and field mapping for each. Nothing is selected
- * or synced yet. With `switchContext`, the business context switches to the
- * demo company (the team's own is kept and restored on disconnect).
+ * or synced yet. The business context always switches to the demo company
+ * while it's connected, so the AI only ever sees one company (the team's own
+ * is kept and restored on disconnect).
  */
-export async function connectDemoErp(options: { switchContext?: boolean } = {}): Promise<Result<{ id: string }>> {
+export async function connectDemoErp(): Promise<Result<{ id: string }>> {
   const { company } = await requireWorkspace();
   const supabase = await createClient();
   const connector = getConnector("demo-erp")!;
@@ -61,7 +62,7 @@ export async function connectDemoErp(options: { switchContext?: boolean } = {}):
     await supabase.from("data_sources").delete().eq("id", source.id);
     return { error: "Couldn't read the Demo ERP's datasets. Try again in a moment." };
   }
-  if (options.switchContext) await switchToDemoContext(company.id, source.id);
+  await switchToDemoContext(company.id, source.id);
   done();
   return { ok: true, id: source.id };
 }
@@ -99,9 +100,9 @@ async function switchToDemoContext(workspaceId: string, sourceId: string) {
  * The whole Demo ERP set-up in one go: connect, choose every dataset, accept
  * the suggested field mappings, and sync. Used by "Try with demo data".
  */
-export async function setUpDemo(options: { switchContext: boolean }): Promise<Result<{ id: string }>> {
+export async function setUpDemo(): Promise<Result<{ id: string }>> {
   await requireWorkspace();
-  const connected = await connectDemoErp(options);
+  const connected = await connectDemoErp();
   if ("error" in connected) return connected;
   const supabase = await createClient();
   const { data: datasets } = await supabase.from("source_datasets").select("id, entity, mapping").eq("data_source_id", connected.id);

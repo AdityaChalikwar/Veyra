@@ -41,7 +41,9 @@ Claude call. Next: Milestone 6 (decisions, validation, report), then 7 (memory).
 
 ## Since Milestone 5
 - No business details at sign-up; workspace created automatically; context optional.
-- One-click demo (`setUpDemo`) with business context switch to Northwind Home and restore.
+- One-click demo (`setUpDemo`). Connecting the Demo ERP always switches the business context to
+  Northwind Home (own context saved on the source, restored on disconnect), so the AI sees one company.
+  The old onboarding "Company profile" card was removed from Business Context.
 - Sample investigation rebuilt as "Kitchen Returns Spike" (`mocks/sample-investigation.ts`),
   numbers matching the Demo ERP.
 - Daily AI usage limit per person (`AI_DAILY_LIMIT`, default 25).

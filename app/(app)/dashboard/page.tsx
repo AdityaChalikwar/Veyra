@@ -6,13 +6,11 @@ import { InvestigationCard } from "@/components/dashboard/InvestigationCard";
 import { MemoryPreview } from "@/components/dashboard/MemoryPreview";
 import { OpenQuestions } from "@/components/dashboard/OpenQuestions";
 import { RecentEvidence } from "@/components/dashboard/RecentEvidence";
-import { hasOwnContext } from "@/components/data-sources/demo-context";
 import { TryDemoButton } from "@/components/data-sources/TryDemoButton";
 import { ButtonLink } from "@/components/ui/Button";
 import { EmptyNote } from "@/components/ui/EmptyNote";
 import { Panel } from "@/components/ui/Panel";
 import {
-  getBusinessContext,
   listActiveInvestigations,
   listDataSources,
   listMemoryHighlights,
@@ -27,7 +25,7 @@ import { routes } from "@/lib/routes";
 export const metadata = { title: "Product Discovery" };
 
 export default async function DashboardPage() {
-  const [active, sources, questions, evidence, decisions, memory, connected, context] = await Promise.all([
+  const [active, sources, questions, evidence, decisions, memory, connected] = await Promise.all([
     listActiveInvestigations(3),
     listDataSources(),
     listOpenQuestions(),
@@ -35,7 +33,6 @@ export default async function DashboardPage() {
     listRecentDecisions(3),
     listMemoryHighlights(3),
     listConnectedSources(),
-    getBusinessContext(),
   ]);
   const hasDemo = connected.some((c) => c.connector === "demo-erp");
 
@@ -71,7 +68,7 @@ export default async function DashboardPage() {
               investigation into why its Kitchen returns are rising. No company details needed.
             </p>
           </div>
-          <TryDemoButton ownContext={hasOwnContext(context)} />
+          <TryDemoButton />
         </section>
       )}
 

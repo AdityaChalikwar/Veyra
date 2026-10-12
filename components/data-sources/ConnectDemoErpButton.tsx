@@ -7,20 +7,18 @@ import { connectDemoErp } from "@/app/(app)/data-sources/actions";
 import { Button } from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/Spinner";
 import { routes } from "@/lib/routes";
-import { confirmContextSwitch } from "./demo-context";
 
 /** Connects the Demo ERP, then opens its step-by-step set-up. */
-export function ConnectDemoErpButton({ ownContext }: { ownContext: boolean }) {
+export function ConnectDemoErpButton() {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function connect() {
-    const switchContext = confirmContextSwitch(ownContext);
     setBusy(true);
     setError(null);
     try {
-      const r = await connectDemoErp({ switchContext });
+      const r = await connectDemoErp();
       if ("error" in r) {
         setError(r.error);
         setBusy(false);
