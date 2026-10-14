@@ -1,9 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { assessEvidence } from "@/lib/analysis/confidence";
+import { computeCsvMetrics } from "@/lib/analysis/csv-metrics";
 import { buildPack } from "@/lib/analysis/pack";
 import { profileCsv } from "@/lib/analysis/profile";
 import { ANALYSIS_MODEL, runAnalysis } from "@/lib/analysis/run";
+import { loadPrevious } from "@/lib/analysis/previous";
+import { saveEvidenceRows } from "@/lib/analysis/save";
 import { clarify } from "@/lib/ai/clarify";
 import { takeAiAllowance } from "@/lib/ai/usage";
 import { getBusinessContext, listDataSources } from "@/lib/data";
@@ -222,8 +226,15 @@ export async function processUpload(fileId: string): Promise<{ ok: true } | { er
   const result = profileCsv(await blob.text());
   if (!result.ok) return fail(result.error);
 
+  const trust = assessEvidence(result.profile);
+  // Structured observations — trends and breakdowns — worked out in code, like connected data's metrics.
+  const metrics = result.table ? computeCsvMetrics(result.table, result.profile) : [];
   const { error } = await supabase.from("evidence").insert({
     investigation_id: file.investigation_id,
+    metrics: metrics.length ? (metrics as unknown as Json) : null,
+    source_kind: "upload",
+    confidence: trust.level,
+    metadata: { confidenceReason: trust.reason },
     workspace_id: company.id, // the database also enforces the investigation's own workspace
     file_id: file.id,
     name: file.name.replace(/\.csv$/i, ""),
@@ -279,7 +290,7 @@ export async function analyseInvestigation(investigationId: string): Promise<{ o
 
   const { data: evidence } = await supabase
     .from("evidence")
-    .select("id, name, source, profile, metrics, created_at")
+    .select("id, name, source, profile, metrics, snapshot_id, created_at")
     .eq("investigation_id", investigationId)
     .not("profile", "is", null)
     .order("created_at");
@@ -311,6 +322,7 @@ export async function analyseInvestigation(investigationId: string): Promise<{ o
       source: e.source,
       profile: e.profile as unknown as DatasetProfile,
       metrics: (e.metrics ?? undefined) as DataMetric[] | undefined,
+      connected: !!e.snapshot_id,
     })),
   );
   const { data: run, error: insertError } = await supabase
@@ -330,6 +342,7 @@ export async function analyseInvestigation(investigationId: string): Promise<{ o
     knownContext: inv.known_context,
     questions: [...inv.clarifying_questions].sort((a, b) => a.position - b.position),
     pack,
+    previous: await loadPrevious(supabase, investigationId, run.id),
   });
 
   const finished = new Date().toISOString();
@@ -356,7 +369,31 @@ export async function analyseInvestigation(investigationId: string): Promise<{ o
           })
           .eq("id", run.id);
 
+  // Findings, hypotheses and their evidence links as rows. If this fails, the screens read the run's JSON instead.
+  if (!saveError && outcome.status === "completed") {
+    const saved = await saveEvidenceRows(supabase, investigationId, run.id, outcome.result, pack);
+    if ("error" in saved) console.error(`Couldn't save evidence rows for run ${run.id}: ${saved.error}`);
+  }
+
   revalidatePath("/", "layout");
   if (saveError) return { error: "The analysis finished but couldn't be saved. Try again." };
   return outcome.status === "completed" ? { ok: true } : { error: outcome.error };
+}
+
+const TASK_STATUSES = ["not-started", "in-progress", "done", "dropped"] as const;
+
+/** The team's progress on a research task: its status, and what they found. */
+export async function updateResearchTask(
+  taskId: string,
+  update: { status: (typeof TASK_STATUSES)[number]; outcome: string },
+): Promise<{ ok: true } | { error: string }> {
+  await requireWorkspace();
+  if (!/^[0-9a-f-]{36}$/i.test(taskId) || !TASK_STATUSES.includes(update.status)) return { error: "Something went wrong. Reload the page and try again." };
+  const outcome = update.outcome.trim();
+  if (outcome.length > 4000) return { error: "Shorten what you found a little." };
+  const supabase = await createClient();
+  const { error, count } = await supabase.from("research_tasks").update({ status: update.status, outcome }, { count: "exact" }).eq("id", taskId);
+  if (error || !count) return { error: "Couldn't save it. Try again in a moment." };
+  revalidatePath("/", "layout");
+  return { ok: true };
 }

@@ -7,7 +7,8 @@
  * next step → validation → learning. Types below follow that order.
  */
 
-import type { AnalysisResult } from "@/lib/analysis/schema";
+import type { AnalysisResult, ResearchMethodKey } from "@/lib/analysis/schema";
+import type { EvidenceRelation, EvidenceStatus, Observed, StructuredRun } from "@/lib/analysis/structure";
 
 export type ID = string;
 
@@ -214,7 +215,14 @@ export type EvidenceItem = {
   analysis?: EvidenceAnalysis;
   /** Shown on public research: what limits its reliability. */
   qualityNote?: string;
+  /** How far this evidence can be trusted, worked out in code, and why. */
+  confidence?: "low" | "medium" | "high";
+  confidenceReason?: string;
 };
+
+/** A finding or hypothesis's link to one evidence item: how it relates, and what the evidence shows. */
+export type EvidenceLink = { evidenceId: ID; relation: EvidenceRelation; shows: string };
+export type { EvidenceRelation, EvidenceStatus, Observed };
 
 /* ── Uploaded data ─────────────────────────────────────────────────────── */
 
@@ -260,6 +268,10 @@ export type UploadedEvidence = {
   summary?: string;
   coverage?: string;
   profile?: DatasetProfile;
+  /** Trends and breakdowns worked out in code, when the file has dates. */
+  metrics?: DataMetric[];
+  confidence?: "low" | "medium" | "high";
+  confidenceReason?: string;
   addedAt: string; // ISO
 };
 
@@ -305,6 +317,10 @@ export type Finding = {
   /** Why the confidence is what it is. */
   confidenceReason: string;
   evidenceIds: ID[];
+  /** Every evidence item cited, with whether it supports or contradicts the finding and what it shows. */
+  evidenceLinks?: EvidenceLink[];
+  /** What was measured and the values seen, copied from the data. */
+  observed?: Observed;
   /** For interpretations and insights: the observations they build on. */
   basedOnFindingIds?: ID[];
   detail?: {
@@ -325,6 +341,8 @@ export type OpenQuestion = {
   investigationId: ID;
   question: string;
   whyItMatters: string;
+  /** The evidence that is missing today and would answer it. */
+  missingEvidence?: string;
   /** The research task that would answer it. */
   researchTaskId?: ID;
   /** Set once research answers it. */
@@ -345,9 +363,16 @@ export type Hypothesis = {
   /** Evidence linked directly (e.g. accepted from a suggestion). */
   supportingEvidenceIds?: ID[];
   contradictingEvidenceIds?: ID[];
+  /** Evidence checked that can't settle it. */
+  insufficientEvidenceIds?: ID[];
+  evidenceLinks?: EvidenceLink[];
+  /** What the evidence says overall. */
+  evidenceStatus?: EvidenceStatus;
   openQuestions: string[];
-  /** How Veyra suggests testing it. */
+  /** How Veyra suggests testing it: what would have to be shown, and how. */
   validationMethod: string;
+  /** What must be true for it to hold. */
+  assumptions?: string[];
   /** Set once a validation settles it. Untested hypotheses stay "open". */
   status?: "open" | "confirmed" | "rejected";
 };
@@ -362,7 +387,9 @@ export type ResearchMethod =
   | "Usability testing"
   | "Survey"
   | "Competitor research"
-  | "Market research";
+  | "Market research"
+  | "Experiment"
+  | "Desk research";
 
 export type ResearchTask = {
   id: ID;
@@ -372,7 +399,7 @@ export type ResearchTask = {
   question: string;
   method: ResearchMethod;
   priority: Level;
-  status: "not-started" | "in-progress" | "done";
+  status: "not-started" | "in-progress" | "done" | "dropped";
   /** Whether Veyra can run it against connected data (vs. needing people). */
   runnable: boolean;
   /** Filled in once the task has produced a result. */
@@ -467,6 +494,8 @@ export type NextStep = {
   confidence?: Confidence;
   /** Other reasonable next steps, not ranked. */
   alternatives: { type: NextStepType; title: string; why: string }[];
+  /** The investigation step Veyra judged right for the latest analysis, and how far the evidence went. */
+  approach?: { step: "establish-facts" | "explain-change" | "fill-gaps" | "test-hypotheses"; why: string; evidenceSufficiency: "sufficient" | "partial" | "insufficient" };
 };
 
 export type ValidationPlan = {
@@ -666,6 +695,26 @@ export type AnalysisRunRecord = {
   datasets: { ref: string; evidenceId: ID; name: string; period?: string }[];
   /** What was dropped for not tracing back to the data. */
   removed: string[];
+  /** The run's findings and hypotheses as saved rows, with their evidence links. Absent for runs saved before the rows existed. */
+  structured?: StructuredRun;
+};
+
+/** A research task as stored: suggested by an analysis run, worked on by the team. */
+export type ResearchTaskRecord = {
+  id: ID;
+  runId?: ID;
+  title: string;
+  question: string;
+  method: ResearchMethodKey;
+  methodDetail: string;
+  priority: "high" | "medium" | "low";
+  status: "not-started" | "in-progress" | "done" | "dropped";
+  rationale: string;
+  questionRef?: string;
+  hypothesisRefs: string[];
+  outcome: string;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type InvestigationRecord = {
@@ -687,6 +736,8 @@ export type InvestigationRecord = {
   sourceEvidence: SourceEvidence[];
   /** AI analysis runs, newest first. */
   analysisRuns: AnalysisRunRecord[];
+  /** Research tasks suggested by any run, oldest first; the team moves their status. */
+  researchTasks: ResearchTaskRecord[];
   createdAt: string; // ISO
 };
 
@@ -803,5 +854,7 @@ export type SourceEvidence = {
   summary: string;
   profile?: DatasetProfile;
   metrics: DataMetric[];
+  confidence?: "low" | "medium" | "high";
+  confidenceReason?: string;
   addedAt: string;
 };

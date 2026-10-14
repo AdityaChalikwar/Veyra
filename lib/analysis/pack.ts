@@ -1,4 +1,5 @@
 import type { ColumnProfile, DataMetric, DatasetProfile } from "@/lib/types";
+import { assessEvidence } from "./confidence";
 import { clip, fmtInt, formatNumber, formatRange, pct } from "./format";
 
 /**
@@ -36,6 +37,8 @@ export type PackDataset = {
   source?: string;
   /** Calculations over the full dataset, worked out in code (trends, breakdowns, rates). */
   metrics?: DataMetric[];
+  /** How far this evidence can be trusted, worked out in code. */
+  confidence?: { level: "low" | "medium" | "high"; reason: string };
 };
 
 export type AnalysisPack = {
@@ -44,7 +47,7 @@ export type AnalysisPack = {
   limits: string[];
 };
 
-export type PackInput = { id: string; name: string; profile: DatasetProfile; source?: string; metrics?: DataMetric[] };
+export type PackInput = { id: string; name: string; profile: DatasetProfile; source?: string; metrics?: DataMetric[]; /** From a connected system (checked and mapped) rather than an upload. */ connected?: boolean };
 
 const TOP_VALUES = 8;
 const MASK = "•••";
@@ -78,6 +81,7 @@ export function buildPack(items: PackInput[]): AnalysisPack {
       issues: p.issues,
       source: item.source,
       metrics: item.metrics?.length ? item.metrics : undefined,
+      confidence: assessEvidence(p, { connected: item.connected }),
       columns: p.columns.slice(0, MAX_COLUMNS).map((c) => ({
         name: c.name,
         type: c.type,
@@ -97,11 +101,11 @@ export function buildPack(items: PackInput[]): AnalysisPack {
 
   const limits: string[] = [
     datasets.some((d) => d.metrics)
-      ? "Datasets from connected sources come with metrics calculated over every row (trends by month, breakdowns, rates). Anything not in those metrics or the column summaries is not available."
+      ? "Datasets with metrics come with calculations over every row, worked out in code (trends over time, breakdowns, rates). Anything not in those metrics or the column summaries is not available."
       : "Each dataset is described by column summaries and a few sample rows. Row-level patterns, trends over time and relationships between columns are not available.",
   ];
   if (datasets.some((d) => d.metrics) && datasets.some((d) => !d.metrics)) {
-    limits.push("Uploaded files have column summaries only, with no trends; compare them with connected data carefully.");
+    limits.push(`${datasets.filter((d) => !d.metrics).map((d) => d.ref).join(", ")} have column summaries only, with no trends; compare them with the others carefully.`);
   }
   for (const d of datasets) {
     if (!d.period) limits.push(`${d.ref} has no date column, so what period it covers is unknown.`);
@@ -118,6 +122,7 @@ export function renderPack(pack: AnalysisPack): string {
   for (const d of pack.datasets) {
     out.push(`## ${d.ref}: ${d.name}${d.source ? ` (from ${d.source})` : ""}`);
     out.push(`Rows: ${fmtInt(d.rows)}${d.period ? ` · Period: ${formatRange(d.period.from, d.period.to)} (column “${d.dateColumn}”)` : " · Period: unknown"}`);
+    if (d.confidence) out.push(`Evidence confidence: ${d.confidence.level}. ${d.confidence.reason}`);
     if (d.issues.length) out.push(`Data issues: ${d.issues.join(" | ")}`);
     out.push("Columns:");
     for (const c of d.columns) out.push(`- ${renderColumn(c)}`);

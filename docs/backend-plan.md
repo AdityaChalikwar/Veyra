@@ -22,8 +22,10 @@ next step, validation) and to run analysis over company data, not to host a chat
 | Persistence gaps — investigation objective, current stage, stage history, edit details | **Done** (`supabase/migrations/20261008*`) |
 | 4. AI analysis pipeline (Claude) — analysis pack in code, one structured Claude call, stored runs, stage moves to Problem validation | **Done** — confirmed with a real call (`supabase/migrations/20261009*`, `lib/analysis/`); real investigations use the full workspace |
 | 5. Data onboarding layer + Demo ERP (see "Data onboarding" below) | **Built** (`supabase/migrations/20261013*`, `lib/connectors/`, `lib/data-layer/`); analysis with ERP metrics needs one live check |
-| 6. Decisions, validation, Decision Brief | |
-| 7. Business Memory, clean-up of mocks | |
+| 6. Evidence engine — evidence confidence and source, findings, hypotheses and evidence links as rows; every finding cites evidence IDs | **Built** (`supabase/migrations/20261015*`, `lib/analysis/structure.ts`, `save.ts`, `confidence.ts`); checked with a simulated run, needs one live Claude check |
+| 7. Investigation engine — the engine picks a step, saves open questions, research tasks and the next step as rows, reads earlier runs and research outcomes; uploads get trends worked out in code | **Built** (`supabase/migrations/20261016*`, `lib/analysis/`); checked with simulated runs, needs one live Claude check |
+| 8. Decisions, validation, Decision Brief | |
+| 9. Business Memory, clean-up of mocks | |
 | Later. Real connectors (ERP, CRM, analytics, support, finance), scheduled sync | |
 
 Every workspace gets a **sample investigation** (Kitchen Returns Spike at Northwind Home, the Demo ERP's fictional retailer; its numbers match the Demo ERP): a real row, so it can
@@ -56,8 +58,34 @@ run is saved in `analysis_runs` (pack, result, usage), and a completed run moves
 investigation from Analysis to Problem validation via a trigger. The server action is
 `analyseInvestigation`; `AnalysisSection` (Overview and Evidence tabs) runs it and summarises
 the latest result.
-Findings are not yet separate rows: they live in the run's `result`, so accepting or editing
-them individually comes later.
+
+## Evidence engine (Milestone 6)
+
+Every conclusion traces back to evidence rows.
+
+- **Evidence** (`evidence`): source (`source_kind` upload / connector / research / manual, and
+  `data_source_id` for connected systems — `data_sources` is the sources table, so CRM or
+  analytics connectors slot in the same way), type (`category`: company data, customer evidence,
+  uploaded research, public research), title, summary, profile and metrics, `metadata`, and a
+  `confidence` worked out in code (`lib/analysis/confidence.ts`: rows, period, missing values,
+  issues; the reason is kept in `metadata.confidenceReason`).
+- **Findings** (`findings`) and **hypotheses** (`hypotheses`): one row each per analysis run,
+  with the run's reference (F1, H1). A finding stores what was `observed` (measure, values,
+  period); a hypothesis stores `evidence_status` (supported / contradicted / mixed /
+  insufficient), worked out in code from what supports and contradicts it.
+- **Evidence links** (`evidence_links`): finding or hypothesis → evidence item, with `relation`
+  (supports / contradicts / insufficient) and `shows` (what that evidence shows for it). RLS only
+  allows links within one investigation.
+
+The model must cite datasets by reference with a relation and what each shows (the prompt
+forbids "based on the data"). `validate.ts` removes citations of datasets that don't exist,
+drops findings no dataset supports, and drops observed values whose numbers aren't in the
+evidence pack. `save.ts` writes the rows after a completed run (all or nothing); the
+workspace reads them, and falls back to the run's JSON for runs saved before Milestone 6.
+On screen: finding cards show evidence, dataset and period, observed values, evidence
+confidence and "View evidence"; the finding drawer lists every cited item with its relation;
+hypotheses show supporting, contradicting and "can't tell yet" evidence; the evidence viewer
+shows its confidence and every finding and hypothesis that cites it.
 
 Uploads: the browser sends the CSV straight to the private `uploads` bucket at
 `{workspace_id}/{investigation_id}/{file_id}.csv` (server actions are capped at 1 MB);
@@ -193,3 +221,36 @@ validation, sync), so a real connector later is a new module, not a redesign.
 - Evidence added, research results, feedback themes, proposals and chat messages live in browser memory and reset on refresh.
 - Accepted next steps, validation results and verdicts, the chosen opportunity and notes inside the workspace aren't saved.
 - Only the DAU Decline investigation has full workspace data. Other problems get a generic plan based on their trigger.
+
+## Investigation engine (Milestone 7)
+
+One structured Claude call per run (`lib/analysis/run.ts`), no chat and no agents. Input: business
+context, problem, objective, triggers and outcomes, clarifying answers, the evidence pack (profiles,
+evidence confidence, and metrics worked out in code), and `<previous_investigation>`: the latest
+finished run's findings, hypotheses and open questions plus every research task with its status and
+the team's recorded outcome (`lib/analysis/previous.ts`).
+
+The model first picks an **approach** — establish-facts, explain-change, fill-gaps or
+test-hypotheses — and rates evidence sufficiency, then fills only what that step supports.
+Output (`schema.ts`): findings (observation / interpretation / insight), hypotheses with
+assumptions and a validation requirement, open questions (Q1… with why it matters and the missing
+evidence), research tasks (question, method, detail, priority), the refined problem, opportunities
+and a next step. `validate.ts` cleans references; `save.ts` writes every artifact as rows, all or
+nothing:
+
+- `open_questions` and `next_steps` (with the approach) belong to the run.
+- `research_tasks` belong to the investigation and outlive the run; a later run doesn't add a task
+  with the same title. Members may only change a task's `status` and `outcome` (column grants).
+
+Uploaded CSVs with a date column get **metrics** at upload (`lib/analysis/csv-metrics.ts`): each
+numeric column by week (or month for long ranges) as a daily average, and the main measure broken
+down by small category columns (e.g. platform, app version). They are stored on the evidence like a
+connected source's metrics, shown on the upload card, and given to the model.
+
+Screens: Research Needed lists the tasks (update status and "what you found") and the open
+questions with missing evidence; the approach shows there, on Next Step and under the analysis
+summary; hypotheses show assumptions and the validation requirement.
+
+Test file: `docs/samples/dau-daily.csv` — daily DAU by platform and app version, Jul–Sep 2026;
+total DAU falls about 37% after Android 5.2.0 ships on 8 Sep.
+

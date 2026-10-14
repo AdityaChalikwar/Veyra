@@ -7,7 +7,8 @@ import { EvidenceRoleBadge } from "@/components/ui/EvidenceRoleBadge";
 import { EvidenceStrengthBadge } from "@/components/ui/EvidenceStrengthBadge";
 import { KindBadge } from "@/components/ui/KindBadge";
 import { routes } from "@/lib/routes";
-import { EvidenceChip, FindingChip } from "./ArtifactChips";
+import { FindingChip } from "./ArtifactChips";
+import { EvidenceCitation, EvidenceStatusBadge } from "./EvidenceCitation";
 import { useWorkspace } from "./workspace-context";
 
 export function HypothesisDetail({ id }: { id: string }) {
@@ -15,6 +16,7 @@ export function HypothesisDetail({ id }: { id: string }) {
   const h = workspace.hypotheses.find((x) => x.id === id);
   if (!h) return <p className="p-5 text-sm text-ink-subtle">This hypothesis no longer exists.</p>;
   const hasSupport = h.supportingFindingIds.length > 0 || (h.supportingEvidenceIds?.length ?? 0) > 0;
+  const showsFor = (e: string) => h.evidenceLinks?.find((l) => l.evidenceId === e)?.shows;
   const hasContra = h.contradictingFindingIds.length > 0 || (h.contradictingEvidenceIds?.length ?? 0) > 0;
 
   return (
@@ -26,6 +28,7 @@ export function HypothesisDetail({ id }: { id: string }) {
         </div>
         <p className="mt-3 text-lg font-semibold leading-snug">{h.statement}</p>
         <div className="mt-2 flex flex-wrap items-center gap-3">
+          {h.evidenceStatus && <EvidenceStatusBadge status={h.evidenceStatus} />}
           <EvidenceStrengthBadge strength={h.evidenceStrength} />
           <ConfidenceBadge level={h.confidence} />
         </div>
@@ -43,9 +46,13 @@ export function HypothesisDetail({ id }: { id: string }) {
             {h.supportingFindingIds.map((f) => (
               <FindingChip key={f} id={f} />
             ))}
-            {h.supportingEvidenceIds?.map((e) => (
-              <EvidenceChip key={e} id={e} />
-            ))}
+            {h.supportingEvidenceIds?.length ? (
+              <ul className="w-full space-y-2">
+                {h.supportingEvidenceIds.map((e) => (
+                  <EvidenceCitation key={e} evidenceId={e} relation="supports" shows={showsFor(e)} />
+                ))}
+              </ul>
+            ) : null}
           </div>
         ) : (
           <p className="text-[13px] text-ink-faint">No evidence supports this yet.</p>
@@ -57,14 +64,33 @@ export function HypothesisDetail({ id }: { id: string }) {
             {h.contradictingFindingIds.map((f) => (
               <FindingChip key={f} id={f} />
             ))}
-            {h.contradictingEvidenceIds?.map((e) => (
-              <EvidenceChip key={e} id={e} />
-            ))}
+            {h.contradictingEvidenceIds?.length ? (
+              <ul className="w-full space-y-2">
+                {h.contradictingEvidenceIds.map((e) => (
+                  <EvidenceCitation key={e} evidenceId={e} relation="contradicts" shows={showsFor(e)} />
+                ))}
+              </ul>
+            ) : null}
           </div>
         ) : (
           <p className="text-[13px] text-ink-faint">Nothing contradicts this so far.</p>
         )}
       </Block>
+      {h.evidenceStatus && (
+        <Block title="Can't tell yet" badge={<EvidenceRoleBadge role="unknown" />}>
+          {h.insufficientEvidenceIds?.length ? (
+            <ul className="space-y-2">
+              {h.insufficientEvidenceIds.map((e) => (
+                <EvidenceCitation key={e} evidenceId={e} relation="insufficient" shows={showsFor(e)} />
+              ))}
+            </ul>
+          ) : (
+            <p className="text-[13px] text-ink-faint">
+              {h.evidenceStatus === "insufficient" ? "None of the evidence speaks to this yet." : "Every dataset checked says something about it."}
+            </p>
+          )}
+        </Block>
+      )}
       {h.openQuestions.length > 0 && (
         <Block title="Open questions">
           <ul className="space-y-1.5">
@@ -77,7 +103,20 @@ export function HypothesisDetail({ id }: { id: string }) {
           </ul>
         </Block>
       )}
-      <Block title="Recommended validation">
+      {h.assumptions && h.assumptions.length > 0 && (
+        <Block title="Assumptions">
+          <ul className="space-y-1.5">
+            {h.assumptions.map((a) => (
+              <li key={a} className="flex gap-2 text-[13px] leading-relaxed text-ink">
+                <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-uncertain-600" />
+                {a}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-1.5 text-xs text-ink-faint">Not checked yet. If one turns out false, the hypothesis falls with it.</p>
+        </Block>
+      )}
+      <Block title="Validation requirement">
         <p className="flex gap-2 text-[13px] leading-relaxed text-ink">
           <FlaskConical className="mt-0.5 h-4 w-4 shrink-0 text-brand-600" />
           {h.validationMethod}

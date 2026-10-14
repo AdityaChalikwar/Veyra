@@ -1,5 +1,6 @@
 "use client";
 
+import { ApproachNote } from "./LiveResearch";
 import { Check, Compass, GitBranch, PauseCircle, Search, TestTube2, UserCheck } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { ConfidenceBadge } from "@/components/ui/ConfidenceBadge";
@@ -33,6 +34,7 @@ export function NextStepView() {
 
   return (
     <div className="mt-6 space-y-6">
+      {step.approach && <ApproachNote approach={step.approach} />}
       <section className="rounded-xl border-2 border-brand-200 bg-surface shadow-raised">
         <div className="border-b border-line p-5 sm:p-6">
           <div className="flex flex-wrap items-center gap-2">
@@ -68,7 +70,7 @@ export function NextStepView() {
               <h3 className="text-xs font-semibold uppercase tracking-wider text-ink-faint">The research involved</h3>
               <div className="mt-2 space-y-2">
                 {tasks.map((t) => (
-                  <ResearchTaskCard key={t.id} task={t} />
+                  <ResearchTaskCard key={t.id} task={t} compact={!!live} />
                 ))}
               </div>
             </div>

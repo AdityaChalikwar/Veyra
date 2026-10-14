@@ -3,19 +3,27 @@
 import { Check, ExternalLink, Loader2, X } from "lucide-react";
 import { FindingChip } from "@/components/investigation/ArtifactChips";
 import { Button } from "@/components/ui/Button";
+import { ConfidenceBadge } from "@/components/ui/ConfidenceBadge";
 import { KindBadge } from "@/components/ui/KindBadge";
+import { RelationBadge } from "@/components/investigation/EvidenceCitation";
+import type { EvidenceLink, EvidenceRelation } from "@/lib/types";
 import { useWorkspace } from "@/components/investigation/workspace-context";
 import { formatRelative } from "@/lib/time";
 import { categoryLabel } from "./evidence-categories";
 import { EvidenceFormatIcon } from "./EvidenceFormatIcon";
 
-
+/** The evidence viewer: what it is, how far to trust it, a preview, and everything that cites it. */
 export function EvidenceDetail({ id }: { id: string }) {
   const { workspace, resolveProposal, openDetail } = useWorkspace();
   const item = workspace.evidence.find((e) => e.id === id);
   if (!item) return <p className="p-5 text-sm text-ink-subtle">This evidence no longer exists.</p>;
-  const usedBy = workspace.findings.filter((f) => f.evidenceIds.includes(id) || f.trail.some((s) => s.evidenceId === id));
-  const supports = workspace.hypotheses.filter((h) => h.supportingEvidenceIds?.includes(id) || h.contradictingEvidenceIds?.includes(id));
+  const usedBy = workspace.findings.filter(
+    (f) => f.evidenceIds.includes(id) || f.evidenceLinks?.some((l) => l.evidenceId === id) || f.trail.some((s) => s.evidenceId === id),
+  );
+  const relationTo = (links: EvidenceLink[] | undefined, fallback: EvidenceRelation) => links?.find((l) => l.evidenceId === id)?.relation ?? fallback;
+  const supports = workspace.hypotheses.filter(
+    (h) => h.supportingEvidenceIds?.includes(id) || h.contradictingEvidenceIds?.includes(id) || h.insufficientEvidenceIds?.includes(id),
+  );
   const proposals = workspace.proposals.filter((p) => p.evidenceId === id);
 
   return (
@@ -74,6 +82,16 @@ export function EvidenceDetail({ id }: { id: string }) {
         </p>
       )}
 
+      {item.confidence && (
+        <section className="rounded-lg border border-line px-3 py-2.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-ink-faint">Evidence confidence</h3>
+            <ConfidenceBadge level={item.confidence} bare />
+          </div>
+          {item.confidenceReason && <p className="mt-1.5 text-xs leading-relaxed text-ink-subtle">{item.confidenceReason}</p>}
+        </section>
+      )}
+
       <dl className="grid grid-cols-2 gap-3 text-[13px]">
         <Meta label="Source" value={item.source} />
         {item.dataset && <Meta label="Dataset" value={item.dataset} />}
@@ -125,7 +143,10 @@ export function EvidenceDetail({ id }: { id: string }) {
         {usedBy.length ? (
           <div className="flex flex-col items-start gap-1.5">
             {usedBy.map((f) => (
-              <FindingChip key={f.id} id={f.id} />
+              <div key={f.id} className="flex flex-wrap items-start gap-1.5">
+                <RelationBadge relation={relationTo(f.evidenceLinks, "supports")} />
+                <FindingChip id={f.id} />
+              </div>
             ))}
           </div>
         ) : (
@@ -146,7 +167,9 @@ export function EvidenceDetail({ id }: { id: string }) {
               >
                 <KindBadge kind="hypothesis" className="mr-2" />
                 {h.label}: {h.statement}
-                <span className="ml-1 text-xs text-ink-faint">({h.supportingEvidenceIds?.includes(id) ? "supports" : "contradicts"})</span>
+                <span className="ml-1.5 align-middle">
+                  <RelationBadge relation={relationTo(h.evidenceLinks, h.supportingEvidenceIds?.includes(id) ? "supports" : "contradicts")} />
+                </span>
               </button>
             ))}
           </div>
