@@ -40,7 +40,14 @@ export type PreviousArtifacts = {
 
 export type AnalysisOutcome =
   | { status: "completed"; result: AnalysisResult; removed: string[]; usage: Record<string, number | null>; stopReason: string }
-  | { status: "refused" | "truncated" | "failed"; error: string; stopReason?: string; usage?: Record<string, number | null> };
+  | {
+      status: "refused" | "truncated" | "failed";
+      error: string;
+      stopReason?: string;
+      usage?: Record<string, number | null>;
+      /** What the AI service itself said, kept on the run for diagnosis (no secrets: status, request id, message). */
+      detail?: { status?: number; requestId?: string | null; message: string };
+    };
 
 const SYSTEM = `You are Veyra, a product discovery analyst. A product team has described a problem and uploaded data. Your job is to say what that data does and does not show, and what the team should do next. You produce structured investigation records, never a prose essay, and you don't run frameworks for their own sake.
 
@@ -179,7 +186,12 @@ export async function runAnalysis(input: AnalysisInput): Promise<AnalysisOutcome
     if (error instanceof Anthropic.APIConnectionError) return { status: "failed", error: "Couldn't reach the AI service. Try again in a moment." };
     if (error instanceof Anthropic.APIError) {
       console.error("analysis failed", error.status, error.message);
-      return { status: "failed", error: "The AI service returned an error. Try again in a moment." };
+      const detail = { status: error.status, requestId: error.requestID ?? null, message: error.message.slice(0, 1000) };
+      if (error instanceof Anthropic.BadRequestError) {
+        // A rejected request won't succeed on retry, so don't suggest one.
+        return { status: "failed", detail, error: `The AI service rejected the request (error ${error.status}), so the analysis didn't run. This needs a fix in Veyra.` };
+      }
+      return { status: "failed", detail, error: `The AI service returned an error (${error.status ?? "unknown"}). Try again in a moment.` };
     }
     console.error("analysis failed", error);
     return { status: "failed", error: "Something went wrong while analysing. Try again." };
