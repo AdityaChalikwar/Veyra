@@ -103,7 +103,20 @@ export function HypothesisDetail({ id }: { id: string }) {
           </ul>
         </Block>
       )}
-      <Block title="Recommended validation">
+      {h.assumptions && h.assumptions.length > 0 && (
+        <Block title="Assumptions">
+          <ul className="space-y-1.5">
+            {h.assumptions.map((a) => (
+              <li key={a} className="flex gap-2 text-[13px] leading-relaxed text-ink">
+                <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-uncertain-600" />
+                {a}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-1.5 text-xs text-ink-faint">Not checked yet. If one turns out false, the hypothesis falls with it.</p>
+        </Block>
+      )}
+      <Block title="Validation requirement">
         <p className="flex gap-2 text-[13px] leading-relaxed text-ink">
           <FlaskConical className="mt-0.5 h-4 w-4 shrink-0 text-brand-600" />
           {h.validationMethod}

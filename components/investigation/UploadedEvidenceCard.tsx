@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { deleteUpload } from "@/app/(app)/investigations/actions";
 import { ConfidenceBadge } from "@/components/ui/ConfidenceBadge";
+import { MetricTable } from "@/components/data-sources/MetricTable";
 import { Spinner } from "@/components/ui/Spinner";
 import { formatNumber, formatRange } from "@/lib/analysis/format";
 import { cn } from "@/lib/cn";
@@ -126,10 +127,13 @@ export function UploadedEvidenceCard({ upload: u }: { upload: UploadedEvidence }
             className="flex w-full items-center gap-1.5 border-t border-line px-4 py-2.5 text-xs font-medium text-brand-600 hover:text-brand-700"
           >
             <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", open && "rotate-180")} />
-            {open ? "Hide columns and preview" : "Show columns and preview"}
+            {open ? "Hide trends, columns and preview" : u.metrics?.length ? "Show trends, columns and preview" : "Show columns and preview"}
           </button>
           {open && (
             <div className="space-y-4 border-t border-line p-4">
+              {u.metrics?.map((m) => (
+                <MetricTable key={m.id} metric={m} />
+              ))}
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[520px] text-left text-[12.5px]">
                   <thead>

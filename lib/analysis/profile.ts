@@ -19,7 +19,9 @@ const TYPE_THRESHOLD = 0.95;
 const EMPTY_TOKENS = new Set(["", "na", "n/a", "null", "none", "-", "—", "nan", "#n/a"]);
 const BOOLEAN_TOKENS = new Set(["true", "false", "yes", "no", "y", "n"]);
 
-export type ProfileResult = { ok: true; profile: DatasetProfile; summary: string; coverage?: string } | { ok: false; error: string };
+export type ProfileResult =
+  | { ok: true; profile: DatasetProfile; summary: string; coverage?: string; /** The parsed rows, for working out metrics; not stored. */ table?: { headers: string[]; rows: string[][] } }
+  | { ok: false; error: string };
 
 export function profileCsv(raw: string): ProfileResult {
   const text = raw.replace(/^﻿/, "");
@@ -56,7 +58,7 @@ export function profileCsv(raw: string): ProfileResult {
     issues.push(`The file has ${fmtInt(allRows.length)} rows. Veyra read the first ${fmtInt(MAX_ROWS)}.`);
   }
 
-  return profileRows(headers, rows, issues, truncated);
+  return { ...profileRows(headers, rows, issues, truncated), table: { headers, rows } };
 }
 
 /**
@@ -220,7 +222,7 @@ function iso(y: number, m: number, d: number): string | null {
 }
 
 /** For dd/mm vs mm/dd: decide from values where one part is above 12. */
-function guessDayFirst(values: string[]): { dayFirst: boolean; ambiguous: boolean; example?: string } {
+export function guessDayFirst(values: string[]): { dayFirst: boolean; ambiguous: boolean; example?: string } {
   let dayFirst = false;
   let monthFirst = false;
   let example: string | undefined;

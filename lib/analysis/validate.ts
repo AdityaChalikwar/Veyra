@@ -8,6 +8,8 @@ import type { AnalysisCitation, AnalysisResult } from "./schema";
  * Observed values must be figures that appear in the evidence pack. The notes
  * say what was removed so a run can be audited.
  */
+const MAX_RESEARCH_TASKS = 8;
+
 export function checkCitations(raw: AnalysisResult, pack: AnalysisPack): { result: AnalysisResult; removed: string[] } {
   const removed: string[] = [];
   const refs = new Set(pack.datasets.map((d) => d.ref));
@@ -76,6 +78,26 @@ export function checkCitations(raw: AnalysisResult, pack: AnalysisPack): { resul
       return true;
     });
 
+  // Open questions get unique ids; research tasks may only point at questions and hypotheses that exist.
+  const qSeen = new Set<string>();
+  const openQuestions = raw.openQuestions
+    .filter((q) => q.question.trim())
+    .map((q, i) => {
+      const id = /^Q\d{1,3}$/.test(q.id) && !qSeen.has(q.id) ? q.id : `Q${i + 1}`;
+      qSeen.add(id);
+      return { ...q, id };
+    });
+  const hypIds = new Set(hypotheses.map((h) => h.id));
+  const researchTasks = (raw.researchTasks ?? [])
+    .filter((t) => t.title.trim() && t.question.trim())
+    .slice(0, MAX_RESEARCH_TASKS)
+    .map((t) => ({
+      ...t,
+      answersQuestion: qSeen.has(t.answersQuestion) ? t.answersQuestion : "",
+      testsHypotheses: [...new Set(t.testsHypotheses.filter((id) => hypIds.has(id)))],
+    }));
+  if ((raw.researchTasks?.length ?? 0) > MAX_RESEARCH_TASKS) removed.push(`Only the first ${MAX_RESEARCH_TASKS} research tasks were kept.`);
+
   const opportunities = raw.opportunities
     .map((o) => ({ ...o, findings: known(o.findings) }))
     .filter((o) => {
@@ -91,6 +113,8 @@ export function checkCitations(raw: AnalysisResult, pack: AnalysisPack): { resul
       ...raw,
       findings: checkedFindings,
       hypotheses,
+      openQuestions,
+      researchTasks,
       opportunities,
       refinedProblem: { ...raw.refinedProblem, findings: known(raw.refinedProblem.findings) },
     },

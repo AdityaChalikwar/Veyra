@@ -1,4 +1,4 @@
-import type { AnalysisResult } from "./schema";
+import type { AnalysisResult, ResearchMethodKey } from "./schema";
 
 /**
  * An analysis run as evidence-engine rows: findings and hypotheses, each with
@@ -33,7 +33,45 @@ export type StructuredHypothesis = {
   supportingFindings: string[];
   contradictingFindings: string[];
   validationMethod: string;
+  assumptions: string[];
   links: StructuredLink[];
+};
+
+export type StructuredQuestion = { ref: string; question: string; whyItMatters: string; missingEvidence: string };
+
+export type StructuredResearchTask = {
+  title: string;
+  question: string;
+  questionRef?: string;
+  hypothesisRefs: string[];
+  method: ResearchMethodKey;
+  methodDetail: string;
+  priority: "high" | "medium" | "low";
+  rationale: string;
+};
+
+export type Approach = {
+  step: "establish-facts" | "explain-change" | "fill-gaps" | "test-hypotheses";
+  why: string;
+  evidenceSufficiency: "sufficient" | "partial" | "insufficient";
+};
+
+export type StructuredNextStep = {
+  approach?: Approach;
+  type: "research" | "analysis" | "validation" | "solution-exploration" | "hold";
+  title: string;
+  detail: string;
+  why: string;
+  whyNotBuildYet: string;
+  wouldChangeIf: string[];
+};
+
+/** A run's artifacts as the screens read them. Research tasks belong to the investigation, so they're read separately. */
+export type StructuredRun = {
+  findings: StructuredFinding[];
+  hypotheses: StructuredHypothesis[];
+  openQuestions: StructuredQuestion[];
+  nextStep?: StructuredNextStep;
 };
 
 type Citation = string | { ref: string; relation: EvidenceRelation; shows: string };
@@ -82,9 +120,32 @@ export function structureRun(result: AnalysisResult, evidenceFor: (ref: string) 
       supportingFindings: h.supportingFindings,
       contradictingFindings: h.contradictingFindings,
       validationMethod: h.validationMethod,
+      assumptions: h.assumptions ?? [],
       links,
     };
   });
 
-  return { findings, hypotheses };
+  // Runs saved before questions had ids or named their missing evidence.
+  type OldQuestion = { id?: string; question: string; whyItMatters: string; missingEvidence?: string; wouldBeAnsweredBy?: string };
+  const openQuestions: StructuredQuestion[] = (result.openQuestions as OldQuestion[]).map((q, i) => ({
+    ref: q.id || `Q${i + 1}`,
+    question: q.question,
+    whyItMatters: q.whyItMatters,
+    missingEvidence: q.missingEvidence ?? q.wouldBeAnsweredBy ?? "",
+  }));
+
+  const researchTasks: StructuredResearchTask[] = (result.researchTasks ?? []).map((t) => ({
+    title: t.title,
+    question: t.question,
+    questionRef: t.answersQuestion || undefined,
+    hypothesisRefs: t.testsHypotheses,
+    method: t.method,
+    methodDetail: t.methodDetail,
+    priority: t.priority,
+    rationale: t.why,
+  }));
+
+  const nextStep: StructuredNextStep = { ...result.nextStep, approach: result.approach };
+
+  return { findings, hypotheses, openQuestions, researchTasks, nextStep };
 }

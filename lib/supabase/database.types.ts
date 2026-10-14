@@ -11,6 +11,222 @@ export type Database = {
   };
   public: {
     Tables: {
+      open_questions: {
+        Row: {
+          id: string;
+          investigation_id: string;
+          workspace_id: string;
+          created_at: string;
+          analysis_run_id: string;
+          ref: string;
+          position: number;
+          question: string;
+          why_it_matters: string;
+          missing_evidence: string;
+        };
+        Insert: {
+          id?: string;
+          investigation_id: string;
+          workspace_id?: string;
+          created_at?: string;
+          analysis_run_id: string;
+          ref: string;
+          position?: number;
+          question: string;
+          why_it_matters?: string;
+          missing_evidence?: string;
+        };
+        Update: {
+          id?: string;
+          investigation_id?: string;
+          workspace_id?: string;
+          created_at?: string;
+          analysis_run_id?: string;
+          ref?: string;
+          position?: number;
+          question?: string;
+          why_it_matters?: string;
+          missing_evidence?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "open_questions_investigation_id_fkey";
+            columns: ["investigation_id"];
+            isOneToOne: false;
+            referencedRelation: "investigations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "open_questions_workspace_id_fkey";
+            columns: ["workspace_id"];
+            isOneToOne: false;
+            referencedRelation: "workspaces";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "open_questions_analysis_run_id_fkey";
+            columns: ["analysis_run_id"];
+            isOneToOne: false;
+            referencedRelation: "analysis_runs";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      research_tasks: {
+        Row: {
+          id: string;
+          investigation_id: string;
+          workspace_id: string;
+          created_at: string;
+          analysis_run_id: string | null;
+          position: number;
+          title: string;
+          question: string;
+          method: string;
+          method_detail: string;
+          priority: string;
+          status: string;
+          rationale: string;
+          question_ref: string | null;
+          hypothesis_refs: string[];
+          outcome: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          investigation_id: string;
+          workspace_id?: string;
+          created_at?: string;
+          analysis_run_id?: string | null;
+          position?: number;
+          title: string;
+          question: string;
+          method: string;
+          method_detail?: string;
+          priority: string;
+          status?: string;
+          rationale?: string;
+          question_ref?: string | null;
+          hypothesis_refs?: string[];
+          outcome?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          investigation_id?: string;
+          workspace_id?: string;
+          created_at?: string;
+          analysis_run_id?: string | null;
+          position?: number;
+          title?: string;
+          question?: string;
+          method?: string;
+          method_detail?: string;
+          priority?: string;
+          status?: string;
+          rationale?: string;
+          question_ref?: string | null;
+          hypothesis_refs?: string[];
+          outcome?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "research_tasks_investigation_id_fkey";
+            columns: ["investigation_id"];
+            isOneToOne: false;
+            referencedRelation: "investigations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "research_tasks_workspace_id_fkey";
+            columns: ["workspace_id"];
+            isOneToOne: false;
+            referencedRelation: "workspaces";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "research_tasks_analysis_run_id_fkey";
+            columns: ["analysis_run_id"];
+            isOneToOne: false;
+            referencedRelation: "analysis_runs";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      next_steps: {
+        Row: {
+          id: string;
+          investigation_id: string;
+          workspace_id: string;
+          created_at: string;
+          analysis_run_id: string;
+          approach: string;
+          approach_reason: string;
+          evidence_sufficiency: string;
+          type: string;
+          title: string;
+          detail: string;
+          why: string;
+          why_not_build_yet: string;
+          would_change_if: string[];
+        };
+        Insert: {
+          id?: string;
+          investigation_id: string;
+          workspace_id?: string;
+          created_at?: string;
+          analysis_run_id: string;
+          approach: string;
+          approach_reason?: string;
+          evidence_sufficiency: string;
+          type: string;
+          title: string;
+          detail?: string;
+          why?: string;
+          why_not_build_yet?: string;
+          would_change_if?: string[];
+        };
+        Update: {
+          id?: string;
+          investigation_id?: string;
+          workspace_id?: string;
+          created_at?: string;
+          analysis_run_id?: string;
+          approach?: string;
+          approach_reason?: string;
+          evidence_sufficiency?: string;
+          type?: string;
+          title?: string;
+          detail?: string;
+          why?: string;
+          why_not_build_yet?: string;
+          would_change_if?: string[];
+        };
+        Relationships: [
+          {
+            foreignKeyName: "next_steps_investigation_id_fkey";
+            columns: ["investigation_id"];
+            isOneToOne: false;
+            referencedRelation: "investigations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "next_steps_workspace_id_fkey";
+            columns: ["workspace_id"];
+            isOneToOne: false;
+            referencedRelation: "workspaces";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "next_steps_analysis_run_id_fkey";
+            columns: ["analysis_run_id"];
+            isOneToOne: false;
+            referencedRelation: "analysis_runs";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       findings: {
         Row: {
           id: string;
@@ -88,6 +304,7 @@ export type Database = {
           workspace_id: string;
           created_at: string;
           analysis_run_id: string;
+          assumptions: string[];
           ref: string;
           position: number;
           statement: string;
@@ -106,6 +323,7 @@ export type Database = {
           workspace_id?: string;
           created_at?: string;
           analysis_run_id: string;
+          assumptions?: string[];
           ref: string;
           position?: number;
           statement: string;
@@ -124,6 +342,7 @@ export type Database = {
           workspace_id?: string;
           created_at?: string;
           analysis_run_id?: string;
+          assumptions?: string[];
           ref?: string;
           position?: number;
           statement?: string;

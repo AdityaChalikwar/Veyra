@@ -10,7 +10,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { Json, Tables } from "@/lib/supabase/database.types";
 import { DEMO_CONTEXT } from "@/lib/connectors/demo-erp/context";
 import { assessEvidence } from "@/lib/analysis/confidence";
-import type { DataCheck, DataMetric, DatasetProfile } from "@/lib/types";
+import type { DataCheck, DatasetProfile } from "@/lib/types";
 
 type Result<T = object> = ({ ok: true } & T) | { error: string };
 
@@ -307,7 +307,7 @@ export async function addSnapshotEvidence(investigationId: string, snapshotId: s
   ]);
   if (!inv || inv.is_sample) return { error: "This investigation can't take evidence." };
   if (!snap) return { error: "That dataset is no longer available. Sync it again." };
-  const trust = assessEvidence(snap.profile as unknown as DatasetProfile, (snap.metrics ?? []) as unknown as DataMetric[]);
+  const trust = assessEvidence(snap.profile as unknown as DatasetProfile, { connected: true });
   const { error } = await supabase.from("evidence").insert({
     investigation_id: investigationId,
     workspace_id: company.id,

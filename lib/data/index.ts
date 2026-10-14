@@ -23,7 +23,7 @@ import { buildLiveWorkspace } from "./live-workspace";
 import { listConnectedSources } from "./sources";
 import type { AnalysisResult } from "@/lib/analysis/schema";
 import { assessEvidence } from "@/lib/analysis/confidence";
-import type { StructuredFinding, StructuredHypothesis, StructuredLink } from "@/lib/analysis/structure";
+import type { Approach, StructuredFinding, StructuredHypothesis, StructuredLink, StructuredNextStep } from "@/lib/analysis/structure";
 import { buildSampleWorkspace, SAMPLE_ID, sampleOpenQuestions } from "@/mocks/sample-investigation";
 import { buildDecisions } from "@/mocks/decisions";
 import { buildEvidence } from "@/mocks/evidence";
@@ -56,6 +56,7 @@ import type {
   StageKey,
   UploadedEvidence,
   User,
+  ResearchTaskRecord,
 } from "@/lib/types";
 
 export async function getCurrentUser(): Promise<User | null> {
@@ -169,7 +170,7 @@ export async function getInvestigationRecord(id: string): Promise<InvestigationR
   const { data } = await supabase
     .from("investigations")
     .select(
-      "triggers, outcomes, objective, current_stage, known_context, attachments, data_source_ids, plan, created_at, clarifying_questions (id, position, question, hint, answer), files (id, name, size_bytes, status, error, created_at, evidence (id, summary, coverage, profile, confidence, metadata)), investigation_stages (stage, completed_at), evidence (id, name, source, coverage, summary, profile, metrics, snapshot_id, file_id, confidence, metadata, created_at), analysis_runs (id, status, model, created_at, completed_at, error, result, pack, usage), findings (analysis_run_id, ref, position, kind, statement, observed, confidence, confidence_reason, based_on, evidence_links (evidence_id, relation, shows)), hypotheses (analysis_run_id, ref, position, statement, rationale, confidence, evidence_strength, evidence_status, supporting_findings, contradicting_findings, validation_method, evidence_links (evidence_id, relation, shows))",
+      "triggers, outcomes, objective, current_stage, known_context, attachments, data_source_ids, plan, created_at, clarifying_questions (id, position, question, hint, answer), files (id, name, size_bytes, status, error, created_at, evidence (id, summary, coverage, profile, metrics, confidence, metadata)), investigation_stages (stage, completed_at), evidence (id, name, source, coverage, summary, profile, metrics, snapshot_id, file_id, confidence, metadata, created_at), analysis_runs (id, status, model, created_at, completed_at, error, result, pack, usage), findings (analysis_run_id, ref, position, kind, statement, observed, confidence, confidence_reason, based_on, evidence_links (evidence_id, relation, shows)), hypotheses (analysis_run_id, ref, position, statement, rationale, confidence, evidence_strength, evidence_status, supporting_findings, contradicting_findings, validation_method, assumptions, evidence_links (evidence_id, relation, shows)), open_questions (analysis_run_id, ref, position, question, why_it_matters, missing_evidence), next_steps (analysis_run_id, approach, approach_reason, evidence_sufficiency, type, title, detail, why, why_not_build_yet, would_change_if), research_tasks (id, analysis_run_id, position, title, question, method, method_detail, priority, status, rationale, question_ref, hypothesis_refs, outcome, created_at, updated_at)",
     )
     .eq("id", id)
     .maybeSingle();
@@ -192,7 +193,10 @@ export async function getInvestigationRecord(id: string): Promise<InvestigationR
     analysisRuns: [...data.analysis_runs]
       .sort((a, b) => b.created_at.localeCompare(a.created_at))
       .slice(0, 10)
-      .map((r) => toAnalysisRun(r, data.findings, data.hypotheses)),
+      .map((r) => toAnalysisRun(r, data.findings, data.hypotheses, data.open_questions, data.next_steps)),
+    researchTasks: [...data.research_tasks]
+      .sort((a, b) => a.created_at.localeCompare(b.created_at) || a.position - b.position)
+      .map(toResearchTask),
     uploads: [...data.files]
       .sort((a, b) => b.created_at.localeCompare(a.created_at))
       .map((f) => ({
@@ -205,6 +209,7 @@ export async function getInvestigationRecord(id: string): Promise<InvestigationR
         summary: f.evidence?.summary,
         coverage: f.evidence?.coverage ?? undefined,
         profile: (f.evidence?.profile ?? undefined) as DatasetProfile | undefined,
+        metrics: (f.evidence?.metrics ?? undefined) as DataMetric[] | undefined,
         ...trustOf(f.evidence),
         addedAt: f.created_at,
       })),
@@ -230,13 +235,13 @@ export async function getInvestigationRecord(id: string): Promise<InvestigationR
 }
 
 /** Evidence confidence as stored, or worked out now for evidence saved before it was stored. */
-function trustOf(e: { confidence: string | null; metadata: Json; profile: Json | null; metrics?: Json | null } | null) {
+function trustOf(e: { confidence: string | null; metadata: Json; profile: Json | null; snapshot_id?: string | null } | null) {
   if (!e?.profile) return {};
   if (e.confidence) {
     const reason = (e.metadata as { confidenceReason?: string } | null)?.confidenceReason;
     return { confidence: e.confidence as "low" | "medium" | "high", confidenceReason: reason };
   }
-  const t = assessEvidence(e.profile as unknown as DatasetProfile, (e.metrics ?? undefined) as DataMetric[] | undefined);
+  const t = assessEvidence(e.profile as unknown as DatasetProfile, { connected: !!e.snapshot_id });
   return { confidence: t.level, confidenceReason: t.reason };
 }
 
@@ -255,16 +260,67 @@ type HypothesisRow = Pick<
   | "supporting_findings"
   | "contradicting_findings"
   | "validation_method"
+  | "assumptions"
 > & { evidence_links: LinkRow[] };
+type QuestionRow = Pick<Tables<"open_questions">, "analysis_run_id" | "ref" | "position" | "question" | "why_it_matters" | "missing_evidence">;
+type NextStepRow = Pick<
+  Tables<"next_steps">,
+  "analysis_run_id" | "approach" | "approach_reason" | "evidence_sufficiency" | "type" | "title" | "detail" | "why" | "why_not_build_yet" | "would_change_if"
+>;
+type ResearchTaskRow = Pick<
+  Tables<"research_tasks">,
+  | "id"
+  | "analysis_run_id"
+  | "position"
+  | "title"
+  | "question"
+  | "method"
+  | "method_detail"
+  | "priority"
+  | "status"
+  | "rationale"
+  | "question_ref"
+  | "hypothesis_refs"
+  | "outcome"
+  | "created_at"
+  | "updated_at"
+>;
+
+function toResearchTask(t: ResearchTaskRow): ResearchTaskRecord {
+  return {
+    id: t.id,
+    runId: t.analysis_run_id ?? undefined,
+    title: t.title,
+    question: t.question,
+    method: t.method as ResearchTaskRecord["method"],
+    methodDetail: t.method_detail,
+    priority: t.priority as ResearchTaskRecord["priority"],
+    status: t.status as ResearchTaskRecord["status"],
+    rationale: t.rationale,
+    questionRef: t.question_ref ?? undefined,
+    hypothesisRefs: t.hypothesis_refs,
+    outcome: t.outcome,
+    createdAt: t.created_at,
+    updatedAt: t.updated_at,
+  };
+}
 
 const toLinks = (rows: LinkRow[]): StructuredLink[] =>
   rows.map((l) => ({ evidenceId: l.evidence_id, relation: l.relation as StructuredLink["relation"], shows: l.shows }));
 
 type AnalysisRunRow = Pick<Tables<"analysis_runs">, "id" | "status" | "model" | "created_at" | "completed_at" | "error" | "result" | "pack" | "usage">;
 
-function toAnalysisRun(r: AnalysisRunRow, findingRows: FindingRow[] = [], hypothesisRows: HypothesisRow[] = []): AnalysisRunRecord {
+function toAnalysisRun(
+  r: AnalysisRunRow,
+  findingRows: FindingRow[] = [],
+  hypothesisRows: HypothesisRow[] = [],
+  questionRows: QuestionRow[] = [],
+  nextStepRows: NextStepRow[] = [],
+): AnalysisRunRecord {
   const findings = findingRows.filter((f) => f.analysis_run_id === r.id).sort((a, b) => a.position - b.position);
   const hypotheses = hypothesisRows.filter((h) => h.analysis_run_id === r.id).sort((a, b) => a.position - b.position);
+  const questions = questionRows.filter((q) => q.analysis_run_id === r.id).sort((a, b) => a.position - b.position);
+  const next = nextStepRows.find((n) => n.analysis_run_id === r.id);
   const pack = r.pack as unknown as AnalysisPack | null;
   const usage = r.usage as { removed?: string[] } | null;
   return {
@@ -283,7 +339,7 @@ function toAnalysisRun(r: AnalysisRunRow, findingRows: FindingRow[] = [], hypoth
     })),
     removed: usage?.removed ?? [],
     structured:
-      findings.length || hypotheses.length
+      findings.length || hypotheses.length || next
         ? {
             findings: findings.map((f) => ({
               ref: f.ref,
@@ -305,8 +361,23 @@ function toAnalysisRun(r: AnalysisRunRow, findingRows: FindingRow[] = [], hypoth
               supportingFindings: h.supporting_findings,
               contradictingFindings: h.contradicting_findings,
               validationMethod: h.validation_method,
+              assumptions: h.assumptions,
               links: toLinks(h.evidence_links),
             })),
+            openQuestions: questions.map((q) => ({ ref: q.ref, question: q.question, whyItMatters: q.why_it_matters, missingEvidence: q.missing_evidence })),
+            nextStep: next && {
+              approach: {
+                step: next.approach as Approach["step"],
+                why: next.approach_reason,
+                evidenceSufficiency: next.evidence_sufficiency as Approach["evidenceSufficiency"],
+              },
+              type: next.type as StructuredNextStep["type"],
+              title: next.title,
+              detail: next.detail,
+              why: next.why,
+              whyNotBuildYet: next.why_not_build_yet,
+              wouldChangeIf: next.would_change_if,
+            },
           }
         : undefined,
   };

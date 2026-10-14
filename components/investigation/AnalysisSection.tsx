@@ -1,5 +1,6 @@
 "use client";
 
+import { ApproachNote } from "./LiveResearch";
 import { AlertTriangle, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
@@ -115,8 +116,14 @@ export function AnalysisSection({
           )}
           <p className="mt-4 text-[13px] text-ink-muted">
             {lastGood.result.findings.length} findings · {lastGood.result.hypotheses.length} hypotheses ·{" "}
-            {lastGood.result.openQuestions.length} open questions — see the Findings, Hypotheses, Problem and Next Step tabs.
+            {lastGood.result.openQuestions.length} open questions · {lastGood.result.researchTasks?.length ?? 0} research tasks — see the Findings,
+            Hypotheses, Research Needed and Next Step tabs.
           </p>
+          {lastGood.result.approach && (
+            <div className="mt-3">
+              <ApproachNote approach={lastGood.result.approach} />
+            </div>
+          )}
 
         </div>
       ) : (

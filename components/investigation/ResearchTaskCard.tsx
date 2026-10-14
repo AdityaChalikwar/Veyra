@@ -8,7 +8,7 @@ import type { ResearchTask } from "@/lib/types";
 import { useWorkspace } from "./workspace-context";
 
 const priorityStyle = { high: "bg-danger-50 text-danger-600", medium: "bg-uncertain-50 text-uncertain-600", low: "bg-slate-100 text-slate-600" } as const;
-const statusLabel = { "not-started": "Not started", "in-progress": "In progress", done: "Done" } as const;
+const statusLabel = { "not-started": "Not started", "in-progress": "In progress", done: "Done", dropped: "Dropped" } as const;
 
 /** A piece of research the investigation needs: the question it answers, how, and what it found. */
 export function ResearchTaskCard({ task, index, compact }: { task: ResearchTask; index?: number; compact?: boolean }) {

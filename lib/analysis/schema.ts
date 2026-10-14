@@ -4,8 +4,11 @@ import { z } from "zod";
  * What Claude returns for an analysis. Findings and hypotheses cite datasets by
  * reference ("E1", "E2"…), each with whether it supports, contradicts or can't
  * settle the statement and what it shows; findings, hypotheses and the problem
- * cite each other by id ("F1", "H1"). Kept to plain types so the same shape is the
- * structured-output schema, the validator and the stored result.
+ * cite each other by id ("F1", "H1", "Q1"). The engine first decides which
+ * investigation step fits (approach), then fills only what that step and the
+ * evidence support. Kept to plain types so the same shape is the
+ * structured-output schema, the validator and the stored result. Runs saved
+ * before a field existed simply lack it, so readers treat newer fields as optional.
  */
 
 const level = z.enum(["low", "medium", "high"]);
@@ -49,13 +52,46 @@ export const hypothesisSchema = z.object({
   evidence: z
     .array(citationSchema)
     .describe("Datasets that support or contradict it, and those checked that can't settle it (insufficient)"),
-  validationMethod: z.string().describe("How the team could test this, usually with customers or a controlled comparison"),
+  assumptions: z.array(z.string()).describe("What must be true for this explanation to hold, and hasn't been checked"),
+  validationMethod: z.string().describe("The validation requirement: what would have to be shown, and how, to confirm or reject it"),
 });
 
 export const openQuestionSchema = z.object({
+  id: z.string().describe('"Q1", "Q2"…'),
   question: z.string(),
   whyItMatters: z.string(),
-  wouldBeAnsweredBy: z.string().describe("The data or research that would answer it"),
+  missingEvidence: z.string().describe("The evidence that is missing today and would answer it"),
+});
+
+export const researchMethods = [
+  "data-analysis",
+  "customer-interviews",
+  "survey",
+  "feedback-analysis",
+  "usability-testing",
+  "experiment",
+  "desk-research",
+] as const;
+
+export const researchTaskSchema = z.object({
+  title: z.string().describe("Short, starting with a verb"),
+  question: z.string().describe("The question this research answers"),
+  answersQuestion: z.string().describe('The open question it answers, e.g. "Q1". Empty if none'),
+  testsHypotheses: z.array(z.string()).describe("Hypothesis ids it helps confirm or reject"),
+  method: z.enum(researchMethods),
+  methodDetail: z.string().describe("What exactly to do: which data, which customers, how many"),
+  priority: z.enum(["high", "medium", "low"]).describe("high = the answer would change the conclusion or the next step"),
+  why: z.string(),
+});
+
+export const approachSchema = z.object({
+  step: z
+    .enum(["establish-facts", "explain-change", "fill-gaps", "test-hypotheses"])
+    .describe(
+      "establish-facts = first confirm what happened and how big it is; explain-change = the change is clear, look for causes; fill-gaps = the evidence can't support conclusions, so lead with unknowns and research; test-hypotheses = earlier hypotheses exist, judge them against current evidence",
+    ),
+  why: z.string().describe("Why this step fits the problem, objective and evidence now"),
+  evidenceSufficiency: z.enum(["sufficient", "partial", "insufficient"]).describe("How far the evidence can answer the problem"),
 });
 
 export const refinedProblemSchema = z.object({
@@ -85,10 +121,12 @@ export const nextStepSchema = z.object({
 });
 
 export const analysisSchema = z.object({
+  approach: approachSchema,
   summary: z.string().describe("Two or three plain sentences: what the evidence says and how far to trust it"),
   findings: z.array(findingSchema),
   hypotheses: z.array(hypothesisSchema),
   openQuestions: z.array(openQuestionSchema),
+  researchTasks: z.array(researchTaskSchema).describe("What to do to answer the open questions and test the hypotheses, most important first"),
   refinedProblem: refinedProblemSchema,
   opportunities: z.array(opportunitySchema),
   nextStep: nextStepSchema,
@@ -99,6 +137,9 @@ export type AnalysisCitation = z.infer<typeof citationSchema>;
 export type AnalysisFinding = z.infer<typeof findingSchema>;
 export type AnalysisHypothesis = z.infer<typeof hypothesisSchema>;
 export type AnalysisOpenQuestion = z.infer<typeof openQuestionSchema>;
+export type AnalysisResearchTask = z.infer<typeof researchTaskSchema>;
+export type AnalysisApproach = z.infer<typeof approachSchema>;
+export type ResearchMethodKey = (typeof researchMethods)[number];
 export type AnalysisOpportunity = z.infer<typeof opportunitySchema>;
 export type AnalysisNextStep = z.infer<typeof nextStepSchema>;
 export type AnalysisResult = z.infer<typeof analysisSchema>;

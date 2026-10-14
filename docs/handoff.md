@@ -46,6 +46,13 @@ cite evidence IDs with supports / contradicts / insufficient. See "Evidence engi
 test user); needs one live Claude run. Next: Milestone 7 (decisions, validation, Decision
 Brief), then 8 (Business Memory).
 
+## Milestone 7 — Investigation engine: built
+Approach step, open questions, research tasks and next step saved as rows; earlier runs and the
+team's research outcomes feed the next run; uploads get weekly trends and breakdowns in code. See
+"Investigation engine" in `docs/backend-plan.md`. Test with `docs/samples/dau-daily.csv` and the
+problem "Our DAU dropped 40%." Checked with simulated runs; needs one live Claude run.
+Next: Milestone 8 (decisions, validation, Decision Brief), then 9 (Business Memory).
+
 ## Since Milestone 5
 - No business details at sign-up; workspace created automatically; context optional.
 - One-click demo (`setUpDemo`). Connecting the Demo ERP always switches the business context to

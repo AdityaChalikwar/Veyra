@@ -1,6 +1,6 @@
 import "server-only";
 import type { AnalysisResult } from "@/lib/analysis/schema";
-import { structureRun } from "@/lib/analysis/structure";
+import { structureRun, type StructuredRun } from "@/lib/analysis/structure";
 import type {
   AnalysisRunRecord,
   Confidence,
@@ -13,7 +13,20 @@ import type {
   NextStep,
   OpenQuestion,
   Opportunity,
+  ResearchMethod,
+  ResearchTask,
+  ResearchTaskRecord,
 } from "@/lib/types";
+
+const methodLabel: Record<ResearchTaskRecord["method"], ResearchMethod> = {
+  "data-analysis": "Analytics",
+  "customer-interviews": "Customer interviews",
+  survey: "Survey",
+  "feedback-analysis": "Feedback analysis",
+  "usability-testing": "Usability testing",
+  experiment: "Experiment",
+  "desk-research": "Desk research",
+};
 
 /**
  * The workspace for the team's own investigation, built only from what is saved:
@@ -63,7 +76,7 @@ export function buildLiveWorkspace(record: InvestigationRecord, dataSources: Dat
   // Findings and hypotheses come from the saved rows; runs saved before the rows existed are read from their JSON.
   const refs = new Map(run?.datasets.map((d) => [d.ref, d.evidenceId]) ?? []);
   const present = new Set(evidence.map((e) => e.id));
-  const structured = run?.structured ?? (result ? structureRun(result, (ref) => refs.get(ref)) : { findings: [], hypotheses: [] });
+  const structured: StructuredRun = run?.structured ?? (result ? structureRun(result, (ref) => refs.get(ref)) : { findings: [], hypotheses: [], openQuestions: [] });
   const live = <T extends { evidenceId: string }>(links: T[]) => links.filter((l) => present.has(l.evidenceId));
   const nameOfEvidence = (id: string) => evidence.find((e) => e.id === id)?.name ?? "a dataset";
 
@@ -91,12 +104,28 @@ export function buildLiveWorkspace(record: InvestigationRecord, dataSources: Dat
     };
   });
 
+  const tasks: ResearchTask[] = record.researchTasks.map((t) => ({
+    id: t.id,
+    investigationId: id,
+    title: t.title,
+    question: t.question,
+    method: methodLabel[t.method],
+    priority: t.priority,
+    status: t.status,
+    runnable: false,
+    result: t.outcome || undefined,
+  }));
+  // The open question each run's tasks answer, by the run's own reference.
+  const taskFor = (ref: string) => record.researchTasks.find((t) => t.runId === run?.id && t.questionRef === ref && t.status !== "dropped")?.id;
+
   const openQuestions: OpenQuestion[] = result
-    ? result.openQuestions.map((q, i) => ({
-        id: `q${i + 1}`,
+    ? structured.openQuestions.map((q) => ({
+        id: q.ref,
         investigationId: id,
         question: q.question,
-        whyItMatters: q.wouldBeAnsweredBy ? `${q.whyItMatters} Answered by: ${q.wouldBeAnsweredBy}` : q.whyItMatters,
+        whyItMatters: q.whyItMatters,
+        missingEvidence: q.missingEvidence || undefined,
+        researchTaskId: taskFor(q.ref),
       }))
     : // Before any analysis, the clarifying questions nobody answered are what Veyra doesn't know.
       record.questions
@@ -123,6 +152,7 @@ export function buildLiveWorkspace(record: InvestigationRecord, dataSources: Dat
       evidenceStatus: h.evidenceStatus,
       openQuestions: [],
       validationMethod: h.validationMethod,
+      assumptions: h.assumptions,
       status: "open",
     };
   });
@@ -138,18 +168,20 @@ export function buildLiveWorkspace(record: InvestigationRecord, dataSources: Dat
     ideas: [],
   }));
 
-  const nextStep: NextStep = result
+  const step = structured.nextStep ?? (result && { ...result.nextStep, approach: result.approach });
+  const nextStep: NextStep = step
     ? {
         id: "next",
         investigationId: id,
-        type: result.nextStep.type,
-        title: result.nextStep.title,
-        detail: result.nextStep.detail,
-        why: result.nextStep.why,
-        whyNotBuildYet: result.nextStep.whyNotBuildYet || undefined,
-        researchTaskIds: [],
-        wouldChangeIf: result.nextStep.wouldChangeIf,
+        type: step.type,
+        title: step.title,
+        detail: step.detail,
+        why: step.why,
+        whyNotBuildYet: step.whyNotBuildYet || undefined,
+        researchTaskIds: tasks.filter((t) => t.status === "not-started" && t.priority === "high").map((t) => t.id),
+        wouldChangeIf: step.wouldChangeIf,
         alternatives: [],
+        approach: step.approach,
       }
     : evidence.length
       ? {
@@ -200,7 +232,7 @@ export function buildLiveWorkspace(record: InvestigationRecord, dataSources: Dat
     findings,
     openQuestions,
     hypotheses,
-    researchTasks: [],
+    researchTasks: tasks,
     customers: { segments: [], themes: [], tools: [] },
     market: { status: "not-started", summary: "" },
     problem: {

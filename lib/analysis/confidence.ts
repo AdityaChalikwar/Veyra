@@ -1,4 +1,4 @@
-import type { DataMetric, DatasetProfile } from "@/lib/types";
+import type { DatasetProfile } from "@/lib/types";
 import { fmtInt, pct } from "./format";
 
 export type EvidenceConfidence = "low" | "medium" | "high";
@@ -8,7 +8,7 @@ export type EvidenceConfidence = "low" | "medium" | "high";
  * size, the period it covers and its quality. No AI: the same data always
  * gets the same answer, with the reasons spelled out.
  */
-export function assessEvidence(profile: DatasetProfile, metrics?: DataMetric[]): { level: EvidenceConfidence; reason: string } {
+export function assessEvidence(profile: DatasetProfile, opts: { connected?: boolean } = {}): { level: EvidenceConfidence; reason: string } {
   const rows = profile.rowCount;
   const days = profile.dateRange ? Math.round((Date.parse(profile.dateRange.to) - Date.parse(profile.dateRange.from)) / 86_400_000) : 0;
   const fill = profile.columns.length && rows ? profile.columns.reduce((sum, c) => sum + c.filled / rows, 0) / profile.columns.length : 0;
@@ -25,7 +25,7 @@ export function assessEvidence(profile: DatasetProfile, metrics?: DataMetric[]):
   else if (fill >= 0.95) strengths.push("few missing values");
   if (issues) limits.push(`${issues} data ${issues === 1 ? "issue" : "issues"} found`);
   if (profile.truncated) limits.push("only the first rows were read");
-  if (metrics?.length) strengths.push("checked and mapped from a connected system");
+  if (opts.connected) strengths.push("checked and mapped from a connected system");
 
   const level: EvidenceConfidence = limits.length >= 2 || rows < 50 ? "low" : limits.length === 0 && strengths.length >= 2 ? "high" : "medium";
   const parts = [strengths.length && `Strengths: ${strengths.join(", ")}.`, limits.length && `Limits: ${limits.join(", ")}.`].filter(Boolean);
