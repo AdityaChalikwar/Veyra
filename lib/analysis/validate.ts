@@ -122,10 +122,11 @@ export function checkCitations(raw: AnalysisResult, pack: AnalysisPack): { resul
   };
 }
 
-/** The numbers in a piece of text, normalised ("1,234.50" → "1234.5"). */
+/** The numbers in a piece of text, normalised ("1,234.50" → "1234.5", "07" → "7"). */
 export function numbersIn(text: string): string[] {
   return (text.match(/\d[\d,]*(?:\.\d+)?/g) ?? []).map((n) => {
-    const plain = n.replace(/,/g, "");
+    // "07" (as in 2026-09-07) and "7" (as in "7 Sep") are the same number.
+    const plain = n.replace(/,/g, "").replace(/^0+(?=\d)/, "");
     return plain.includes(".") ? plain.replace(/\.?0+$/, "") : plain;
   });
 }

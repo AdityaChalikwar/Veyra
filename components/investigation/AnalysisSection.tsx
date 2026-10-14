@@ -104,25 +104,24 @@ export function AnalysisSection({
             </p>
           )}
           <p className="text-[14px] leading-relaxed text-ink">{lastGood.result.summary}</p>
-          {lastGood.result.dataLimits.length > 0 && (
-            <>
-              <h3 className="mt-4 text-xs font-semibold uppercase tracking-wider text-ink-faint">What this data can&rsquo;t show</h3>
-              <ul className="mt-1.5 list-disc space-y-1 pl-5 text-[13px] text-ink-muted">
-                {lastGood.result.dataLimits.map((l) => (
-                  <li key={l}>{l}</li>
-                ))}
-              </ul>
-            </>
-          )}
-          <p className="mt-4 text-[13px] text-ink-muted">
-            {lastGood.result.findings.length} findings · {lastGood.result.hypotheses.length} hypotheses ·{" "}
-            {lastGood.result.openQuestions.length} open questions · {lastGood.result.researchTasks?.length ?? 0} research tasks — see the Findings,
-            Hypotheses, Research Needed and Next Step tabs.
-          </p>
           {lastGood.result.approach && (
             <div className="mt-3">
               <ApproachNote approach={lastGood.result.approach} />
             </div>
+          )}
+          <p className="mt-3 text-[13px] text-ink-muted">
+            {lastGood.result.findings.length} findings · {lastGood.result.hypotheses.length} hypotheses ·{" "}
+            {lastGood.result.openQuestions.length} open questions · {lastGood.result.researchTasks?.length ?? 0} research tasks
+          </p>
+          {lastGood.result.dataLimits.length > 0 && (
+            <details className="mt-3 text-[13px]">
+              <summary className="cursor-pointer text-xs font-medium text-ink-subtle">What this data can&rsquo;t show ({lastGood.result.dataLimits.length})</summary>
+              <ul className="mt-1.5 list-disc space-y-1 pl-5 text-ink-muted">
+                {lastGood.result.dataLimits.map((l) => (
+                  <li key={l}>{l}</li>
+                ))}
+              </ul>
+            </details>
           )}
 
         </div>

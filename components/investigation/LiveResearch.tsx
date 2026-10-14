@@ -55,7 +55,12 @@ export function ApproachNote({ approach }: { approach: NonNullable<NextStep["app
             {sufficiencyLabel[approach.evidenceSufficiency]}
           </span>
         </p>
-        {approach.why && <p className="mt-1 leading-relaxed text-ink-muted">{approach.why}</p>}
+        {approach.why && (
+          <details className="mt-1">
+            <summary className="cursor-pointer text-xs font-medium text-brand-600">Why this step</summary>
+            <p className="mt-1 leading-relaxed text-ink-muted">{approach.why}</p>
+          </details>
+        )}
       </div>
     </div>
   );

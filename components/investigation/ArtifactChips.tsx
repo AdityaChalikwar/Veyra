@@ -48,7 +48,7 @@ export function FindingChip({ id }: { id: string }) {
       <Lightbulb className="mt-px h-3 w-3 shrink-0 text-brand-600" />
       <span>
         <span className="mr-1 text-[10px] font-semibold uppercase tracking-wide text-ink-faint">{finding.kind}</span>
-        {finding.statement}
+        {finding.title ?? finding.statement}
       </span>
     </button>
   );

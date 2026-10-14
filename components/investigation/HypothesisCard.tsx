@@ -36,7 +36,7 @@ export function HypothesisCard({ hypothesis: h, compact }: { hypothesis: Hypothe
         </div>
         <ChevronRight className="h-4 w-4 shrink-0 text-ink-faint transition-transform group-hover:translate-x-0.5 group-hover:text-brand-600" />
       </div>
-      <h3 className={cn("mt-2 font-semibold leading-snug", compact ? "text-[14px]" : "text-[15px]")}>{h.statement}</h3>
+      <h3 className={cn("mt-2 font-semibold leading-snug", compact ? "text-[14px]" : "text-[15px]")}>{h.title ?? h.statement}</h3>
       <dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
         <div>
           <dt className="text-[10.5px] font-semibold uppercase tracking-wider text-ink-faint">Evidence</dt>
@@ -53,7 +53,7 @@ export function HypothesisCard({ hypothesis: h, compact }: { hypothesis: Hypothe
       </dl>
       {!compact && (
         <>
-          <p className="mt-3 text-[13px] text-ink-muted">{h.rationale}</p>
+          {!h.title && <p className="mt-3 text-[13px] text-ink-muted">{h.rationale}</p>}
           <p className="mt-3 text-xs text-ink-subtle">
             <b className="font-semibold text-confirmed-600">{support}</b> supporting · <b className="font-semibold text-uncertain-600">{contra}</b> contradicting
           </p>
