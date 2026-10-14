@@ -238,6 +238,7 @@ export type Database = {
           position: number;
           kind: string;
           statement: string;
+          title: string;
           observed: Json | null;
           confidence: string;
           confidence_reason: string;
@@ -253,6 +254,7 @@ export type Database = {
           position?: number;
           kind: string;
           statement: string;
+          title?: string;
           observed?: Json | null;
           confidence: string;
           confidence_reason?: string;
@@ -268,6 +270,7 @@ export type Database = {
           position?: number;
           kind?: string;
           statement?: string;
+          title?: string;
           observed?: Json | null;
           confidence?: string;
           confidence_reason?: string;
@@ -308,6 +311,7 @@ export type Database = {
           ref: string;
           position: number;
           statement: string;
+          title: string;
           rationale: string;
           confidence: string;
           evidence_strength: string;
@@ -327,6 +331,7 @@ export type Database = {
           ref: string;
           position?: number;
           statement: string;
+          title?: string;
           rationale?: string;
           confidence: string;
           evidence_strength: string;
@@ -346,6 +351,7 @@ export type Database = {
           ref?: string;
           position?: number;
           statement?: string;
+          title?: string;
           rationale?: string;
           confidence?: string;
           evidence_strength?: string;

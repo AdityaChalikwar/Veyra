@@ -10,10 +10,12 @@ import type { AnalysisResult, ResearchMethodKey } from "./schema";
 export type EvidenceRelation = "supports" | "contradicts" | "insufficient";
 export type EvidenceStatus = "supported" | "contradicted" | "mixed" | "insufficient";
 export type StructuredLink = { evidenceId: string; relation: EvidenceRelation; shows: string };
-export type Observed = { measure: string; values: string; period: string };
+export type Observed = { measure: string; values: string; period: string; /** Bad, good or neither for the business; absent on older runs. */ effect?: "worse" | "better" | "neutral" };
 
 export type StructuredFinding = {
   ref: string;
+  /** Short headline for cards; empty for runs saved before titles existed. */
+  title: string;
   kind: "observation" | "interpretation" | "insight";
   statement: string;
   observed?: Observed;
@@ -25,6 +27,7 @@ export type StructuredFinding = {
 
 export type StructuredHypothesis = {
   ref: string;
+  title: string;
   statement: string;
   rationale: string;
   confidence: "low" | "medium" | "high";
@@ -97,6 +100,7 @@ export function structureRun(result: AnalysisResult, evidenceFor: (ref: string) 
 
   const findings: StructuredFinding[] = result.findings.map((f) => ({
     ref: f.id,
+    title: f.title ?? "",
     kind: f.kind,
     statement: f.statement,
     observed: f.observed?.values?.trim() ? f.observed : undefined,
@@ -112,6 +116,7 @@ export function structureRun(result: AnalysisResult, evidenceFor: (ref: string) 
     const contradicts = h.contradictingFindings.length + links.filter((l) => l.relation === "contradicts").length;
     return {
       ref: h.id,
+      title: h.title ?? "",
       statement: h.statement,
       rationale: h.rationale,
       confidence: h.confidence,

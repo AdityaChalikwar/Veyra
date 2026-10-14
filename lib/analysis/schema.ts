@@ -27,14 +27,16 @@ export const findingSchema = z.object({
   kind: z
     .enum(["observation", "interpretation", "insight"])
     .describe("observation = what the data plainly shows; interpretation = what it may mean; insight = a pattern across findings"),
-  statement: z.string(),
+  title: z.string().describe('A headline of at most 8 words for a card, e.g. "Android users fell after 5.2.0". No figures the statement doesn\'t have'),
+  statement: z.string().describe("One or two short sentences"),
   confidence: level,
   confidenceReason: z.string().describe("Why the confidence is what it is, including what limits it"),
   observed: z
     .object({
-      measure: z.string().describe('What was measured, e.g. "Kitchen return rate"'),
-      values: z.string().describe('The values seen, copied from the pack, e.g. "4.1% → 9.8%" or "214 notes"'),
-      period: z.string().describe('The period they cover, e.g. "Jun – Sep 2026"'),
+      measure: z.string().describe('One measure, at most 5 words, e.g. "Android daily active users"'),
+      values: z.string().describe('Exactly "start → end" with two figures copied from the pack, e.g. "13,717 → 8,587" or "4.1% → 9.8%", or a single figure. Numbers only, no labels, no lists, no semicolons'),
+      period: z.string().describe('The period they cover, short, e.g. "31 Aug – 14 Sep"'),
+      effect: z.enum(["worse", "better", "neutral"]).describe("For the business, is this change bad (worse), good (better) or neither?"),
     })
     .describe("The measured values behind the statement. Empty strings if the finding has no single measured value"),
   evidence: z.array(citationSchema).describe("Every dataset this rests on or that contradicts it. At least one must support it"),
@@ -43,7 +45,8 @@ export const findingSchema = z.object({
 
 export const hypothesisSchema = z.object({
   id: z.string().describe('"H1", "H2"…'),
-  statement: z.string(),
+  title: z.string().describe("A headline of at most 8 words for a card"),
+  statement: z.string().describe("One or two short sentences"),
   rationale: z.string(),
   confidence: level,
   evidenceStrength: z.enum(["weak", "moderate", "strong"]),
@@ -129,7 +132,7 @@ export const nextStepSchema = z.object({
  */
 export const evidenceStepSchema = z.object({
   approach: approachSchema,
-  summary: z.string().describe("Two or three plain sentences: what the evidence says and how far to trust it"),
+  summary: z.string().describe("At most two short sentences (under 40 words): what the evidence says and how far to trust it"),
   findings: z.array(findingSchema),
   hypotheses: z.array(hypothesisSchema),
   dataLimits: z.array(z.string()).describe("Things this data cannot show"),

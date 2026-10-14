@@ -1,5 +1,8 @@
 "use client";
 
+import { buildKpis } from "@/lib/analysis/kpis";
+import { pickCharts } from "@/lib/analysis/charts";
+import { MetricChart, MetricLegend } from "./MetricChart";
 import { ArrowRight, Brain, CheckCircle2, ChevronDown, CircleHelp, CircleSlash, Compass, Database, Info, Upload } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
@@ -132,7 +135,7 @@ function WhatWeKnow({ href }: { href: string }) {
           const e = workspace.evidence.find((x) => x.id === f.evidenceIds[0]);
           return (
             <li key={f.id} className="py-3 first:pt-0">
-              <p className="text-[14px] font-medium leading-snug text-ink">{f.statement}</p>
+              <p className="text-[14px] font-medium leading-snug text-ink">{f.title ?? f.statement}</p>
               <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-subtle">
                 {e && (
                   <span className="flex items-center gap-1">
@@ -314,31 +317,71 @@ function LiveOverview({ live, tab }: { live: LiveInvestigation; tab: (slug: stri
   const sources = record.dataSourceIds.map((d) => dataSources.find((x) => x.id === d)).filter((d): d is DataSource => !!d);
   const unanswered = record.questions.filter((q) => !q.answer.trim()).length;
 
+  const analysis = workspace.evidence.length ? (
+    <AnalysisSection
+      investigationId={inv.id}
+      runs={record.analysisRuns}
+      uploads={record.uploads}
+      sourceEvidenceIds={record.sourceEvidence.map((e) => e.evidenceId)}
+    />
+  ) : (
+    <section className="rounded-xl border-2 border-brand-200 bg-surface p-5 shadow-card">
+      <h2 className="flex items-center gap-2 text-[15px] font-semibold">
+        <Upload className="h-4 w-4 text-brand-600" /> Start by adding data
+      </h2>
+      <p className="mt-0.5 text-xs text-ink-subtle">
+        Upload a CSV export — events, sign-ups, orders or support tickets — or{" "}
+        <Link href={tab("evidence")} className="font-medium text-brand-600 hover:text-brand-700">
+          add datasets from a connected source
+        </Link>
+        . Veyra checks what they contain, then analyses them against this problem.
+      </p>
+      <div className="mt-4">
+        <DataUploader investigationId={inv.id} />
+      </div>
+    </section>
+  );
+  // Once analysed: headline figures and trends first, worked out in code from the findings and the evidence.
+  const kpis = live.run ? buildKpis(workspace.findings, workspace.evidence) : [];
+  const charts = live.run
+    ? pickCharts(
+        [
+          ...record.uploads.filter((u) => u.evidenceId).map((u) => ({ evidenceId: u.evidenceId!, metrics: u.metrics })),
+          ...record.sourceEvidence.map((e) => ({ evidenceId: e.evidenceId, metrics: e.metrics })),
+        ],
+        workspace.findings,
+      )
+    : [];
+
   return (
     <div className="mt-6 space-y-6">
-      {workspace.evidence.length ? (
-        <AnalysisSection
-          investigationId={inv.id}
-          runs={record.analysisRuns}
-          uploads={record.uploads}
-          sourceEvidenceIds={record.sourceEvidence.map((e) => e.evidenceId)}
-        />
-      ) : (
-        <section className="rounded-xl border-2 border-brand-200 bg-surface p-5 shadow-card">
-          <h2 className="flex items-center gap-2 text-[15px] font-semibold">
-            <Upload className="h-4 w-4 text-brand-600" /> Start by adding data
-          </h2>
-          <p className="mt-0.5 text-xs text-ink-subtle">
-            Upload a CSV export — events, sign-ups, orders or support tickets — or{" "}
-            <Link href={tab("evidence")} className="font-medium text-brand-600 hover:text-brand-700">
-              add datasets from a connected source
-            </Link>
-            . Veyra checks what they contain, then analyses them against this problem.
-          </p>
-          <div className="mt-4">
-            <DataUploader investigationId={inv.id} />
-          </div>
-        </section>
+      {!live.run && analysis}
+
+      {kpis.length > 1 && (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-4">
+          {kpis.map((k) => (
+            <KpiCard key={k.id} kpi={k} />
+          ))}
+        </div>
+      )}
+
+      {live.run && analysis}
+
+      {charts.length > 0 && (
+        <div className={charts.length > 1 ? "grid grid-cols-1 gap-4 lg:grid-cols-2" : ""}>
+          {charts.map((c) => (
+            <ChartCard
+              key={c.key}
+              title={c.title}
+              legend={<MetricLegend spec={c} />}
+              source={sourceLabel(workspace, c.evidenceId)}
+              table={{ caption: c.title, columns: c.metric.columns, rows: c.metric.rows }}
+            >
+              <MetricChart spec={c} />
+              {c.note && <p className="mt-1 text-[11px] text-ink-faint">{c.note}</p>}
+            </ChartCard>
+          ))}
+        </div>
       )}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">

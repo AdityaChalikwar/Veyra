@@ -312,6 +312,8 @@ export type Finding = {
   id: ID;
   investigationId: ID;
   kind: FindingKind;
+  /** Short headline for cards (real investigations); the statement is the detail. */
+  title?: string;
   statement: string;
   confidence: Confidence;
   /** Why the confidence is what it is. */
@@ -354,6 +356,8 @@ export type Hypothesis = {
   investigationId: ID;
   /** Short reference, e.g. "H1". */
   label: string;
+  /** Short headline for cards (real investigations). */
+  title?: string;
   statement: string;
   confidence: Confidence;
   evidenceStrength: EvidenceStrength;
@@ -642,8 +646,12 @@ export type Kpi = {
   detail: string;
   /** "decline" = a real drop worth flagging; "stable" = checked and unchanged; "neutral" = context. */
   kind: "decline" | "stable" | "neutral";
-  icon: "users" | "funnel" | "retention" | "evidence";
+  icon: "users" | "funnel" | "retention" | "evidence" | "metric";
   sourceEvidenceId?: ID;
+  /** Which way the figure moved, when worked out from the data (shown without judging good or bad). */
+  direction?: "up" | "down" | "flat";
+  /** The finding the card comes from; clicking opens it. */
+  findingId?: ID;
 };
 
 export type TrendPoint = { period: string; value: number; annotation?: string };

@@ -26,7 +26,8 @@ export function HypothesisDetail({ id }: { id: string }) {
           <KindBadge kind="hypothesis" />
           <span className="text-xs font-semibold text-ink-subtle">{h.label}</span>
         </div>
-        <p className="mt-3 text-lg font-semibold leading-snug">{h.statement}</p>
+        <p className="mt-3 text-lg font-semibold leading-snug">{h.title ?? h.statement}</p>
+        {h.title && <p className="mt-1.5 text-[14px] leading-relaxed text-ink">{h.statement}</p>}
         <div className="mt-2 flex flex-wrap items-center gap-3">
           {h.evidenceStatus && <EvidenceStatusBadge status={h.evidenceStatus} />}
           <EvidenceStrengthBadge strength={h.evidenceStrength} />

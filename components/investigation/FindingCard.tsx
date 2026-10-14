@@ -62,8 +62,8 @@ export function FindingCard({ finding: f, compact }: { finding: Finding; compact
         <ConfidenceBadge level={f.confidence} />
         {derived && <EvidenceRoleBadge role="requires-validation" />}
       </div>
-      <h3 className={cn("mt-2 font-semibold leading-snug", compact ? "text-[14px]" : "text-[15px]")}>{f.statement}</h3>
-      {!compact && <p className="mt-1 text-[13px] text-ink-subtle">{f.confidenceReason}</p>}
+      <h3 className={cn("mt-2 font-semibold leading-snug", compact ? "text-[14px]" : "text-[15px]")}>{f.title ?? f.statement}</h3>
+      {!compact && !f.title && <p className="mt-1 text-[13px] text-ink-subtle">{f.confidenceReason}</p>}
       <dl className="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 border-t border-line pt-3 text-xs">
         {meta.map(([k, v]) => (
           <div key={k} className="contents">

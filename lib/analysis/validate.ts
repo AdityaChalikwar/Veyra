@@ -32,12 +32,12 @@ export function checkCitations(raw: AnalysisResult, pack: AnalysisPack): { resul
   const seen = new Set<string>();
   const findings = raw.findings
     .map((f) => {
-      const observed = f.observed && f.observed.values.trim() ? f.observed : { measure: "", values: "", period: "" };
+      const observed = f.observed && f.observed.values.trim() ? { ...f.observed, values: firstAndLast(f.observed.values) } : { measure: "", values: "", period: "", effect: "neutral" as const };
       const unverified = numbersIn(observed.values).filter((n) => !packNumbers.has(n));
       if (unverified.length) removed.push(`Finding ${f.id}: the observed values (${observed.values}) aren't figures from the data, so they were left out.`);
       return {
         ...f,
-        observed: unverified.length ? { measure: "", values: "", period: "" } : observed,
+        observed: unverified.length ? { measure: "", values: "", period: "", effect: "neutral" as const } : observed,
         evidence: cleanCitations(f.evidence, `Finding ${f.id}`, false),
       };
     })
@@ -122,10 +122,17 @@ export function checkCitations(raw: AnalysisResult, pack: AnalysisPack): { resul
   };
 }
 
-/** The numbers in a piece of text, normalised ("1,234.50" → "1234.5"). */
+/** A chain like "6,620 → 4,243 → 1,334" becomes its first and last figures, "6,620 → 1,334". */
+export function firstAndLast(values: string): string {
+  const parts = values.split(/→|->/).map((p) => p.trim()).filter(Boolean);
+  return parts.length > 2 ? `${parts[0]} → ${parts[parts.length - 1]}` : values.trim();
+}
+
+/** The numbers in a piece of text, normalised ("1,234.50" → "1234.5", "07" → "7"). */
 export function numbersIn(text: string): string[] {
   return (text.match(/\d[\d,]*(?:\.\d+)?/g) ?? []).map((n) => {
-    const plain = n.replace(/,/g, "");
+    // "07" (as in 2026-09-07) and "7" (as in "7 Sep") are the same number.
+    const plain = n.replace(/,/g, "").replace(/^0+(?=\d)/, "");
     return plain.includes(".") ? plain.replace(/\.?0+$/, "") : plain;
   });
 }

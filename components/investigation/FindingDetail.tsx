@@ -31,7 +31,8 @@ export function FindingDetail({ id }: { id: string }) {
           <ConfidenceBadge level={finding.confidence} />
           {finding.kind !== "observation" && <EvidenceRoleBadge role="requires-validation" />}
         </div>
-        <p className="mt-3 text-lg font-semibold leading-snug">{finding.statement}</p>
+        <p className="mt-3 text-lg font-semibold leading-snug">{finding.title ?? finding.statement}</p>
+        {finding.title && <p className="mt-1.5 text-[14px] leading-relaxed text-ink">{finding.statement}</p>}
         <p className="mt-1.5 text-[13px] text-ink-subtle">{finding.confidenceReason}</p>
       </div>
 
@@ -115,7 +116,7 @@ export function FindingDetail({ id }: { id: string }) {
                   className="w-full rounded-lg border border-line px-3 py-2 text-left text-[13px] hover:border-brand-300"
                 >
                   <KindBadge kind="hypothesis" className="mr-2" />
-                  {h.label}: {h.statement}
+                  {h.label}: {h.title ?? h.statement}
                   <span className="ml-1 text-xs text-ink-faint">
                     ({h.supportingFindingIds.includes(id) ? "supports" : "challenges"})
                   </span>

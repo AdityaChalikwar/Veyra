@@ -254,3 +254,18 @@ summary; hypotheses show assumptions and the validation requirement.
 Test file: `docs/samples/dau-daily.csv` — daily DAU by platform and app version, Jul–Sep 2026;
 total DAU falls about 37% after Android 5.2.0 ships on 8 Sep.
 
+## Readable overview (after Milestone 7)
+
+The analysis runs in **two structured calls** (`lib/analysis/run.ts`): one schema with every
+artifact compiled to a grammar the API rejected as too large. Step 1 (effort high) picks the
+approach and writes findings and hypotheses; step 2 (effort medium) gets step 1, after its citations
+are checked, and writes open questions, research tasks, the refined problem, opportunities and the
+next step. Failed runs keep the API's status, request id and message in `analysis_runs.usage.apiError`.
+
+Findings and hypotheses carry a short `title` (cards) besides the statement (side panel). A real
+investigation's overview shows, once analysed: headline cards built in code from the findings'
+observed values (`lib/analysis/kpis.ts` works out "−37%", "×2.8" or "+5.7 pts" from "A → B"), a
+two-sentence summary, and up to two trend charts drawn from the evidence's worked-out metrics
+(`lib/analysis/charts.ts`: time-based metrics from cited evidence, closest to what the findings
+measured; one axis per chart, at most four lines, each with a table view).
+

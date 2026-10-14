@@ -170,7 +170,7 @@ export async function getInvestigationRecord(id: string): Promise<InvestigationR
   const { data } = await supabase
     .from("investigations")
     .select(
-      "triggers, outcomes, objective, current_stage, known_context, attachments, data_source_ids, plan, created_at, clarifying_questions (id, position, question, hint, answer), files (id, name, size_bytes, status, error, created_at, evidence (id, summary, coverage, profile, metrics, confidence, metadata)), investigation_stages (stage, completed_at), evidence (id, name, source, coverage, summary, profile, metrics, snapshot_id, file_id, confidence, metadata, created_at), analysis_runs (id, status, model, created_at, completed_at, error, result, pack, usage), findings (analysis_run_id, ref, position, kind, statement, observed, confidence, confidence_reason, based_on, evidence_links (evidence_id, relation, shows)), hypotheses (analysis_run_id, ref, position, statement, rationale, confidence, evidence_strength, evidence_status, supporting_findings, contradicting_findings, validation_method, assumptions, evidence_links (evidence_id, relation, shows)), open_questions (analysis_run_id, ref, position, question, why_it_matters, missing_evidence), next_steps (analysis_run_id, approach, approach_reason, evidence_sufficiency, type, title, detail, why, why_not_build_yet, would_change_if), research_tasks (id, analysis_run_id, position, title, question, method, method_detail, priority, status, rationale, question_ref, hypothesis_refs, outcome, created_at, updated_at)",
+      "triggers, outcomes, objective, current_stage, known_context, attachments, data_source_ids, plan, created_at, clarifying_questions (id, position, question, hint, answer), files (id, name, size_bytes, status, error, created_at, evidence (id, summary, coverage, profile, metrics, confidence, metadata)), investigation_stages (stage, completed_at), evidence (id, name, source, coverage, summary, profile, metrics, snapshot_id, file_id, confidence, metadata, created_at), analysis_runs (id, status, model, created_at, completed_at, error, result, pack, usage), findings (analysis_run_id, ref, position, kind, title, statement, observed, confidence, confidence_reason, based_on, evidence_links (evidence_id, relation, shows)), hypotheses (analysis_run_id, ref, position, title, statement, rationale, confidence, evidence_strength, evidence_status, supporting_findings, contradicting_findings, validation_method, assumptions, evidence_links (evidence_id, relation, shows)), open_questions (analysis_run_id, ref, position, question, why_it_matters, missing_evidence), next_steps (analysis_run_id, approach, approach_reason, evidence_sufficiency, type, title, detail, why, why_not_build_yet, would_change_if), research_tasks (id, analysis_run_id, position, title, question, method, method_detail, priority, status, rationale, question_ref, hypothesis_refs, outcome, created_at, updated_at)",
     )
     .eq("id", id)
     .maybeSingle();
@@ -246,12 +246,13 @@ function trustOf(e: { confidence: string | null; metadata: Json; profile: Json |
 }
 
 type LinkRow = { evidence_id: string; relation: string; shows: string };
-type FindingRow = Pick<Tables<"findings">, "analysis_run_id" | "ref" | "position" | "kind" | "statement" | "observed" | "confidence" | "confidence_reason" | "based_on"> & { evidence_links: LinkRow[] };
+type FindingRow = Pick<Tables<"findings">, "analysis_run_id" | "ref" | "position" | "kind" | "title" | "statement" | "observed" | "confidence" | "confidence_reason" | "based_on"> & { evidence_links: LinkRow[] };
 type HypothesisRow = Pick<
   Tables<"hypotheses">,
   | "analysis_run_id"
   | "ref"
   | "position"
+  | "title"
   | "statement"
   | "rationale"
   | "confidence"
@@ -343,6 +344,7 @@ function toAnalysisRun(
         ? {
             findings: findings.map((f) => ({
               ref: f.ref,
+              title: f.title,
               kind: f.kind as StructuredFinding["kind"],
               statement: f.statement,
               observed: (f.observed ?? undefined) as StructuredFinding["observed"],
@@ -353,6 +355,7 @@ function toAnalysisRun(
             })),
             hypotheses: hypotheses.map((h) => ({
               ref: h.ref,
+              title: h.title,
               statement: h.statement,
               rationale: h.rationale,
               confidence: h.confidence as StructuredHypothesis["confidence"],
