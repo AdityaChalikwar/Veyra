@@ -4,7 +4,7 @@ import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import type { BusinessContext, InvestigationTrigger, InvestigationOutcome } from "@/lib/types";
 import { outcomesLabel, triggersLabel } from "@/lib/options";
 import { renderPack, type AnalysisPack } from "./pack";
-import { analysisSchema, type AnalysisResult } from "./schema";
+import { evidenceStepSchema, planStepSchema, type AnalysisResult, type EvidenceStep } from "./schema";
 import { checkCitations } from "./validate";
 
 export const ANALYSIS_MODEL = process.env.ANALYSIS_MODEL || "claude-opus-5-5";
@@ -13,8 +13,12 @@ const MAX_OUTPUT_TOKENS = 32_000;
 // Only the JSON schema, without the helper's parser: the SDK would otherwise parse
 // every text block itself and throw on a refused, cut-off or partly-fallen-back
 // answer before the stop reason can be checked. The answer is parsed below instead.
-const { type: formatType, schema: formatSchema } = betaZodOutputFormat(analysisSchema);
-const OUTPUT_FORMAT = { type: formatType, schema: formatSchema };
+const formatOf = (schema: Parameters<typeof betaZodOutputFormat>[0]) => {
+  const { type, schema: json } = betaZodOutputFormat(schema);
+  return { type, schema: json };
+};
+const EVIDENCE_FORMAT = formatOf(evidenceStepSchema);
+const PLAN_FORMAT = formatOf(planStepSchema);
 
 export type AnalysisInput = {
   context: BusinessContext;
@@ -40,7 +44,14 @@ export type PreviousArtifacts = {
 
 export type AnalysisOutcome =
   | { status: "completed"; result: AnalysisResult; removed: string[]; usage: Record<string, number | null>; stopReason: string }
-  | { status: "refused" | "truncated" | "failed"; error: string; stopReason?: string; usage?: Record<string, number | null> };
+  | {
+      status: "refused" | "truncated" | "failed";
+      error: string;
+      stopReason?: string;
+      usage?: Record<string, number | null>;
+      /** What the AI service itself said, kept on the run for diagnosis (no secrets: status, request id, message). */
+      detail?: { status?: number; requestId?: string | null; message: string };
+    };
 
 const SYSTEM = `You are Veyra, a product discovery analyst. A product team has described a problem and uploaded data. Your job is to say what that data does and does not show, and what the team should do next. You produce structured investigation records, never a prose essay, and you don't run frameworks for their own sake.
 
@@ -116,70 +127,126 @@ function describePrevious(p: PreviousArtifacts): string {
   return out.join("\n");
 }
 
-/** One structured Claude call. Never throws: every failure comes back as a plain-English outcome. */
+type Usage = Record<string, number | null>;
+type StepFailure = Exclude<AnalysisOutcome, { status: "completed" }>;
+
+/**
+ * One structured Claude call. The investigation (system prompt and input) is the
+ * cached prefix, so the second step re-reads it cheaply; the step instruction comes after it.
+ */
+async function callStep<T>(
+  client: Anthropic,
+  input: AnalysisInput,
+  step: string,
+  format: ReturnType<typeof formatOf>,
+  schema: { safeParse: (v: unknown) => { success: true; data: T } | { success: false } },
+  effort: "medium" | "high",
+): Promise<{ ok: true; data: T; usage: Usage; stopReason: string } | { ok: false; failure: StepFailure }> {
+  // Streaming keeps a long answer from hitting request timeouts; the whole answer is read before anything is saved.
+  const stream = client.beta.messages.stream({
+    model: ANALYSIS_MODEL,
+    max_tokens: MAX_OUTPUT_TOKENS,
+    thinking: { type: "adaptive" },
+    output_config: { effort, format },
+    betas: ["server-side-fallback-2026-07-01"],
+    fallbacks: "default",
+    system: SYSTEM,
+    messages: [
+      {
+        role: "user",
+        content: [
+          { type: "text", text: describeInput(input), cache_control: { type: "ephemeral" } },
+          { type: "text", text: step },
+        ],
+      },
+    ],
+  });
+  const message = await stream.finalMessage();
+  const stopReason = message.stop_reason ?? "unknown";
+  const usage: Usage = {
+    inputTokens: message.usage.input_tokens,
+    outputTokens: message.usage.output_tokens,
+    cacheReadTokens: message.usage.cache_read_input_tokens ?? null,
+  };
+
+  if (stopReason === "refusal") {
+    return { ok: false, failure: { status: "refused", stopReason, usage, error: "Claude declined to analyse this material. Check the problem and data for anything sensitive and try again." } };
+  }
+  if (stopReason === "max_tokens") {
+    return { ok: false, failure: { status: "truncated", stopReason, usage, error: "The analysis was cut off before it finished, so nothing was saved. Try again, or upload less data." } };
+  }
+
+  // If a backup model took over part-way, the stream keeps the declined partial
+  // before a `fallback` block. Try the whole text first, then only what follows it.
+  const textOf = (blocks: readonly Anthropic.Beta.BetaContentBlock[]) => blocks.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("");
+  const lastFallback = message.content.map((b) => b.type).lastIndexOf("fallback");
+  const candidates = [textOf(message.content)];
+  if (lastFallback >= 0) candidates.push(textOf(message.content.slice(lastFallback + 1)));
+  let json: unknown;
+  for (const text of candidates) {
+    try {
+      json = JSON.parse(text);
+      break;
+    } catch {
+      // try the next candidate
+    }
+  }
+  if (json === undefined) return { ok: false, failure: { status: "failed", stopReason, usage, error: "Claude's answer wasn't in the expected form. Try again." } };
+  const parsed = schema.safeParse(json);
+  if (!parsed.success) return { ok: false, failure: { status: "failed", stopReason, usage, error: "Claude's answer was missing parts. Try again." } };
+  return { ok: true, data: parsed.data, usage, stopReason };
+}
+
+const STEP_EVIDENCE =
+  "Step 1 of 2. Decide the approach, then write the summary, findings, hypotheses and data limits. Open questions, research and the next step come in step 2.";
+
+function planStep(evidence: EvidenceStep): string {
+  const findings = evidence.findings.map((f) => `- ${f.id} (${f.kind}, ${f.confidence}): ${f.statement}`).join("\n");
+  const hypotheses = evidence.hypotheses
+    .map((h) => `- ${h.id} (${h.confidence}): ${h.statement}\n  Assumptions: ${h.assumptions.join("; ") || "none"}\n  Validation: ${h.validationMethod}`)
+    .join("\n");
+  return [
+    "Step 2 of 2. Step 1 is done and checked against the evidence:",
+    `<step_1>\nApproach: ${evidence.approach.step} (evidence ${evidence.approach.evidenceSufficiency}) — ${evidence.approach.why}\nSummary: ${evidence.summary}\nFindings:\n${findings || "(none)"}\nHypotheses:\n${hypotheses || "(none)"}\nData limits: ${evidence.dataLimits.join("; ") || "none"}\n</step_1>`,
+    "Now write the open questions, research tasks, refined problem, opportunities and next step, following the approach. Cite only the finding and hypothesis ids above. Add no new findings or numbers.",
+  ].join("\n\n");
+}
+
+const sum = (a: Usage, b: Usage): Usage => Object.fromEntries([...new Set([...Object.keys(a), ...Object.keys(b)])].map((k) => [k, (a[k] ?? 0) + (b[k] ?? 0)]));
+
+/** The analysis: two structured Claude calls. Never throws: every failure comes back as a plain-English outcome. */
 export async function runAnalysis(input: AnalysisInput): Promise<AnalysisOutcome> {
   if (!process.env.ANTHROPIC_API_KEY) return { status: "failed", error: "AI analysis isn't set up on this server yet." };
 
   const client = new Anthropic();
   try {
-    // Streaming keeps a long answer from hitting request timeouts; the whole answer is read before anything is saved.
-    const stream = client.beta.messages.stream({
-      model: ANALYSIS_MODEL,
-      max_tokens: MAX_OUTPUT_TOKENS,
-      thinking: { type: "adaptive" },
-      output_config: { effort: "high", format: OUTPUT_FORMAT },
-      betas: ["server-side-fallback-2026-07-01"],
-      fallbacks: "default",
-      system: SYSTEM,
-      messages: [{ role: "user", content: describeInput(input) }],
-    });
-    const message = await stream.finalMessage();
-    const stopReason = message.stop_reason ?? "unknown";
-    const usage = {
-      inputTokens: message.usage.input_tokens,
-      outputTokens: message.usage.output_tokens,
-    };
+    const first = await callStep(client, input, STEP_EVIDENCE, EVIDENCE_FORMAT, evidenceStepSchema, "high");
+    if (!first.ok) return first.failure;
+    // Check step 1's citations before step 2 builds on it.
+    const empty = { openQuestions: [], researchTasks: [], opportunities: [], refinedProblem: { statement: "", whatEvidenceSuggests: "", whoIsAffected: "", inTheWay: "", consequence: "", confidence: "low" as const, findings: [] }, nextStep: { type: "hold" as const, title: "", detail: "", why: "", whyNotBuildYet: "", wouldChangeIf: [] } };
+    const checked = checkCitations({ ...first.data, ...empty }, input.pack).result;
 
-    if (stopReason === "refusal") {
-      return { status: "refused", stopReason, usage, error: "Claude declined to analyse this material. Check the problem and data for anything sensitive and try again." };
-    }
-    if (stopReason === "max_tokens") {
-      return { status: "truncated", stopReason, usage, error: "The analysis was cut off before it finished, so nothing was saved. Try again, or upload less data." };
-    }
+    const second = await callStep(client, input, planStep(checked), PLAN_FORMAT, planStepSchema, "medium");
+    if (!second.ok) return { ...second.failure, usage: sum(first.usage, second.failure.usage ?? {}) };
 
-    // If a backup model took over part-way, the stream keeps the declined partial
-    // before a `fallback` block. Try the whole text first, then only what follows it.
-    const textOf = (blocks: readonly Anthropic.Beta.BetaContentBlock[]) => blocks.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("");
-    const lastFallback = message.content.map((b) => b.type).lastIndexOf("fallback");
-    const candidates = [textOf(message.content)];
-    if (lastFallback >= 0) candidates.push(textOf(message.content.slice(lastFallback + 1)));
-    let json: unknown;
-    for (const text of candidates) {
-      try {
-        json = JSON.parse(text);
-        break;
-      } catch {
-        // try the next candidate
-      }
-    }
-    if (json === undefined) {
-      return { status: "failed", stopReason, usage, error: "Claude's answer wasn't in the expected form. Try again." };
-    }
-    const parsed = analysisSchema.safeParse(json);
-    if (!parsed.success) return { status: "failed", stopReason, usage, error: "Claude's answer was missing parts. Try again." };
-
-    const { result, removed } = checkCitations(parsed.data, input.pack);
+    const usage = sum(first.usage, second.usage);
+    const { result, removed } = checkCitations({ ...first.data, ...second.data }, input.pack);
     if (result.findings.length === 0 && result.openQuestions.length === 0) {
-      return { status: "failed", stopReason, usage, error: "The analysis didn't produce anything the data could back up. Try adding more data." };
+      return { status: "failed", stopReason: second.stopReason, usage, error: "The analysis didn't produce anything the data could back up. Try adding more data." };
     }
-    return { status: "completed", result, removed, usage, stopReason };
+    return { status: "completed", result, removed, usage, stopReason: second.stopReason };
   } catch (error) {
     if (error instanceof Anthropic.RateLimitError) return { status: "failed", error: "Veyra is busy right now. Try again in a minute." };
     if (error instanceof Anthropic.AuthenticationError) return { status: "failed", error: "AI analysis isn't set up correctly on this server." };
     if (error instanceof Anthropic.APIConnectionError) return { status: "failed", error: "Couldn't reach the AI service. Try again in a moment." };
     if (error instanceof Anthropic.APIError) {
       console.error("analysis failed", error.status, error.message);
-      return { status: "failed", error: "The AI service returned an error. Try again in a moment." };
+      const detail = { status: error.status, requestId: error.requestID ?? null, message: error.message.slice(0, 1000) };
+      if (error instanceof Anthropic.BadRequestError) {
+        // A rejected request won't succeed on retry, so don't suggest one.
+        return { status: "failed", detail, error: `The AI service rejected the request (error ${error.status}), so the analysis didn't run. This needs a fix in Veyra.` };
+      }
+      return { status: "failed", detail, error: `The AI service returned an error (${error.status ?? "unknown"}). Try again in a moment.` };
     }
     console.error("analysis failed", error);
     return { status: "failed", error: "Something went wrong while analysing. Try again." };

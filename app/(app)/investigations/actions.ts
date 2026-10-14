@@ -364,7 +364,7 @@ export async function analyseInvestigation(investigationId: string): Promise<{ o
             status: outcome.status,
             error: outcome.error,
             stop_reason: outcome.stopReason ?? null,
-            usage: (outcome.usage ?? null) as Json | null,
+            usage: (outcome.usage || outcome.detail ? { ...outcome.usage, ...(outcome.detail && { apiError: outcome.detail }) } : null) as Json | null,
             completed_at: finished,
           })
           .eq("id", run.id);

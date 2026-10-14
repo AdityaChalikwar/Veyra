@@ -120,18 +120,31 @@ export const nextStepSchema = z.object({
   wouldChangeIf: z.array(z.string()),
 });
 
-export const analysisSchema = z.object({
+/**
+ * The analysis runs in two steps, each a smaller structured output (one schema
+ * with everything compiles to a grammar the API rejects as too large):
+ * 1. evidence: the approach, then findings and hypotheses.
+ * 2. plan: from those, open questions, research tasks, the refined problem,
+ *    opportunities and the next step.
+ */
+export const evidenceStepSchema = z.object({
   approach: approachSchema,
   summary: z.string().describe("Two or three plain sentences: what the evidence says and how far to trust it"),
   findings: z.array(findingSchema),
   hypotheses: z.array(hypothesisSchema),
+  dataLimits: z.array(z.string()).describe("Things this data cannot show"),
+});
+
+export const planStepSchema = z.object({
   openQuestions: z.array(openQuestionSchema),
   researchTasks: z.array(researchTaskSchema).describe("What to do to answer the open questions and test the hypotheses, most important first"),
   refinedProblem: refinedProblemSchema,
   opportunities: z.array(opportunitySchema),
   nextStep: nextStepSchema,
-  dataLimits: z.array(z.string()).describe("Things this data cannot show"),
 });
+
+/** The whole analysis as stored: both steps together. */
+export const analysisSchema = evidenceStepSchema.extend(planStepSchema.shape);
 
 export type AnalysisCitation = z.infer<typeof citationSchema>;
 export type AnalysisFinding = z.infer<typeof findingSchema>;
@@ -143,3 +156,5 @@ export type ResearchMethodKey = (typeof researchMethods)[number];
 export type AnalysisOpportunity = z.infer<typeof opportunitySchema>;
 export type AnalysisNextStep = z.infer<typeof nextStepSchema>;
 export type AnalysisResult = z.infer<typeof analysisSchema>;
+export type EvidenceStep = z.infer<typeof evidenceStepSchema>;
+export type PlanStep = z.infer<typeof planStepSchema>;
