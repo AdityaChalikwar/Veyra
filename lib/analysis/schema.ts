@@ -33,9 +33,10 @@ export const findingSchema = z.object({
   confidenceReason: z.string().describe("Why the confidence is what it is, including what limits it"),
   observed: z
     .object({
-      measure: z.string().describe('What was measured, e.g. "Kitchen return rate"'),
-      values: z.string().describe('At most two values copied exactly from the pack: "start → end" (e.g. "13,717 → 8,587" or "4.1% → 9.8%") or a single value ("214 notes"). Never a list'),
-      period: z.string().describe('The period they cover, e.g. "Jun – Sep 2026"'),
+      measure: z.string().describe('One measure, at most 5 words, e.g. "Android daily active users"'),
+      values: z.string().describe('Exactly "start → end" with two figures copied from the pack, e.g. "13,717 → 8,587" or "4.1% → 9.8%", or a single figure. Numbers only, no labels, no lists, no semicolons'),
+      period: z.string().describe('The period they cover, short, e.g. "31 Aug – 14 Sep"'),
+      effect: z.enum(["worse", "better", "neutral"]).describe("For the business, is this change bad (worse), good (better) or neither?"),
     })
     .describe("The measured values behind the statement. Empty strings if the finding has no single measured value"),
   evidence: z.array(citationSchema).describe("Every dataset this rests on or that contradicts it. At least one must support it"),

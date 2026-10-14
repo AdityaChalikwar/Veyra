@@ -10,7 +10,7 @@ import type { AnalysisResult, ResearchMethodKey } from "./schema";
 export type EvidenceRelation = "supports" | "contradicts" | "insufficient";
 export type EvidenceStatus = "supported" | "contradicted" | "mixed" | "insufficient";
 export type StructuredLink = { evidenceId: string; relation: EvidenceRelation; shows: string };
-export type Observed = { measure: string; values: string; period: string };
+export type Observed = { measure: string; values: string; period: string; /** Bad, good or neither for the business; absent on older runs. */ effect?: "worse" | "better" | "neutral" };
 
 export type StructuredFinding = {
   ref: string;

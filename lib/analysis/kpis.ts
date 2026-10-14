@@ -15,14 +15,20 @@ function parseFigure(text: string): { n: number; percent: boolean } | null {
   return Number.isFinite(n) ? { n, percent: !!m[2] } : null;
 }
 
+/** "6,620 → 4,243 → 1,334" → "6,620 → 1,334". */
+const firstAndLast = (values: string) => {
+  const parts = values.split(/→|->/).map((p) => p.trim()).filter(Boolean);
+  return parts.length > 2 ? `${parts[0]} → ${parts[parts.length - 1]}` : values.trim();
+};
+
 const fmt = (n: number, digits = 0) => n.toLocaleString("en", { maximumFractionDigits: digits });
 
 /** The change between two figures, or null when the values aren't "start → end". */
 export function describeChange(values: string): { value: string; direction: "up" | "down" | "flat" } | null {
-  const parts = values.split(/→|->/);
-  if (parts.length !== 2) return null;
+  const parts = values.split(/→|->/).filter((p) => p.trim());
+  if (parts.length < 2) return null;
   const a = parseFigure(parts[0]);
-  const b = parseFigure(parts[1]);
+  const b = parseFigure(parts[parts.length - 1]);
   if (!a || !b) return null;
   const direction = b.n > a.n ? "up" : b.n < a.n ? "down" : "flat";
   if (a.percent && b.percent) {
@@ -37,28 +43,30 @@ export function describeChange(values: string): { value: string; direction: "up"
 }
 
 export function buildKpis(findings: Finding[], evidence: EvidenceItem[]): Kpi[] {
-  const measured = findings
-    .filter((f) => f.observed?.values)
+  // Only findings with one clear change make a card; lists and several measures stay in the findings.
+  const cards: Kpi[] = findings
+    .filter((f) => f.observed?.values && !f.observed.values.includes(";"))
     .sort((a, b) => Number(b.kind === "observation") - Number(a.kind === "observation"))
+    .flatMap((f) => {
+      const o = f.observed!;
+      const change = describeChange(o.values);
+      if (!change) return [];
+      const kpi: Kpi = {
+        id: `kpi-${f.id}`,
+        label: o.measure || f.title || f.statement,
+        value: change.value,
+        detail: `${firstAndLast(o.values)}${o.period ? ` · ${o.period}` : ""}`,
+        kind: o.effect === "worse" ? "decline" : o.effect === "better" ? "stable" : "neutral",
+        icon: "metric",
+        direction: change.direction,
+        findingId: f.id,
+        sourceEvidenceId: f.evidenceIds[0],
+      };
+      return [kpi];
+    })
     .slice(0, MAX_CARDS);
 
-  const cards: Kpi[] = measured.map((f) => {
-    const o = f.observed!;
-    const change = describeChange(o.values);
-    return {
-      id: `kpi-${f.id}`,
-      label: o.measure || f.title || f.statement,
-      value: change?.value ?? o.values,
-      detail: change ? `${o.values}${o.period ? ` · ${o.period}` : ""}` : o.period,
-      kind: "neutral",
-      icon: "metric",
-      direction: change?.direction,
-      findingId: f.id,
-      sourceEvidenceId: f.evidenceIds[0],
-    };
-  });
-
-  if (evidence.length) {
+  if (cards.length && evidence.length) {
     const kinds = new Map<string, number>();
     for (const e of evidence) kinds.set(e.source, (kinds.get(e.source) ?? 0) + 1);
     cards.push({
@@ -70,5 +78,6 @@ export function buildKpis(findings: Finding[], evidence: EvidenceItem[]): Kpi[] 
       icon: "evidence",
     });
   }
-  return cards;
+  // The evidence card alone isn't worth a row.
+  return cards.length ? cards : [];
 }

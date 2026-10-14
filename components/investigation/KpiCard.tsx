@@ -12,8 +12,9 @@ export function KpiCard({ kpi }: { kpi: Kpi }) {
   const { openDetail } = useWorkspace();
   const Icon = icons[kpi.icon];
   const decline = kpi.kind === "decline";
-  // Direction from real data is shown neutrally: whether up is good depends on the measure.
+  // An arrow shows which way the figure moved; its colour says whether that's bad (red) or good (green) for the business.
   const Arrow = kpi.direction ? arrows[kpi.direction] : null;
+  const tone = decline ? "text-danger-600" : kpi.kind === "stable" ? "text-confirmed-600" : "text-ink-subtle";
   const body = (
     <>
       <span
@@ -28,8 +29,11 @@ export function KpiCard({ kpi }: { kpi: Kpi }) {
         <p className="truncate text-xs text-ink-subtle">{kpi.label}</p>
         <p className="mt-0.5 flex items-center gap-1.5 text-xl font-semibold tracking-tight text-ink">
           <span className="truncate">{kpi.value}</span>
-          {decline && <TrendingDown className="h-4 w-4 shrink-0 text-danger-600" aria-label="Decline" />}
-          {!decline && Arrow && <Arrow className="h-4 w-4 shrink-0 text-ink-subtle" aria-label={kpi.direction} />}
+          {Arrow ? (
+            <Arrow className={cn("h-4 w-4 shrink-0", tone)} aria-label={`${kpi.direction}${decline ? ", worse" : kpi.kind === "stable" ? ", better" : ""}`} />
+          ) : (
+            decline && <TrendingDown className="h-4 w-4 shrink-0 text-danger-600" aria-label="Decline" />
+          )}
         </p>
         <p className="mt-0.5 truncate text-xs text-ink-subtle">{kpi.detail}</p>
       </div>
