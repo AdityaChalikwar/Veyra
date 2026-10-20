@@ -159,12 +159,15 @@ export function buildLiveWorkspace(record: InvestigationRecord, dataSources: Dat
     };
   });
 
-  const opportunities: Opportunity[] = (result?.opportunities ?? []).map((o, i) => ({
-    id: `o${i + 1}`,
+  // Problem definition and opportunities are separate steps the team asks for (Milestone 8).
+  const definition = record.problemDefinition;
+  const opportunities: Opportunity[] = record.opportunities.map((o) => ({
+    id: o.id,
     investigationId: id,
     title: o.title,
-    description: o.rationale,
+    description: o.customerProblem,
     evidenceStrength: o.confidence === "high" ? "strong" : o.confidence === "medium" ? "moderate" : "weak",
+    impact: o.impactLevel,
     confidence: o.confidence,
     assessment: [],
     ideas: [],
@@ -209,7 +212,7 @@ export function buildLiveWorkspace(record: InvestigationRecord, dataSources: Dat
           alternatives: [],
         };
 
-  const confidence: Confidence = result?.refinedProblem.confidence ?? record.summary.confidence;
+  const confidence: Confidence = definition?.confidence ?? record.summary.confidence;
 
   return {
     investigation: {
@@ -239,14 +242,14 @@ export function buildLiveWorkspace(record: InvestigationRecord, dataSources: Dat
     market: { status: "not-started", summary: "" },
     problem: {
       original: record.summary.problem,
-      whatEvidenceSuggests: result?.refinedProblem.whatEvidenceSuggests ?? "",
-      refined: result?.refinedProblem.statement ?? "",
-      whoIsAffected: result?.refinedProblem.whoIsAffected ?? "",
-      tryingTo: "",
-      inTheWay: result?.refinedProblem.inTheWay ?? "",
-      consequence: result?.refinedProblem.consequence ?? "",
+      whatEvidenceSuggests: result?.summary ?? "",
+      refined: definition?.statement ?? "",
+      whoIsAffected: definition?.affected ?? "",
+      tryingTo: definition?.need ?? "",
+      inTheWay: definition?.obstacle ?? "",
+      consequence: definition?.businessImpact ?? "",
       confidence,
-      findingIds: result?.refinedProblem.findings ?? [],
+      findingIds: definition?.findingRefs ?? [],
     },
     opportunities,
     nextStep,

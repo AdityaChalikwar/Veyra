@@ -10,6 +10,7 @@ import { cn } from "@/lib/cn";
 import { routes } from "@/lib/routes";
 import type { Opportunity } from "@/lib/types";
 import { EmptyNote } from "@/components/ui/EmptyNote";
+import { LiveOpportunities } from "./LiveDiscovery";
 import { useWorkspace } from "./workspace-context";
 
 const levelLabel = { low: "Low", medium: "Medium", high: "High" } as const;
@@ -21,6 +22,7 @@ const levelLabel = { low: "Low", medium: "Medium", high: "High" } as const;
 export function OpportunitiesView() {
   const { workspace, progress, choice } = useWorkspace();
   const confirmed = workspace.hypotheses.find((h) => h.status === "confirmed");
+  if (workspace.live) return <LiveOpportunities live={workspace.live} />;
   return (
     <div className="mt-6 space-y-6">
       {progress.complete ? (

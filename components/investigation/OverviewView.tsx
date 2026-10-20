@@ -367,6 +367,39 @@ function LiveOverview({ live, tab }: { live: LiveInvestigation; tab: (slug: stri
 
       {live.run && analysis}
 
+      {record.problemDefinition && (
+        <section className="rounded-xl border-2 border-brand-200 bg-surface p-5 shadow-card">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-[11px] font-semibold uppercase tracking-wider text-brand-700">The problem</h2>
+            <Link href={tab("problem")} className="text-xs font-medium text-brand-600 hover:text-brand-700">
+              Problem definition
+            </Link>
+          </div>
+          <p className="mt-1 text-[15px] font-semibold leading-snug text-ink">&ldquo;{record.problemDefinition.statement}&rdquo;</p>
+          {record.opportunities.length > 0 && (
+            <div className="mt-3 border-t border-line pt-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-faint">Opportunity areas</p>
+              <ul className="mt-1.5 flex flex-wrap gap-2">
+                {record.opportunities.map((o) => (
+                  <li key={o.id}>
+                    <Link
+                      href={tab("opportunities")}
+                      className={cn(
+                        "inline-flex rounded-md border px-2 py-1 text-xs hover:border-brand-300",
+                        o.status === "pursuing" ? "border-confirmed-600/50 bg-confirmed-50 text-confirmed-600" : "border-line text-ink-muted",
+                        o.status === "parked" && "opacity-60",
+                      )}
+                    >
+                      {o.title}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </section>
+      )}
+
       {charts.length > 0 && (
         <div className={charts.length > 1 ? "grid grid-cols-1 gap-4 lg:grid-cols-2" : ""}>
           {charts.map((c) => (

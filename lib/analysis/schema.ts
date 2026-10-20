@@ -115,7 +115,8 @@ export const opportunitySchema = z.object({
 });
 
 export const nextStepSchema = z.object({
-  type: z.enum(["research", "analysis", "validation", "solution-exploration", "hold"]),
+  // No "solution-exploration" here: solution directions open only after opportunity discovery.
+  type: z.enum(["research", "analysis", "validation", "hold"]),
   title: z.string(),
   detail: z.string(),
   why: z.string(),
@@ -127,8 +128,9 @@ export const nextStepSchema = z.object({
  * The analysis runs in two steps, each a smaller structured output (one schema
  * with everything compiles to a grammar the API rejects as too large):
  * 1. evidence: the approach, then findings and hypotheses.
- * 2. plan: from those, open questions, research tasks, the refined problem,
- *    opportunities and the next step.
+ * 2. plan: from those, open questions, research tasks and the next step.
+ * The problem definition and opportunities are separate steps the team asks
+ * for afterwards (lib/analysis/discovery.ts).
  */
 export const evidenceStepSchema = z.object({
   approach: approachSchema,
@@ -141,8 +143,6 @@ export const evidenceStepSchema = z.object({
 export const planStepSchema = z.object({
   openQuestions: z.array(openQuestionSchema),
   researchTasks: z.array(researchTaskSchema).describe("What to do to answer the open questions and test the hypotheses, most important first"),
-  refinedProblem: refinedProblemSchema,
-  opportunities: z.array(opportunitySchema),
   nextStep: nextStepSchema,
 });
 
@@ -159,5 +159,10 @@ export type ResearchMethodKey = (typeof researchMethods)[number];
 export type AnalysisOpportunity = z.infer<typeof opportunitySchema>;
 export type AnalysisNextStep = z.infer<typeof nextStepSchema>;
 export type AnalysisResult = z.infer<typeof analysisSchema>;
+/** Runs saved before Milestone 8 also carried a refined problem and opportunities. */
+export type LegacyAnalysisResult = AnalysisResult & {
+  refinedProblem?: z.infer<typeof refinedProblemSchema>;
+  opportunities?: z.infer<typeof opportunitySchema>[];
+};
 export type EvidenceStep = z.infer<typeof evidenceStepSchema>;
 export type PlanStep = z.infer<typeof planStepSchema>;
