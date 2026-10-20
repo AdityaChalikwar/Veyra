@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
-import type { OpportunityResult, ProblemResult } from "./discovery";
+import type { DefinedProblem, OpportunityResult } from "./discovery";
 import type { AnalysisPack } from "./pack";
 
 /**
@@ -16,7 +16,7 @@ export async function saveProblem(
   supabase: Client,
   investigationId: string,
   runId: string,
-  p: ProblemResult,
+  p: DefinedProblem,
   pack: AnalysisPack,
 ): Promise<{ ok: true; id: string } | { error: string }> {
   const { data: row, error } = await supabase
@@ -34,6 +34,7 @@ export async function saveProblem(
       assumptions: p.assumptions,
       finding_refs: p.findings,
       hypothesis_refs: p.hypotheses,
+      cause_status: p.causeStatus,
     })
     .select("id")
     .single();
@@ -77,6 +78,7 @@ export async function saveOpportunities(
         assumptions: o.assumptions,
         validation_needs: o.validationNeeds,
         finding_refs: o.findings,
+        depends_on: o.dependsOn,
       })),
     )
     .select("id, position");

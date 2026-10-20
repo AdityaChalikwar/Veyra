@@ -292,4 +292,11 @@ no longer writes a refined problem or opportunities, and can't recommend explori
   are removed. Both calls count towards the daily AI limit (`ai_usage.kind` problem / opportunities).
 - `evidence_links` now points at exactly one of: finding, hypothesis, problem definition, opportunity.
 - Solution directions stay locked; they come with a later milestone, for opportunities being pursued.
+- **Facts before causes.** Hypotheses aren't validated yet, so the problem rests on findings only.
+  `problem_definitions.cause_status` is `open` until a hypothesis is confirmed: the statement may not
+  assert a cause ("because", "due to"… triggers one retry, then a refusal), the obstacle is written in
+  code as "Not yet known. Possible explanations, none validated yet: H1 — …", confidence is capped at
+  medium, and the screen marks the definition Provisional. Opportunities must hold whatever the cause
+  turns out to be: one that assumes an open hypothesis (`opportunities.depends_on`) is retried, then
+  left out. Once Milestone 9 validates a hypothesis, defining the problem again fills in the cause.
 

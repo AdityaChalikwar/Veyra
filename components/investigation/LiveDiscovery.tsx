@@ -49,10 +49,10 @@ function RunStep({ label, busyLabel, run, variant = "primary" }: { label: string
   );
 }
 
-function Facet({ label, value }: { label: string; value: string }) {
+function Facet({ label, value, uncertain }: { label: string; value: string; uncertain?: boolean }) {
   if (!value.trim()) return null;
   return (
-    <div className="rounded-lg bg-canvas px-3.5 py-3">
+    <div className={cn("rounded-lg px-3.5 py-3", uncertain ? "border border-dashed border-uncertain-600/40 bg-uncertain-50/60" : "bg-canvas")}>
       <dt className="text-[11px] font-semibold uppercase tracking-wider text-ink-faint">{label}</dt>
       <dd className="mt-0.5 text-[13.5px] leading-relaxed text-ink">{value}</dd>
     </div>
@@ -173,6 +173,7 @@ export function LiveProblem({ live }: { live: LiveInvestigation }) {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-brand-700">
             <Target className="h-4 w-4" /> Problem definition
+            {d.causeStatus === "open" && <span className="rounded bg-uncertain-50 px-1.5 py-0.5 text-[10.5px] tracking-wide text-uncertain-600">Provisional</span>}
           </p>
           <ConfidenceBadge level={d.confidence} />
         </div>
@@ -182,14 +183,22 @@ export function LiveProblem({ live }: { live: LiveInvestigation }) {
         <dl className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Facet label="Who is affected" value={d.affected} />
           <Facet label="What they're trying to do" value={d.need} />
-          <Facet label="What gets in the way" value={d.obstacle} />
+          <Facet label={d.causeStatus === "open" ? "What gets in the way — not yet known" : "What gets in the way"} value={d.obstacle} uncertain={d.causeStatus === "open"} />
           <Facet label="Business impact" value={d.businessImpact} />
         </dl>
+
+        {d.causeStatus === "open" && (
+          <p className="mt-4 rounded-lg bg-uncertain-50 px-3.5 py-2.5 text-[13px] text-uncertain-600">
+            <b className="font-semibold">Provisional.</b> This rests on findings only. The cause is still a hypothesis, so it isn&rsquo;t part of the
+            problem yet. Once a hypothesis is validated, define the problem again to fill in what gets in the way.
+          </p>
+        )}
 
         <div className="mt-5 space-y-5 border-t border-line pt-4">
           <Bullets title="Unresolved assumptions" items={d.assumptions} tone="uncertain" />
           <Citations links={d.links} />
-          <Basis findingRefs={d.findingRefs} hypothesisRefs={d.hypothesisRefs} />
+          {/* While the cause is open, hypotheses are possible explanations (named above), not what the problem rests on. */}
+          <Basis findingRefs={d.findingRefs} hypothesisRefs={d.causeStatus === "validated" ? d.hypothesisRefs : []} />
         </div>
       </section>
 
@@ -240,6 +249,11 @@ export function LiveOpportunities({ live }: { live: LiveInvestigation }) {
       <section className="rounded-xl border border-line bg-surface p-4 shadow-card">
         <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-faint">For the problem</p>
         <p className="mt-1 text-[14.5px] font-medium text-ink">&ldquo;{d.statement}&rdquo;</p>
+        {d.causeStatus === "open" && (
+          <p className="mt-2 text-xs text-uncertain-600">
+            The cause isn&rsquo;t validated yet, so these opportunities don&rsquo;t assume one: each holds whatever the cause turns out to be.
+          </p>
+        )}
       </section>
 
       {list.length === 0 ? (

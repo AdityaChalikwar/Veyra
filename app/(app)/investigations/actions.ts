@@ -478,7 +478,7 @@ export async function findInvestigationOpportunities(investigationId: string): P
   const supabase = await createClient();
   const { data: problem } = await supabase
     .from("problem_definitions")
-    .select("id, statement, affected, need, obstacle, business_impact, confidence, confidence_reason, assumptions, finding_refs, hypothesis_refs")
+    .select("id, statement, affected, need, obstacle, business_impact, confidence, confidence_reason, assumptions, finding_refs, hypothesis_refs, cause_status")
     .eq("investigation_id", investigationId)
     .order("created_at", { ascending: false })
     .limit(1)
@@ -501,6 +501,7 @@ export async function findInvestigationOpportunities(investigationId: string): P
     findings: problem.finding_refs,
     hypotheses: problem.hypothesis_refs,
     evidence: [],
+    causeStatus: problem.cause_status === "validated" ? "validated" : "open",
   });
   if (!outcome.ok) return { error: outcome.failure.error };
   const saved = await saveOpportunities(supabase, investigationId, problem.id, outcome.data, loaded.input.pack);

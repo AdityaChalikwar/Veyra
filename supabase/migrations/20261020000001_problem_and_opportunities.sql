@@ -141,3 +141,11 @@ revoke update on public.opportunities from authenticated, anon;
 grant update (status) on public.opportunities to authenticated;
 revoke update on public.hypotheses from authenticated, anon;
 grant update (status) on public.hypotheses to authenticated;
+
+-- A problem rests on facts; its cause stays open until a hypothesis is validated.
+alter table public.problem_definitions
+  add column cause_status text not null default 'open' check (cause_status in ('open', 'validated'));
+comment on column public.problem_definitions.cause_status is 'open = no hypothesis about the cause was validated when this was written, so the definition is provisional and its obstacle is not yet known.';
+alter table public.opportunities
+  add column depends_on text[] not null default '{}';
+comment on column public.opportunities.depends_on is 'Hypothesis refs this opportunity assumes are true. Empty while the cause is open.';

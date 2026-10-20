@@ -722,6 +722,8 @@ export type ProblemDefinitionRecord = {
   assumptions: string[];
   findingRefs: string[];
   hypothesisRefs: string[];
+  /** "open" until a hypothesis about the cause is validated: the definition is provisional. */
+  causeStatus: "open" | "validated";
   links: EvidenceLink[];
   createdAt: string;
 };
@@ -737,6 +739,8 @@ export type OpportunityRecord = {
   assumptions: string[];
   validationNeeds: string[];
   findingRefs: string[];
+  /** Hypotheses it assumes are true; empty while the cause is open. */
+  dependsOn: string[];
   links: EvidenceLink[];
   status: "open" | "pursuing" | "parked";
 };

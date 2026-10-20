@@ -19,6 +19,7 @@ export type Database = {
           created_at: string;
           analysis_run_id: string | null;
           created_by: string | null;
+          cause_status: string;
           statement: string;
           affected: string;
           need: string;
@@ -37,6 +38,7 @@ export type Database = {
           created_at?: string;
           analysis_run_id?: string | null;
           created_by?: string | null;
+          cause_status?: string;
           statement: string;
           affected?: string;
           need?: string;
@@ -55,6 +57,7 @@ export type Database = {
           created_at?: string;
           analysis_run_id?: string | null;
           created_by?: string | null;
+          cause_status?: string;
           statement?: string;
           affected?: string;
           need?: string;
@@ -98,6 +101,7 @@ export type Database = {
           created_at: string;
           problem_definition_id: string;
           position: number;
+          depends_on: string[];
           title: string;
           customer_problem: string;
           potential_impact: string;
@@ -116,6 +120,7 @@ export type Database = {
           created_at?: string;
           problem_definition_id: string;
           position?: number;
+          depends_on?: string[];
           title: string;
           customer_problem?: string;
           potential_impact?: string;
@@ -134,6 +139,7 @@ export type Database = {
           created_at?: string;
           problem_definition_id?: string;
           position?: number;
+          depends_on?: string[];
           title?: string;
           customer_problem?: string;
           potential_impact?: string;
