@@ -11,6 +11,164 @@ export type Database = {
   };
   public: {
     Tables: {
+      problem_definitions: {
+        Row: {
+          id: string;
+          investigation_id: string;
+          workspace_id: string;
+          created_at: string;
+          analysis_run_id: string | null;
+          created_by: string | null;
+          statement: string;
+          affected: string;
+          need: string;
+          obstacle: string;
+          business_impact: string;
+          confidence: string;
+          confidence_reason: string;
+          assumptions: string[];
+          finding_refs: string[];
+          hypothesis_refs: string[];
+        };
+        Insert: {
+          id?: string;
+          investigation_id: string;
+          workspace_id?: string;
+          created_at?: string;
+          analysis_run_id?: string | null;
+          created_by?: string | null;
+          statement: string;
+          affected?: string;
+          need?: string;
+          obstacle?: string;
+          business_impact?: string;
+          confidence: string;
+          confidence_reason?: string;
+          assumptions?: string[];
+          finding_refs?: string[];
+          hypothesis_refs?: string[];
+        };
+        Update: {
+          id?: string;
+          investigation_id?: string;
+          workspace_id?: string;
+          created_at?: string;
+          analysis_run_id?: string | null;
+          created_by?: string | null;
+          statement?: string;
+          affected?: string;
+          need?: string;
+          obstacle?: string;
+          business_impact?: string;
+          confidence?: string;
+          confidence_reason?: string;
+          assumptions?: string[];
+          finding_refs?: string[];
+          hypothesis_refs?: string[];
+        };
+        Relationships: [
+          {
+            foreignKeyName: "problem_definitions_investigation_id_fkey";
+            columns: ["investigation_id"];
+            isOneToOne: false;
+            referencedRelation: "investigations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "problem_definitions_workspace_id_fkey";
+            columns: ["workspace_id"];
+            isOneToOne: false;
+            referencedRelation: "workspaces";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "problem_definitions_analysis_run_id_fkey";
+            columns: ["analysis_run_id"];
+            isOneToOne: false;
+            referencedRelation: "analysis_runs";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      opportunities: {
+        Row: {
+          id: string;
+          investigation_id: string;
+          workspace_id: string;
+          created_at: string;
+          problem_definition_id: string;
+          position: number;
+          title: string;
+          customer_problem: string;
+          potential_impact: string;
+          impact_level: string;
+          confidence: string;
+          assumptions: string[];
+          validation_needs: string[];
+          finding_refs: string[];
+          status: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          investigation_id: string;
+          workspace_id?: string;
+          created_at?: string;
+          problem_definition_id: string;
+          position?: number;
+          title: string;
+          customer_problem?: string;
+          potential_impact?: string;
+          impact_level: string;
+          confidence: string;
+          assumptions?: string[];
+          validation_needs?: string[];
+          finding_refs?: string[];
+          status?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          investigation_id?: string;
+          workspace_id?: string;
+          created_at?: string;
+          problem_definition_id?: string;
+          position?: number;
+          title?: string;
+          customer_problem?: string;
+          potential_impact?: string;
+          impact_level?: string;
+          confidence?: string;
+          assumptions?: string[];
+          validation_needs?: string[];
+          finding_refs?: string[];
+          status?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "opportunities_investigation_id_fkey";
+            columns: ["investigation_id"];
+            isOneToOne: false;
+            referencedRelation: "investigations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "opportunities_workspace_id_fkey";
+            columns: ["workspace_id"];
+            isOneToOne: false;
+            referencedRelation: "workspaces";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "opportunities_problem_definition_id_fkey";
+            columns: ["problem_definition_id"];
+            isOneToOne: false;
+            referencedRelation: "problem_definitions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       open_questions: {
         Row: {
           id: string;
@@ -394,6 +552,8 @@ export type Database = {
           evidence_id: string;
           finding_id: string | null;
           hypothesis_id: string | null;
+          problem_definition_id: string | null;
+          opportunity_id: string | null;
           relation: string;
           shows: string;
         };
@@ -405,6 +565,8 @@ export type Database = {
           evidence_id: string;
           finding_id?: string | null;
           hypothesis_id?: string | null;
+          problem_definition_id?: string | null;
+          opportunity_id?: string | null;
           relation: string;
           shows?: string;
         };
@@ -416,10 +578,26 @@ export type Database = {
           evidence_id?: string;
           finding_id?: string | null;
           hypothesis_id?: string | null;
+          problem_definition_id?: string | null;
+          opportunity_id?: string | null;
           relation?: string;
           shows?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: "evidence_links_problem_definition_id_fkey";
+            columns: ["problem_definition_id"];
+            isOneToOne: false;
+            referencedRelation: "problem_definitions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "evidence_links_opportunity_id_fkey";
+            columns: ["opportunity_id"];
+            isOneToOne: false;
+            referencedRelation: "opportunities";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "evidence_links_investigation_id_fkey";
             columns: ["investigation_id"];

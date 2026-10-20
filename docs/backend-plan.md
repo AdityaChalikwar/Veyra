@@ -24,8 +24,9 @@ next step, validation) and to run analysis over company data, not to host a chat
 | 5. Data onboarding layer + Demo ERP (see "Data onboarding" below) | **Built** (`supabase/migrations/20261013*`, `lib/connectors/`, `lib/data-layer/`); analysis with ERP metrics needs one live check |
 | 6. Evidence engine — evidence confidence and source, findings, hypotheses and evidence links as rows; every finding cites evidence IDs | **Built** (`supabase/migrations/20261015*`, `lib/analysis/structure.ts`, `save.ts`, `confidence.ts`); checked with a simulated run, needs one live Claude check |
 | 7. Investigation engine — the engine picks a step, saves open questions, research tasks and the next step as rows, reads earlier runs and research outcomes; uploads get trends worked out in code | **Built** (`supabase/migrations/20261016*`, `lib/analysis/`); checked with simulated runs, needs one live Claude check |
-| 8. Decisions, validation, Decision Brief | |
-| 9. Business Memory, clean-up of mocks | |
+| 8. Problem definition and opportunity discovery — separate steps after the analysis, saved as rows with evidence links; problem never a solution, opportunities never features | **Built** (`supabase/migrations/20261020*`, `lib/analysis/discovery.ts`); checked with saved records, needs one live Claude check |
+| 9. Validation, decisions, Decision Brief | |
+| 10. Business Memory, clean-up of mocks | |
 | Later. Real connectors (ERP, CRM, analytics, support, finance), scheduled sync | |
 
 Every workspace gets a **sample investigation** (Kitchen Returns Spike at Northwind Home, the Demo ERP's fictional retailer; its numbers match the Demo ERP): a real row, so it can
@@ -268,4 +269,27 @@ observed values (`lib/analysis/kpis.ts` works out "−37%", "×2.8" or "+5.7 pts
 two-sentence summary, and up to two trend charts drawn from the evidence's worked-out metrics
 (`lib/analysis/charts.ts`: time-based metrics from cited evidence, closest to what the findings
 measured; one axis per chart, at most four lines, each with a table view).
+
+## Problem definition and opportunity discovery (Milestone 8)
+
+Flow: Findings → Hypotheses → Problem → Opportunities (the tabs follow this order). The analysis
+no longer writes a refined problem or opportunities, and can't recommend exploring solutions.
+
+- **Problem tab → "Define the problem"** (`defineInvestigationProblem`): one structured Claude call
+  (`lib/analysis/discovery.ts`) reading the business context, original problem, objective, the latest
+  analysis's findings, hypotheses and open questions, and its evidence pack. Saved in
+  `problem_definitions`: statement, affected, need (job), obstacle, business impact, confidence and
+  reason, unresolved assumptions, finding and hypothesis refs, and evidence links. The newest one is
+  current; it is flagged out of date when a newer analysis exists.
+- **Opportunities tab → "Find opportunities"** (`findInvestigationOpportunities`): needs a problem
+  definition. Two to four rows in `opportunities`: title, customer problem, potential impact and
+  level, confidence, assumptions, validation needs, finding refs, evidence links and a status (open /
+  pursuing / parked) — the only column members may change. Finding them again replaces the set.
+  The first opportunity moves the investigation to Opportunity discovery (trigger).
+- **Checks in code:** a problem statement that starts like a solution ("Redesign…", "Build…") is
+  retried once, then refused; an opportunity titled like a feature ("Fix…", "Add…") triggers one
+  retry and is otherwise left out; references to findings, hypotheses or datasets that don't exist
+  are removed. Both calls count towards the daily AI limit (`ai_usage.kind` problem / opportunities).
+- `evidence_links` now points at exactly one of: finding, hypothesis, problem definition, opportunity.
+- Solution directions stay locked; they come with a later milestone, for opportunities being pursued.
 

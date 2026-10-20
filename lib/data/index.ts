@@ -57,6 +57,8 @@ import type {
   UploadedEvidence,
   User,
   ResearchTaskRecord,
+  ProblemDefinitionRecord,
+  OpportunityRecord,
 } from "@/lib/types";
 
 export async function getCurrentUser(): Promise<User | null> {
@@ -170,7 +172,7 @@ export async function getInvestigationRecord(id: string): Promise<InvestigationR
   const { data } = await supabase
     .from("investigations")
     .select(
-      "triggers, outcomes, objective, current_stage, known_context, attachments, data_source_ids, plan, created_at, clarifying_questions (id, position, question, hint, answer), files (id, name, size_bytes, status, error, created_at, evidence (id, summary, coverage, profile, metrics, confidence, metadata)), investigation_stages (stage, completed_at), evidence (id, name, source, coverage, summary, profile, metrics, snapshot_id, file_id, confidence, metadata, created_at), analysis_runs (id, status, model, created_at, completed_at, error, result, pack, usage), findings (analysis_run_id, ref, position, kind, title, statement, observed, confidence, confidence_reason, based_on, evidence_links (evidence_id, relation, shows)), hypotheses (analysis_run_id, ref, position, title, statement, rationale, confidence, evidence_strength, evidence_status, supporting_findings, contradicting_findings, validation_method, assumptions, evidence_links (evidence_id, relation, shows)), open_questions (analysis_run_id, ref, position, question, why_it_matters, missing_evidence), next_steps (analysis_run_id, approach, approach_reason, evidence_sufficiency, type, title, detail, why, why_not_build_yet, would_change_if), research_tasks (id, analysis_run_id, position, title, question, method, method_detail, priority, status, rationale, question_ref, hypothesis_refs, outcome, created_at, updated_at)",
+      "triggers, outcomes, objective, current_stage, known_context, attachments, data_source_ids, plan, created_at, clarifying_questions (id, position, question, hint, answer), files (id, name, size_bytes, status, error, created_at, evidence (id, summary, coverage, profile, metrics, confidence, metadata)), investigation_stages (stage, completed_at), evidence (id, name, source, coverage, summary, profile, metrics, snapshot_id, file_id, confidence, metadata, created_at), analysis_runs (id, status, model, created_at, completed_at, error, result, pack, usage), findings (analysis_run_id, ref, position, kind, title, statement, observed, confidence, confidence_reason, based_on, evidence_links (evidence_id, relation, shows)), hypotheses (analysis_run_id, ref, position, title, statement, rationale, confidence, evidence_strength, evidence_status, supporting_findings, contradicting_findings, validation_method, assumptions, evidence_links (evidence_id, relation, shows)), open_questions (analysis_run_id, ref, position, question, why_it_matters, missing_evidence), next_steps (analysis_run_id, approach, approach_reason, evidence_sufficiency, type, title, detail, why, why_not_build_yet, would_change_if), problem_definitions (id, analysis_run_id, statement, affected, need, obstacle, business_impact, confidence, confidence_reason, assumptions, finding_refs, hypothesis_refs, created_at, evidence_links (evidence_id, relation, shows), opportunities (id, position, title, customer_problem, potential_impact, impact_level, confidence, assumptions, validation_needs, finding_refs, status, evidence_links (evidence_id, relation, shows))), research_tasks (id, analysis_run_id, position, title, question, method, method_detail, priority, status, rationale, question_ref, hypothesis_refs, outcome, created_at, updated_at)",
     )
     .eq("id", id)
     .maybeSingle();
@@ -194,6 +196,7 @@ export async function getInvestigationRecord(id: string): Promise<InvestigationR
       .sort((a, b) => b.created_at.localeCompare(a.created_at))
       .slice(0, 10)
       .map((r) => toAnalysisRun(r, data.findings, data.hypotheses, data.open_questions, data.next_steps)),
+    ...toDiscovery(data.problem_definitions),
     researchTasks: [...data.research_tasks]
       .sort((a, b) => a.created_at.localeCompare(b.created_at) || a.position - b.position)
       .map(toResearchTask),
@@ -268,6 +271,69 @@ type NextStepRow = Pick<
   Tables<"next_steps">,
   "analysis_run_id" | "approach" | "approach_reason" | "evidence_sufficiency" | "type" | "title" | "detail" | "why" | "why_not_build_yet" | "would_change_if"
 >;
+type ProblemRow = Pick<
+  Tables<"problem_definitions">,
+  | "id"
+  | "analysis_run_id"
+  | "statement"
+  | "affected"
+  | "need"
+  | "obstacle"
+  | "business_impact"
+  | "confidence"
+  | "confidence_reason"
+  | "assumptions"
+  | "finding_refs"
+  | "hypothesis_refs"
+  | "created_at"
+> & {
+  evidence_links: LinkRow[];
+  opportunities: (Pick<
+    Tables<"opportunities">,
+    "id" | "position" | "title" | "customer_problem" | "potential_impact" | "impact_level" | "confidence" | "assumptions" | "validation_needs" | "finding_refs" | "status"
+  > & { evidence_links: LinkRow[] })[];
+};
+
+/** The newest problem definition and its opportunities. */
+function toDiscovery(rows: ProblemRow[]): { problemDefinition?: ProblemDefinitionRecord; opportunities: OpportunityRecord[] } {
+  const p = [...rows].sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
+  if (!p) return { opportunities: [] };
+  const links = (l: LinkRow[]) => toLinks(l);
+  return {
+    problemDefinition: {
+      id: p.id,
+      runId: p.analysis_run_id ?? undefined,
+      statement: p.statement,
+      affected: p.affected,
+      need: p.need,
+      obstacle: p.obstacle,
+      businessImpact: p.business_impact,
+      confidence: p.confidence as ProblemDefinitionRecord["confidence"],
+      confidenceReason: p.confidence_reason,
+      assumptions: p.assumptions,
+      findingRefs: p.finding_refs,
+      hypothesisRefs: p.hypothesis_refs,
+      links: links(p.evidence_links),
+      createdAt: p.created_at,
+    },
+    opportunities: [...p.opportunities]
+      .sort((a, b) => a.position - b.position)
+      .map((o) => ({
+        id: o.id,
+        title: o.title,
+        customerProblem: o.customer_problem,
+        potentialImpact: o.potential_impact,
+        impactLevel: o.impact_level as OpportunityRecord["impactLevel"],
+        confidence: o.confidence as OpportunityRecord["confidence"],
+        assumptions: o.assumptions,
+        validationNeeds: o.validation_needs,
+        findingRefs: o.finding_refs,
+        links: links(o.evidence_links),
+        status: o.status as OpportunityRecord["status"],
+      })),
+  };
+}
+
 type ResearchTaskRow = Pick<
   Tables<"research_tasks">,
   | "id"

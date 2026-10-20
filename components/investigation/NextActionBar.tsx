@@ -30,10 +30,22 @@ export function NextActionBar() {
       text = "Analyse your data to turn it into findings, hypotheses and a recommended next step.";
       cta = "Go to Evidence";
       tab = "evidence";
+    } else if (!live.record.problemDefinition) {
+      text = "Review the findings and hypotheses, then define the problem they point to.";
+      cta = "Define the problem";
+      tab = "problem";
+    } else if (!live.record.opportunities.length) {
+      text = "The problem is defined. Find the opportunity areas that address it.";
+      cta = "Find opportunities";
+      tab = "opportunities";
+    } else if (!live.record.opportunities.some((o) => o.status === "pursuing")) {
+      text = "Choose which opportunity to pursue, after checking its assumptions.";
+      cta = "Review opportunities";
+      tab = "opportunities";
     } else {
-      text = "Review what the data shows and the hypotheses that might explain it. Validating them comes next.";
-      cta = "Review findings";
-      tab = "findings";
+      text = "Validate the assumptions behind the opportunity you're pursuing. Solution directions come after.";
+      cta = "Review opportunities";
+      tab = "opportunities";
     }
   } else if (progress.complete) {
     const o = workspace.opportunities.find((x) => x.id === choice?.opportunityId);

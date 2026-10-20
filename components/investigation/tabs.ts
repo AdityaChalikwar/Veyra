@@ -1,5 +1,6 @@
 /**
- * Workspace tabs, in discovery order: investigate → understand → decide → learn.
+ * Workspace tabs, in discovery order: evidence → findings → hypotheses → problem →
+ * opportunities, then the research and decisions around them.
  * `slug` is the URL segment under /investigations/[id]; Overview is the index.
  */
 export const WORKSPACE_TABS = [
@@ -7,10 +8,10 @@ export const WORKSPACE_TABS = [
   { slug: "evidence", label: "Evidence" },
   { slug: "findings", label: "Findings" },
   { slug: "hypotheses", label: "Hypotheses" },
-  { slug: "research", label: "Research Needed" },
-  { slug: "customers", label: "Customers & Market" },
   { slug: "problem", label: "Problem" },
   { slug: "opportunities", label: "Opportunities" },
+  { slug: "research", label: "Research Needed" },
+  { slug: "customers", label: "Customers & Market" },
   { slug: "next-step", label: "Next Step" },
   { slug: "validation", label: "Validation" },
   { slug: "notes", label: "Notes" },

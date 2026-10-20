@@ -4,6 +4,7 @@ import { ArrowDown, Target } from "lucide-react";
 import { ConfidenceBadge } from "@/components/ui/ConfidenceBadge";
 import { FindingChip } from "./ArtifactChips";
 import { EmptyNote } from "@/components/ui/EmptyNote";
+import { LiveProblem } from "./LiveDiscovery";
 import { useWorkspace } from "./workspace-context";
 
 /**
@@ -13,6 +14,7 @@ import { useWorkspace } from "./workspace-context";
 export function ProblemView() {
   const { workspace } = useWorkspace();
   const p = workspace.problem;
+  if (workspace.live) return <LiveProblem live={workspace.live} />;
   const facets = (
     [
       ["Who is affected", p.whoIsAffected],

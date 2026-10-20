@@ -707,6 +707,40 @@ export type AnalysisRunRecord = {
   structured?: StructuredRun;
 };
 
+/** The refined problem as stored (Milestone 8): written on request after the analysis. */
+export type ProblemDefinitionRecord = {
+  id: ID;
+  /** The analysis it was written from; if a newer analysis exists, it's out of date. */
+  runId?: ID;
+  statement: string;
+  affected: string;
+  need: string;
+  obstacle: string;
+  businessImpact: string;
+  confidence: "low" | "medium" | "high";
+  confidenceReason: string;
+  assumptions: string[];
+  findingRefs: string[];
+  hypothesisRefs: string[];
+  links: EvidenceLink[];
+  createdAt: string;
+};
+
+/** An opportunity area as stored: found from a problem definition. Not a feature. */
+export type OpportunityRecord = {
+  id: ID;
+  title: string;
+  customerProblem: string;
+  potentialImpact: string;
+  impactLevel: "low" | "medium" | "high";
+  confidence: "low" | "medium" | "high";
+  assumptions: string[];
+  validationNeeds: string[];
+  findingRefs: string[];
+  links: EvidenceLink[];
+  status: "open" | "pursuing" | "parked";
+};
+
 /** A research task as stored: suggested by an analysis run, worked on by the team. */
 export type ResearchTaskRecord = {
   id: ID;
@@ -746,6 +780,10 @@ export type InvestigationRecord = {
   analysisRuns: AnalysisRunRecord[];
   /** Research tasks suggested by any run, oldest first; the team moves their status. */
   researchTasks: ResearchTaskRecord[];
+  /** The newest problem definition, if the team has asked for one. */
+  problemDefinition?: ProblemDefinitionRecord;
+  /** Opportunity areas found from that problem definition. */
+  opportunities: OpportunityRecord[];
   createdAt: string; // ISO
 };
 

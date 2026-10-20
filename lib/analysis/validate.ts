@@ -98,16 +98,6 @@ export function checkCitations(raw: AnalysisResult, pack: AnalysisPack): { resul
     }));
   if ((raw.researchTasks?.length ?? 0) > MAX_RESEARCH_TASKS) removed.push(`Only the first ${MAX_RESEARCH_TASKS} research tasks were kept.`);
 
-  const opportunities = raw.opportunities
-    .map((o) => ({ ...o, findings: known(o.findings) }))
-    .filter((o) => {
-      if (o.findings.length === 0) {
-        removed.push(`Opportunity “${o.title}” was not tied to any finding.`);
-        return false;
-      }
-      return true;
-    });
-
   return {
     result: {
       ...raw,
@@ -115,8 +105,6 @@ export function checkCitations(raw: AnalysisResult, pack: AnalysisPack): { resul
       hypotheses,
       openQuestions,
       researchTasks,
-      opportunities,
-      refinedProblem: { ...raw.refinedProblem, findings: known(raw.refinedProblem.findings) },
     },
     removed,
   };

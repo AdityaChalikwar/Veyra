@@ -53,6 +53,12 @@ team's research outcomes feed the next run; uploads get weekly trends and breakd
 problem "Our DAU dropped 40%." Checked with simulated runs; needs one live Claude run.
 Next: Milestone 8 (decisions, validation, Decision Brief), then 9 (Business Memory).
 
+## Milestone 8 — Problem definition and opportunity discovery: built
+Separate "Define the problem" and "Find opportunities" steps after the analysis, saved as rows with
+evidence links. See the section in `docs/backend-plan.md`. Checked with saved records and the code
+checks; needs one live Claude run. Next: Milestone 9 (validation, decisions, Decision Brief), then 10
+(Business Memory).
+
 ## Since Milestone 5
 - No business details at sign-up; workspace created automatically; context optional.
 - One-click demo (`setUpDemo`). Connecting the Demo ERP always switches the business context to
