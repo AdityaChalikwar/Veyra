@@ -183,7 +183,11 @@ export function LiveProblem({ live }: { live: LiveInvestigation }) {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-brand-700">
             <Target className="h-4 w-4" /> Problem definition
-            {d.causeStatus === "open" && <span className="rounded bg-uncertain-50 px-1.5 py-0.5 text-[10.5px] tracking-wide text-uncertain-600">Provisional</span>}
+            {d.causeStatus === "open" ? (
+              <span className="rounded bg-uncertain-50 px-1.5 py-0.5 text-[10.5px] tracking-wide text-uncertain-600">Provisional</span>
+            ) : (
+              <span className="rounded bg-confirmed-50 px-1.5 py-0.5 text-[10.5px] tracking-wide text-confirmed-600">Cause validated</span>
+            )}
           </p>
           <ConfidenceBadge level={d.confidence} />
         </div>
@@ -197,12 +201,7 @@ export function LiveProblem({ live }: { live: LiveInvestigation }) {
           <Facet label="Business impact" value={d.businessImpact} />
         </dl>
 
-        {d.causeStatus === "open" && (
-          <p className="mt-4 rounded-lg bg-uncertain-50 px-3.5 py-2.5 text-[13px] text-uncertain-600">
-            <b className="font-semibold">Provisional.</b> This rests on findings only. The cause is still a hypothesis, so it isn&rsquo;t part of the
-            problem yet. Once a hypothesis is validated, define the problem again to fill in what gets in the way.
-          </p>
-        )}
+        {d.causeStatus === "open" && <WhyProvisional />}
 
         <div className="mt-5 space-y-5 border-t border-line pt-4">
           <Bullets title="Unresolved assumptions" items={d.assumptions} tone="uncertain" />
@@ -217,7 +216,10 @@ export function LiveProblem({ live }: { live: LiveInvestigation }) {
           This is a problem, not a solution. Next: the opportunity areas that address it.
         </p>
         <div className="flex shrink-0 items-center gap-3">
-          {!stale && <RunStep label="Define again" busyLabel="Defining…" variant="secondary" run={() => defineInvestigationProblem(workspace.investigation.id)} />}
+          {/* While provisional, defining again only helps once a hypothesis is confirmed (banner above) or the analysis is newer. */}
+          {!stale && d.causeStatus === "validated" && (
+            <RunStep label="Define again" busyLabel="Defining…" variant="secondary" run={() => defineInvestigationProblem(workspace.investigation.id)} />
+          )}
           <Link
             href={routes.investigation(workspace.investigation.id, "opportunities")}
             className="inline-flex items-center gap-1 text-[13px] font-medium text-brand-600 hover:text-brand-700"
@@ -226,6 +228,50 @@ export function LiveProblem({ live }: { live: LiveInvestigation }) {
           </Link>
         </div>
       </div>
+    </div>
+  );
+}
+
+const HYPOTHESIS_STATE = {
+  open: { label: "Not validated yet", className: "bg-slate-100 text-slate-600" },
+  unclear: { label: "Unclear", className: "bg-uncertain-50 text-uncertain-600" },
+  rejected: { label: "Ruled out", className: "bg-slate-100 text-slate-500 line-through" },
+  confirmed: { label: "Confirmed", className: "bg-confirmed-50 text-confirmed-600" },
+} as const;
+
+/**
+ * Why the definition is provisional and what ends it: a confirmed hypothesis
+ * about the cause, then defining the problem again. Lists each hypothesis's state.
+ */
+function WhyProvisional() {
+  const { workspace } = useWorkspace();
+  const id = workspace.investigation.id;
+  const candidates = workspace.hypotheses.filter((h) => h.status !== "rejected");
+  return (
+    <div className="mt-4 rounded-lg bg-uncertain-50 px-3.5 py-3 text-[13px] text-uncertain-600">
+      <p>
+        <b className="font-semibold">Provisional</b> until a hypothesis about the cause is <b className="font-semibold">confirmed</b>. It rests on findings only, so
+        what gets in the way isn&rsquo;t known yet. Once one is confirmed, a &ldquo;Define again&rdquo; button appears here and the new definition
+        includes the cause; the Provisional tag goes. An unclear or rejected result doesn&rsquo;t change it.
+      </p>
+      {workspace.hypotheses.length > 0 && (
+        <ul className="mt-2.5 space-y-1">
+          {workspace.hypotheses.map((h) => {
+            const st = HYPOTHESIS_STATE[h.status ?? "open"];
+            return (
+              <li key={h.id} className="flex items-start gap-2 text-ink">
+                <span className={cn("shrink-0 rounded px-1.5 py-0.5 text-[10.5px] font-semibold", st.className)}>
+                  {h.label} · {st.label}
+                </span>
+                <span className={cn("text-[12.5px]", h.status === "rejected" && "text-ink-subtle line-through")}>{h.title ?? h.statement}</span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      <Link href={routes.investigation(id, "validation")} className="mt-2.5 inline-flex items-center gap-1 text-[13px] font-medium text-brand-600 hover:text-brand-700">
+        {candidates.some((h) => h.status === "unclear") ? "Strengthen or validate a hypothesis" : "Validate a hypothesis"} <ArrowRight className="h-3.5 w-3.5" />
+      </Link>
     </div>
   );
 }

@@ -36,10 +36,15 @@ export async function loadTable(supabase: SupabaseClient<Database>, evidenceId: 
     if (!ds || !connector || !entity) return { error: "The data source for this dataset is no longer connected." };
     const result = normalize(entity, ds.mapping as FieldMapping, await connector.read(ds.key));
     if (!result.usable) return { error: "The dataset's field mapping no longer works." };
-    const headers = entity.fields.map((f) => f.key);
+    // Columns are named by their labels, as in the dataset's profile (what Veyra designs the tests from).
+    // Personal fields are left blank: tests never need them, and text from them must never reach the AI.
+    const value = (v: unknown) => (v === null || v === undefined ? "" : String(v));
     return {
       name: e.name,
-      table: { headers, rows: result.rows.map((r) => headers.map((h) => (r[h] === null || r[h] === undefined ? "" : String(r[h])))) },
+      table: {
+        headers: entity.fields.map((f) => f.label),
+        rows: result.rows.map((r) => entity.fields.map((f) => (f.personal ? "" : value(r[f.key])))),
+      },
     };
   }
   return { error: "This evidence has no rows Veyra can read." };

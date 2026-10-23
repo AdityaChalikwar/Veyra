@@ -602,7 +602,8 @@ class Run {
     const confirmed = verdict.outcome === "confirmed";
     const pursuing = (opps ?? []).some((o) => o.status === "pursuing");
     const follow: FollowThrough = {
-      problem: problem || confirmed ? "todo" : "skipped",
+      // Unclear changes nothing in the problem; rejected drops a possible cause; confirmed fills in the cause.
+      problem: confirmed || (problem && verdict.outcome === "rejected") ? "todo" : "skipped",
       opportunities: confirmed ? (pursuing ? "skipped" : "todo") : "skipped",
       brief: brief || confirmed ? "todo" : "skipped",
     };
