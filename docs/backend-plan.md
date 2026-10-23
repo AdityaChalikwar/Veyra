@@ -369,3 +369,45 @@ Business Memory, which every later analysis, problem definition and brief reads.
   steps (`<business_memory>`), and 10 to the brief, as information, never as data to quote.
 - The Decision Log, Validation and Business Memory pages now read these tables (the sample's demo
   entries are listed after them).
+
+## Veyra runs the validation (after Milestone 9)
+
+The team chooses which hypothesis to test and presses **Run validation**; Veyra does the rest
+(`lib/validation-run/`, `app/(app)/investigations/run-actions.ts`, table `validation_runs`).
+
+Phases, one per request, each under a lease so a run never runs twice at once (`engine.ts`):
+1. **Planning** — any part of the plan the team didn't write (test, confirm-if, reject-if, evidence
+   checklist) is drafted, then the plan is **fixed in the run before any result is seen**.
+2. **Gathering** — two Claude calls design the work against the datasets' profiles: data tests
+   (with exact columns), free text to read, web searches, synced datasets from connected sources to
+   add (Veyra adds them to the investigation), and the important evidence nothing can reach.
+3. **Needs input** (only if something important is out of reach, asked once) — each request says
+   what, why, where to find it, and how much it would change the verdict. The team uploads it,
+   connects it, types a few words, or goes ahead without it. New data → the tests are designed again.
+4. **Testing** — data tests run **in code** on the real rows (`tests.ts`, `stats.ts`): before/after a
+   date, change by group, share compared, two measures together, category mix shift — with Welch's
+   t-test, two-proportion z-test, Pearson correlation and chi-square p-values. Rows are read again
+   from private storage (uploads) or from the connector with the confirmed mapping (`data.ts`).
+   Free text is labelled by Claude and counted in code (examples quoted verbatim). Web search uses
+   Claude's `web_search_20260209` tool; only URLs that came back from a search are kept.
+5. **Judging** — Claude judges against the fixed plan, then a second call tries to disprove the
+   verdict. Code then caps it: medium at most without a data test, with important evidence skipped,
+   or without the challenge; "confirmed" needs a supporting result and "rejected" a contradicting one,
+   otherwise it becomes unclear.
+6. **Settling** — results become evidence notes (`validation_notes.kind` test-result / text-analysis /
+   web / answer, `relation` may be neutral, `run_id` set), the validation is settled with
+   `settled_by_kind = veyra` and a confidence, and Business Memory is updated.
+7. **Follow-through** — redefine the problem (if one exists or the cause was confirmed), refresh the
+   opportunities (only when confirmed and none is being pursued, so the team's choice is kept), and
+   rewrite the Decision Brief.
+
+Background: each phase is done in `after()` by `POST /api/validation-runs/[id]/advance` (signed-in
+user's cookies, 401 otherwise), which then calls itself for the next phase — the run carries on with
+the page closed. If that chain is blocked (e.g. deployment protection on previews), an open
+Validation tab resumes a run that hasn't moved for 45 seconds (`resumeRun`).
+
+The team stays in charge: **Make this stronger** lists what was skipped or would help; adding it and
+**Run again with this** starts a new run with the answers carried over. The manual plan, own
+evidence and own call stay available as **Override**. A run counts once towards the daily AI limit
+(`ai_usage.kind` validation-run). The Validation tab marks the suggested next hypothesis (one an
+opportunity depends on, then the most confident).

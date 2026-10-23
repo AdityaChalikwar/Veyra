@@ -1,8 +1,11 @@
 "use client";
 
-import { Check, Circle, CircleCheck, CircleHelp, FlaskConical, Pencil, Plus, RotateCcw, Sparkles, Trash2, X } from "lucide-react";
+import { Check, ChevronDown, Circle, CircleCheck, CircleHelp, FlaskConical, Pencil, Play, Plus, RotateCcw, Sparkles, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { rerunWithEvidence, resumeRun, runValidation } from "@/app/(app)/investigations/run-actions";
+import { ACTIVE_PHASES } from "@/lib/validation-run/types";
+import { RunPanel } from "./ValidationRun";
 import {
   addValidationDataset,
   addValidationNote,
@@ -62,19 +65,22 @@ const statusOf = (v?: ValidationRecord) => (!v ? "none" : v.status === "settled"
 export function LiveValidation({ live }: { live: LiveInvestigation }) {
   const { workspace } = useWorkspace();
   const validations = live.record.validations;
+  useRunWatcher(live);
   if (!live.run) return <EmptyNote className="mt-6">Analyse your data first. Hypotheses to validate come from the analysis.</EmptyNote>;
 
   const linked = new Set(workspace.hypotheses.map((h) => h.validationId).filter(Boolean));
   const earlier = validations.filter((v) => !linked.has(v.id));
   const settled = validations.filter((v) => v.status === "settled");
+  const next = suggestNext(workspace.hypotheses, live);
 
   return (
     <div className="mt-6 max-w-4xl space-y-4">
       <div>
         <h2 className="text-lg font-semibold">Validation</h2>
         <p className="mt-1 max-w-2xl text-[13px] text-ink-subtle">
-          A hypothesis is a guess until it is tested. Plan a test that could prove it wrong, collect evidence for and against, then settle it with
-          your reason. Confirmed hypotheses explain the problem; rejected ones are ruled out and not suggested again.
+          A hypothesis is a guess until it is tested. Choose one and Veyra validates it: it fixes the test before looking, gathers evidence
+          from your data, connected sources, uploaded text and the web, runs the numbers, challenges its own verdict and settles it. If something
+          important is out of reach, it asks — add it or go ahead without it. You can always override the call.
         </p>
         <p className="mt-2 text-xs text-ink-faint">
           {settled.length} of {workspace.hypotheses.length + earlier.length} settled
@@ -82,7 +88,7 @@ export function LiveValidation({ live }: { live: LiveInvestigation }) {
       </div>
       {workspace.hypotheses.length === 0 && earlier.length === 0 && <EmptyNote>The latest analysis didn&rsquo;t propose any hypotheses.</EmptyNote>}
       {workspace.hypotheses.map((h) => (
-        <ValidationCard key={h.id} hypothesis={h} validation={validations.find((v) => v.id === h.validationId)} live={live} />
+        <ValidationCard key={h.id} hypothesis={h} validation={validations.find((v) => v.id === h.validationId)} live={live} suggested={next === h.id} />
       ))}
       {earlier.length > 0 && (
         <>
@@ -96,53 +102,111 @@ export function LiveValidation({ live }: { live: LiveInvestigation }) {
   );
 }
 
-function ValidationCard({ hypothesis: h, validation: v, live }: { hypothesis?: Hypothesis; validation?: ValidationRecord; live: LiveInvestigation }) {
+function ValidationCard({ hypothesis: h, validation: v, live, suggested }: { hypothesis?: Hypothesis; validation?: ValidationRecord; live: LiveInvestigation; suggested?: boolean }) {
   const { workspace } = useWorkspace();
   const { busy, error, run } = useAction();
   const s = STATUS[statusOf(v)];
   const title = h?.title ?? v?.hypothesisTitle ?? "";
   const statement = h?.statement ?? v?.hypothesisStatement ?? "";
   const rejected = v?.outcome === "rejected";
+  const latest = v?.run;
+  const running = !!latest && (ACTIVE_PHASES.includes(latest.phase) || latest.phase === "needs-input");
+  const settledByVeyra = v?.status === "settled" && v.settledBy === "veyra";
+  const runIt = () => run("run", () => (h ? runValidation(workspace.investigation.id, h.id) : latest ? rerunWithEvidence(latest.id) : Promise.resolve({ error: "Run it from the latest analysis." })));
+  // Showing Veyra's run: while it works, when it asks, and its verdict while that verdict stands.
+  const showRun = !!latest && (running || latest.phase === "failed" || (latest.phase === "completed" && (settledByVeyra || v?.status !== "settled")));
 
   return (
-    <article className={cn("rounded-xl border bg-surface shadow-card", v?.outcome === "confirmed" ? "border-2 border-confirmed-600/50" : "border-line")}>
+    <article className={cn("rounded-xl border bg-surface shadow-card", v?.outcome === "confirmed" ? "border-2 border-confirmed-600/50" : suggested ? "border-brand-300" : "border-line")}>
       <header className="p-5">
         <div className="flex flex-wrap items-center gap-2">
           {h && <span className="rounded-md border border-dashed border-uncertain-600/50 px-1.5 text-[13px] font-semibold text-uncertain-600">{h.label}</span>}
-          <span className={cn("rounded px-1.5 py-0.5 text-[11px] font-medium", s.className)}>{s.label}</span>
+          <span className={cn("rounded px-1.5 py-0.5 text-[11px] font-medium", s.className)}>
+            {running ? (latest?.phase === "needs-input" ? "Waiting for you" : "Veyra is validating") : s.label}
+            {v?.status === "settled" && ` · by ${v.settledBy === "veyra" ? "Veyra" : "the team"}`}
+            {v?.status === "settled" && v.confidence && ` · ${v.confidence} confidence`}
+          </span>
+          {suggested && !running && <span className="rounded bg-brand-50 px-1.5 py-0.5 text-[11px] font-semibold text-brand-700">Suggested next</span>}
         </div>
         <h3 className={cn("mt-2 text-[15px] font-semibold leading-snug", rejected && "text-ink-subtle line-through")}>{title || statement}</h3>
         {title && <p className={cn("mt-1 text-[13.5px] leading-relaxed text-ink-muted", rejected && "line-through")}>{statement}</p>}
       </header>
 
-      {!v && h && (
+      {!running && v?.status !== "settled" && latest?.phase !== "failed" && (h || latest) && (
         <div className="flex flex-col gap-3 border-t border-line bg-canvas/50 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-[13px] text-ink-muted">{h.validationMethod ? `Suggested test: ${h.validationMethod}` : "No test planned yet."}</p>
+          <p className="text-[13px] text-ink-muted">
+            Veyra plans the test, gathers the evidence, runs it and settles it. Usually a few minutes.
+          </p>
           <div className="flex shrink-0 flex-wrap gap-2">
-            <Button type="button" size="sm" variant="secondary" disabled={!!busy} onClick={() => run("manual", () => planValidation(workspace.investigation.id, h.id, false))}>
-              {busy === "manual" ? <Spinner /> : <Pencil className="h-3.5 w-3.5" />} Write the plan myself
-            </Button>
-            <Button type="button" size="sm" disabled={!!busy} onClick={() => run("ai", () => planValidation(workspace.investigation.id, h.id, true))}>
-              {busy === "ai" ? <Spinner /> : <Sparkles className="h-3.5 w-3.5" />} {busy === "ai" ? "Drafting the plan…" : "Draft a plan with Veyra"}
+            {!v && h && (
+              <Button type="button" size="sm" variant="ghost" disabled={!!busy} onClick={() => run("manual", () => planValidation(workspace.investigation.id, h.id, false))}>
+                {busy === "manual" ? <Spinner /> : <Pencil className="h-3.5 w-3.5" />} Do it myself
+              </Button>
+            )}
+            <Button type="button" size="sm" disabled={!!busy} onClick={runIt}>
+              {busy === "run" ? <Spinner /> : <Play className="h-3.5 w-3.5" />} Run validation
             </Button>
           </div>
         </div>
       )}
-      {error && !v && (
+      {error && (
         <p role="alert" className="px-5 pb-4 text-[13px] text-danger-600">
           {error}
         </p>
       )}
 
-      {v && (
-        <>
+      {showRun && latest && <RunPanel run={latest} onRunAgain={runIt} busyAgain={busy === "run"} />}
+
+      {v && !running && (
+        <details className="group border-t border-line" open={!latest && v.status !== "settled" ? true : undefined}>
+          <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-3 text-[13px] font-medium text-ink-muted hover:text-ink">
+            {settledByVeyra ? "Override: the plan, your own evidence and your call" : "The plan, the evidence and the call"}
+            <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" />
+          </summary>
           <Plan v={v} />
           <EvidenceSection v={v} live={live} />
           <Settle v={v} />
-        </>
+        </details>
       )}
     </article>
   );
+}
+
+/** Polls while Veyra works; if a run seems stuck (background chain blocked), moves it on from here. */
+function useRunWatcher(live: LiveInvestigation) {
+  const router = useRouter();
+  const nudged = useRef(new Set<string>());
+  const runs = live.record.validations.map((v) => v.run).filter((r) => !!r && ACTIVE_PHASES.includes(r.phase));
+  const key = runs.map((r) => `${r!.id}:${r!.phase}:${r!.updatedAt}`).join("|");
+  useEffect(() => {
+    if (!runs.length) return;
+    const timer = setInterval(() => router.refresh(), 4000);
+    for (const r of runs) {
+      const stale = Date.now() - new Date(r!.updatedAt).getTime() > 45_000;
+      const free = !r!.leaseUntil || new Date(r!.leaseUntil).getTime() < Date.now();
+      const mark = `${r!.id}:${r!.updatedAt}`;
+      if (stale && free && !nudged.current.has(mark)) {
+        nudged.current.add(mark);
+        resumeRun(r!.id).then(() => router.refresh()).catch(() => {});
+      }
+    }
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+}
+
+/**
+ * Which hypothesis to validate next: one an opportunity depends on, then the
+ * most confident, among those not yet settled or running.
+ */
+function suggestNext(hypotheses: Hypothesis[], live: LiveInvestigation): string | undefined {
+  const rank = { high: 3, "medium-high": 2.5, medium: 2, "low-medium": 1.5, low: 1 } as Record<string, number>;
+  const depended = new Set(live.record.opportunities.flatMap((o) => o.dependsOn));
+  const open = hypotheses.filter((h) => {
+    const v = live.record.validations.find((x) => x.id === h.validationId);
+    return h.status !== "confirmed" && h.status !== "rejected" && !(v?.run && (ACTIVE_PHASES.includes(v.run.phase) || v.run.phase === "needs-input"));
+  });
+  return open.sort((a, b) => (depended.has(b.id) ? 10 : 0) + (rank[b.confidence] ?? 0) - ((depended.has(a.id) ? 10 : 0) + (rank[a.confidence] ?? 0)))[0]?.id;
 }
 
 function Plan({ v }: { v: ValidationRecord }) {
@@ -303,6 +367,7 @@ function Checklist({ v }: { v: ValidationRecord }) {
 const RELATION = {
   supports: { label: "Supports", className: "bg-confirmed-50 text-confirmed-600" },
   contradicts: { label: "Contradicts", className: "bg-danger-50 text-danger-600" },
+  neutral: { label: "Neutral", className: "bg-slate-100 text-slate-600" },
 } as const;
 
 function EvidenceSection({ v, live }: { v: ValidationRecord; live: LiveInvestigation }) {
@@ -342,6 +407,7 @@ function EvidenceSection({ v, live }: { v: ValidationRecord; live: LiveInvestiga
           <li key={n.id} className="flex items-start gap-2 text-[13px]">
             <span className={cn("mt-0.5 shrink-0 rounded px-1.5 py-0.5 text-[10.5px] font-semibold", RELATION[n.relation].className)}>{RELATION[n.relation].label}</span>
             <span className="min-w-0 flex-1 text-ink">
+              {n.byVeyra && <span className="text-brand-700">Veyra · </span>}
               {n.kind === "research-task" && <span className="text-ink-subtle">Research · </span>}
               {n.body}
               {needLabel(n.needId) && <span className="mt-0.5 block text-xs text-ink-subtle">For: {needLabel(n.needId)}</span>}

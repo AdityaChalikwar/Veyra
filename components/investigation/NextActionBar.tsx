@@ -43,7 +43,7 @@ export function NextActionBar() {
       cta = "View Decision Brief";
       tab = "report";
     } else if (!workspace.hypotheses.some((h) => h.status === "confirmed") && workspace.hypotheses.some((h) => h.status !== "rejected" && h.status !== "unclear")) {
-      text = "Validate the hypotheses: plan a test, collect evidence, and settle each one. A confirmed cause unlocks the rest.";
+      text = "Choose a hypothesis and let Veyra validate it: it gathers the evidence, runs the tests and settles it. A confirmed cause unlocks the rest.";
       cta = "Go to Validation";
       tab = "validation";
     } else if (live.record.problemDefinition.causeStatus === "open" && workspace.hypotheses.some((h) => h.status === "confirmed")) {

@@ -68,6 +68,15 @@ Checked end to end on the DAU investigation with simulated AI parts; the four ne
 plan, check call, brief, plus the earlier problem/opportunities) need one live run. Next: Milestone 10
 (remaining mocks).
 
+## Veyra runs the validation: built
+"Run validation" on a hypothesis: Veyra fixes the plan, finds and tests the evidence itself (data
+tests in code, connected sources, text, web), asks once for anything important it can't reach (add
+it or go ahead), judges and challenges the verdict, settles it, then updates the problem,
+opportunities and brief. See the section in `docs/backend-plan.md`. Checked end to end with the AI
+steps simulated (planning, the background chain, needs-input, the data tests on real rows from
+storage and the Demo ERP, settling, follow-through, the stalled-run resume); the five Claude calls in
+a run need one live check.
+
 ## Since Milestone 5
 - No business details at sign-up; workspace created automatically; context optional.
 - One-click demo (`setUpDemo`). Connecting the Demo ERP always switches the business context to

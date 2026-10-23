@@ -4,12 +4,11 @@ import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { takeAiAllowance } from "@/lib/ai/usage";
 import { requireWorkspace } from "@/lib/auth";
-import { assembleBrief, briefGates, OUTCOME_LABEL } from "@/lib/brief/build";
-import { judgeBrief } from "@/lib/brief/generate";
-import { getBusinessContext, getInvestigationWorkspace } from "@/lib/data";
-import { memoryNotes, remember } from "@/lib/data/memory";
+import { briefGates, OUTCOME_LABEL } from "@/lib/brief/build";
+import { writeBriefFor } from "@/lib/brief/write";
+import { getInvestigationWorkspace } from "@/lib/data";
+import { remember } from "@/lib/data/memory";
 import { createClient } from "@/lib/supabase/server";
-import type { Json } from "@/lib/supabase/database.types";
 import type { DecisionBrief, DecisionOutcome } from "@/lib/types";
 
 /**
@@ -32,21 +31,11 @@ async function liveWorkspace(investigationId: string) {
 export async function writeDecisionBrief(investigationId: string): Promise<Result> {
   const { company } = await requireWorkspace();
   if (!UUID.test(investigationId)) return { error: RETRY };
-  const ws = await liveWorkspace(investigationId);
-  if (!ws) return { error: "This investigation no longer exists." };
-  if (!ws.live.run) return { error: "Analyse your data first. The brief builds on the findings." };
-
   const allowance = await takeAiAllowance(company.id, "brief");
   if ("error" in allowance) return allowance;
-  const supabase = await createClient();
-  const judged = await judgeBrief(ws, await getBusinessContext(), await memoryNotes(supabase, investigationId, 10));
-  if (!judged.ok) return { error: judged.failure.error };
-
-  const content = assembleBrief(ws, judged.data);
-  const { error } = await supabase.from("decision_briefs").insert({ investigation_id: investigationId, content: content as unknown as Json });
-  if (error) return { error: "The brief was written but couldn't be saved. Try again." };
+  const result = await writeBriefFor(investigationId);
   revalidatePath("/", "layout");
-  return { ok: true };
+  return result;
 }
 
 /** Turns the read-only share link on or off. Off removes the link; turning it on again makes a new one. */
