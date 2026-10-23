@@ -11,6 +11,91 @@ export type Database = {
   };
   public: {
     Tables: {
+      validation_runs: {
+        Row: {
+          id: string;
+          validation_id: string;
+          investigation_id: string;
+          workspace_id: string;
+          phase: string;
+          steps: Json;
+          design: Json | null;
+          requests: Json;
+          results: Json;
+          verdict: Json | null;
+          follow_through: Json;
+          proceed_without: boolean;
+          error: string | null;
+          lease_until: string | null;
+          started_by: string | null;
+          created_at: string;
+          updated_at: string;
+          completed_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          validation_id: string;
+          investigation_id: string;
+          workspace_id?: string;
+          phase?: string;
+          steps?: Json;
+          design?: Json | null;
+          requests?: Json;
+          results?: Json;
+          verdict?: Json | null;
+          follow_through?: Json;
+          proceed_without?: boolean;
+          error?: string | null;
+          lease_until?: string | null;
+          started_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          completed_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          validation_id?: string;
+          investigation_id?: string;
+          workspace_id?: string;
+          phase?: string;
+          steps?: Json;
+          design?: Json | null;
+          requests?: Json;
+          results?: Json;
+          verdict?: Json | null;
+          follow_through?: Json;
+          proceed_without?: boolean;
+          error?: string | null;
+          lease_until?: string | null;
+          started_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          completed_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "validation_runs_validation_id_fkey";
+            columns: ["validation_id"];
+            isOneToOne: false;
+            referencedRelation: "validations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "validation_runs_investigation_id_fkey";
+            columns: ["investigation_id"];
+            isOneToOne: false;
+            referencedRelation: "investigations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "validation_runs_workspace_id_fkey";
+            columns: ["workspace_id"];
+            isOneToOne: false;
+            referencedRelation: "workspaces";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       validations: {
         Row: {
           id: string;
@@ -31,6 +116,8 @@ export type Database = {
           created_at: string;
           updated_at: string;
           evidence_needed: Json;
+          settled_by_kind: string;
+          confidence: string | null;
         };
         Insert: {
           id?: string;
@@ -51,6 +138,8 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
           evidence_needed?: Json;
+          settled_by_kind?: string;
+          confidence?: string | null;
         };
         Update: {
           id?: string;
@@ -71,6 +160,8 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
           evidence_needed?: Json;
+          settled_by_kind?: string;
+          confidence?: string | null;
         };
         Relationships: [
           {
@@ -102,6 +193,8 @@ export type Database = {
           created_by: string | null;
           created_at: string;
           need_id: string | null;
+          detail: Json | null;
+          run_id: string | null;
         };
         Insert: {
           id?: string;
@@ -115,6 +208,8 @@ export type Database = {
           created_by?: string | null;
           created_at?: string;
           need_id?: string | null;
+          detail?: Json | null;
+          run_id?: string | null;
         };
         Update: {
           id?: string;
@@ -128,8 +223,17 @@ export type Database = {
           created_by?: string | null;
           created_at?: string;
           need_id?: string | null;
+          detail?: Json | null;
+          run_id?: string | null;
         };
         Relationships: [
+          {
+            foreignKeyName: "validation_notes_run_id_fkey";
+            columns: ["run_id"];
+            isOneToOne: false;
+            referencedRelation: "validation_runs";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "validation_notes_investigation_id_fkey";
             columns: ["investigation_id"];

@@ -54,3 +54,22 @@ export async function memoryNotes(supabase: Client, excludeInvestigationId?: str
   const { data } = await query;
   return (data ?? []).map((m) => ({ kind: m.kind, title: m.title, body: m.body }));
 }
+
+/** A settled hypothesis in memory: confirmed → validated problem, rejected → rejected hypothesis, unclear → nothing. */
+export async function rememberValidation(
+  supabase: Client,
+  v: { id: string; workspaceId: string; investigationId: string; title: string; statement: string },
+  outcome: "confirmed" | "rejected" | "unclear",
+  reason: string,
+  by: "team" | "veyra" = "team",
+): Promise<void> {
+  if (outcome === "unclear") return forget(supabase, v.investigationId, { validationId: v.id });
+  await remember(supabase, {
+    workspaceId: v.workspaceId,
+    investigationId: v.investigationId,
+    kind: outcome === "confirmed" ? "validated-problem" : "rejected-hypothesis",
+    title: v.title || v.statement.slice(0, 120),
+    body: `${v.statement}\n${outcome === "confirmed" ? "Confirmed" : "Rejected"}${by === "veyra" ? " by Veyra's validation" : ""} because: ${reason}`,
+    source: { validationId: v.id },
+  });
+}

@@ -1,3 +1,4 @@
+import type { ValidationRunRecord } from "@/lib/validation-run/types";
 import type { EvidenceNeed } from "@/lib/analysis/evidence-needs";
 /**
  * Domain types shared by the UI and the data layer.
@@ -824,8 +825,23 @@ export type ValidationRecord = {
   outcome?: "confirmed" | "rejected" | "unclear";
   reason: string;
   settledAt?: string;
+  /** Who made the call: the team, or Veyra's own validation run. */
+  settledBy: "team" | "veyra";
+  confidence?: "low" | "medium" | "high";
+  /** Veyra's newest run on this validation, if any. */
+  run?: ValidationRunRecord;
   /** needId: the checklist item a piece of evidence covers. */
-  notes: { id: ID; kind: "note" | "research-task"; relation: "supports" | "contradicts"; body: string; researchTaskId?: ID; needId?: string; createdAt: string }[];
+  notes: {
+    id: ID;
+    kind: "note" | "research-task" | "test-result" | "web" | "text-analysis" | "answer";
+    relation: "supports" | "contradicts" | "neutral";
+    body: string;
+    researchTaskId?: ID;
+    needId?: string;
+    /** Set on evidence Veyra gathered itself. */
+    byVeyra: boolean;
+    createdAt: string;
+  }[];
   datasets: { id: ID; evidenceId: ID; relation: "supports" | "contradicts"; shows: string; needId?: string }[];
   createdAt: string;
 };

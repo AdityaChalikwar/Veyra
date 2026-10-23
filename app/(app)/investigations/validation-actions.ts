@@ -8,7 +8,7 @@ import type { Json } from "@/lib/supabase/database.types";
 import { takeAiAllowance } from "@/lib/ai/usage";
 import { requireWorkspace } from "@/lib/auth";
 import { getBusinessContext } from "@/lib/data";
-import { forget, remember } from "@/lib/data/memory";
+import { forget, rememberValidation } from "@/lib/data/memory";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -243,7 +243,7 @@ export async function settleValidation(validationId: string, outcome: (typeof OU
   const supabase = await createClient();
   const { data: v, error } = await supabase
     .from("validations")
-    .update({ status: "settled", outcome, reason: why })
+    .update({ status: "settled", outcome, reason: why, settled_by_kind: "team" })
     .eq("id", validationId)
     .select("id, investigation_id, hypothesis_title, hypothesis_statement")
     .maybeSingle();
@@ -252,18 +252,12 @@ export async function settleValidation(validationId: string, outcome: (typeof OU
   }
   if (!v) return { error: "This validation no longer exists." };
 
-  if (outcome === "unclear") {
-    await forget(supabase, v.investigation_id, { validationId });
-  } else {
-    await remember(supabase, {
-      workspaceId: company.id,
-      investigationId: v.investigation_id,
-      kind: outcome === "confirmed" ? "validated-problem" : "rejected-hypothesis",
-      title: v.hypothesis_title || v.hypothesis_statement.slice(0, 120),
-      body: `${v.hypothesis_statement}\n${outcome === "confirmed" ? "Confirmed" : "Rejected"} because: ${why}`,
-      source: { validationId },
-    });
-  }
+  await rememberValidation(
+    supabase,
+    { id: validationId, workspaceId: company.id, investigationId: v.investigation_id, title: v.hypothesis_title, statement: v.hypothesis_statement },
+    outcome,
+    why,
+  );
   revalidatePath("/", "layout");
   return { ok: true };
 }
