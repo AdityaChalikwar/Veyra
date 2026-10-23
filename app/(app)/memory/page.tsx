@@ -11,7 +11,6 @@ export default async function BusinessMemoryPage() {
       <PageHeader
         title="Business Memory"
         description="What Veyra has learned about your business across investigations. It's used as context in every new investigation."
-        actions={<span className="rounded-full bg-uncertain-50 px-2.5 py-1 text-xs font-medium text-uncertain-600">Early preview</span>}
       />
       <MemoryBrowser memory={memory} />
     </PageContainer>

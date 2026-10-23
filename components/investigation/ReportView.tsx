@@ -8,7 +8,7 @@ import { cn } from "@/lib/cn";
 import { useHydrated } from "@/lib/store/app-store";
 import { formatDate } from "@/lib/time";
 import type { Hypothesis, ValidationPlan } from "@/lib/types";
-import { ComingNext } from "./ComingNext";
+import { LiveBrief } from "./LiveBrief";
 import { useWorkspace } from "./workspace-context";
 
 /**
@@ -18,23 +18,13 @@ import { useWorkspace } from "./workspace-context";
 export function ReportView() {
   const { workspace, progress } = useWorkspace();
   const mounted = useHydrated();
-  const live = !!workspace.live;
 
   useEffect(() => {
     document.documentElement.classList.add("printing-report");
     return () => document.documentElement.classList.remove("printing-report");
   }, []);
 
-  if (live) {
-    return (
-      <ComingNext title="The report comes with the Decision Brief">
-        <p>
-          A downloadable report of this investigation — problem, evidence, findings, hypotheses, decision — arrives once decisions can be
-          recorded. Everything it will draw on is already in the other tabs.
-        </p>
-      </ComingNext>
-    );
-  }
+  if (workspace.live) return <LiveBrief live={workspace.live} />;
 
   function download() {
     const previous = document.title;
@@ -80,7 +70,7 @@ export function ReportView() {
   );
 }
 
-const outcomeText = { confirmed: "Confirmed", rejected: "Rejected" } as const;
+const outcomeText = { confirmed: "Confirmed", rejected: "Rejected", unclear: "Unclear" } as const;
 
 function InvestigationReport() {
   const { workspace: w, progress, choice, nextStepAcceptedAt } = useWorkspace();

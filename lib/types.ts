@@ -1,3 +1,4 @@
+import type { EvidenceNeed } from "@/lib/analysis/evidence-needs";
 /**
  * Domain types shared by the UI and the data layer.
  * The mock layer (`/mocks`) and, later, the real backend must both satisfy these.
@@ -378,7 +379,9 @@ export type Hypothesis = {
   /** What must be true for it to hold. */
   assumptions?: string[];
   /** Set once a validation settles it. Untested hypotheses stay "open". */
-  status?: "open" | "confirmed" | "rejected";
+  status?: "open" | "confirmed" | "rejected" | "unclear";
+  /** The validation testing it (real investigations). */
+  validationId?: ID;
 };
 
 /* ── Research, customers, market ─────────────────────────────────────── */
@@ -559,6 +562,11 @@ export type DecisionRecord = {
   owner: string;
   rationale?: string;
   outcome?: string;
+  /** Real decisions: which of the seven outcomes, warnings it was decided despite, and follow-up. */
+  kind?: DecisionOutcome;
+  warnings?: string[];
+  reviewDate?: string;
+  successMeasure?: string;
 };
 
 /* ── Data sources ────────────────────────────────────────────────────── */
@@ -587,7 +595,9 @@ export type MemoryCategory =
   | "research"
   | "decisions"
   | "experiments"
-  | "learnings";
+  | "learnings"
+  | "customer-insights"
+  | "outcomes";
 
 export type MemoryEntry = {
   id: ID;
@@ -597,6 +607,8 @@ export type MemoryEntry = {
   date?: string; // ISO
   sourceInvestigationId?: ID;
   sourceInvestigationTitle?: string;
+  /** Real entries: the stored kind (e.g. "validated-problem"). */
+  kind?: string;
 };
 
 /** An investigation's journey from problem to learning, as kept in Business Memory. */
@@ -788,7 +800,115 @@ export type InvestigationRecord = {
   problemDefinition?: ProblemDefinitionRecord;
   /** Opportunity areas found from that problem definition. */
   opportunities: OpportunityRecord[];
+  /** Hypothesis validations, oldest first (Milestone 9). */
+  validations: ValidationRecord[];
+  /** Decisions recorded, newest first. */
+  decisions: InvestigationDecision[];
+  /** The newest Decision Brief, if one was written. */
+  brief?: BriefRecord;
   createdAt: string; // ISO
+};
+
+/** How a hypothesis is being tested, and the team's call once it's settled. */
+export type ValidationRecord = {
+  id: ID;
+  hypothesisTitle: string;
+  hypothesisStatement: string;
+  method: string;
+  test: string;
+  confirmIf: string;
+  rejectIf: string;
+  /** The evidence the test needs: what, from where, how much is enough. */
+  evidenceNeeded: EvidenceNeed[];
+  status: "planned" | "in-progress" | "settled";
+  outcome?: "confirmed" | "rejected" | "unclear";
+  reason: string;
+  settledAt?: string;
+  /** needId: the checklist item a piece of evidence covers. */
+  notes: { id: ID; kind: "note" | "research-task"; relation: "supports" | "contradicts"; body: string; researchTaskId?: ID; needId?: string; createdAt: string }[];
+  datasets: { id: ID; evidenceId: ID; relation: "supports" | "contradicts"; shows: string; needId?: string }[];
+  createdAt: string;
+};
+
+export type DecisionOutcome =
+  | "solution-exploration"
+  | "customer-research"
+  | "validate-hypothesis"
+  | "investigate-further"
+  | "no-intervention"
+  | "escalate"
+  | "prioritize-opportunity";
+
+/** A decision the team recorded on an investigation. Recording one completes the investigation. */
+export type InvestigationDecision = {
+  id: ID;
+  outcome: DecisionOutcome;
+  summary: string;
+  rationale: string;
+  opportunityId?: ID;
+  opportunityTitle: string;
+  escalateTo: string;
+  optionsRejected: string[];
+  risks: string[];
+  owner: string;
+  successMeasure: string;
+  reviewDate?: string;
+  /** What happened, recorded later. */
+  result: string;
+  /** What the decision rests on that isn't validated, worked out when it was recorded. */
+  warnings: string[];
+  createdAt: string;
+};
+
+export type BriefRecord = { id: ID; content: DecisionBrief; shareToken?: string; createdAt: string };
+
+/** The Decision Brief as saved: a snapshot of the investigation when it was written. */
+export type DecisionBrief = {
+  version: 1;
+  generatedAt: string;
+  investigationTitle: string;
+  problemAsked: string;
+  /** 1 */
+  executiveSummary: string;
+  /** 2 */
+  found: { ref: string; title: string; statement: string; observed?: string; confidence: Confidence }[];
+  /** 3 */
+  believe: {
+    summary: string;
+    validated: { title: string; statement: string; reason: string }[];
+    unvalidated: { ref: string; title: string; statement: string; evidenceStatus: string }[];
+    rejected: { title: string; statement: string; reason: string }[];
+  };
+  /** 4 */
+  evidence: {
+    datasets: { name: string; source: string; coverage?: string; confidence?: Confidence; confidenceReason?: string }[];
+    validationEvidence: number;
+    researchDone: { title: string; outcome: string }[];
+  };
+  /** 5 */
+  confidence: { level: Confidence; reason: string; capped?: string };
+  /** 6 */
+  unknowns: { openQuestions: { question: string; missingEvidence: string }[]; assumptions: string[]; untested: string[] };
+  /** 7 */
+  problem: { statement: string; affected: string; need: string; obstacle: string; businessImpact: string; provisional: boolean } | null;
+  /** 8 */
+  opportunity: {
+    pursued: { title: string; customerProblem: string; potentialImpact: string; dependsOn: string[] }[];
+    others: { title: string; status: string }[];
+  };
+  /** 9 */
+  solutionDirections: { allowed: boolean; why: string; items: { title: string; description: string; assumptions: string[]; risks: string[] }[] };
+  /** 10 */
+  recommendation: { outcome: DecisionOutcome; title: string; reasoning: string; wouldChangeIf: string[]; escalateTo: string; changedFrom?: DecisionOutcome; changedWhy?: string };
+  /** 11 */
+  validationPlan: {
+    existing: { hypothesis: string; method: string; status: string; outcome?: string; evidence?: string }[];
+    proposed: { what: string; how: string; successSignal: string }[];
+  };
+  /** 12, as it stood when the brief was written; screens show the live decision. */
+  decisionStatus: { decided: boolean; summary?: string; outcome?: DecisionOutcome; owner?: string; decidedAt?: string };
+  /** Lessons Veyra proposes for Business Memory; the team saves the ones worth keeping. */
+  lessons: { title: string; body: string }[];
 };
 
 export type Investigation = InvestigationSummary & {

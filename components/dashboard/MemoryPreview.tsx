@@ -10,10 +10,12 @@ const categoryStyle: Partial<Record<MemoryCategory, { label: string; className: 
   "validated-problems": { label: "Validated problem", className: "bg-confirmed-50 text-confirmed-600" },
   "rejected-hypotheses": { label: "Rejected hypothesis", className: "bg-slate-100 text-slate-600" },
   research: { label: "Research", className: "bg-slate-100 text-slate-600" },
+  "customer-insights": { label: "Customer insight", className: "bg-brand-50 text-brand-700" },
+  outcomes: { label: "Outcome", className: "bg-confirmed-50 text-confirmed-600" },
 };
 
 export function MemoryPreview({ entries }: { entries: MemoryEntry[] }) {
-  if (!entries.length) return <EmptyNote className="border-0 py-6">Veyra remembers what each investigation learned once it&rsquo;s completed.</EmptyNote>;
+  if (!entries.length) return <EmptyNote className="border-0 py-6">Veyra remembers what your investigations validate, rule out and decide.</EmptyNote>;
   return (
     <ul className="divide-y divide-line">
       {entries.map((m) => {

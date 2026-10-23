@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import type { AnalysisPack } from "./pack";
 import type { AnalysisResult } from "./schema";
+import { matchValidations } from "./carry-over";
 import { structureRun } from "./structure";
 
 /**
@@ -56,6 +57,13 @@ export async function saveEvidenceRows(
     : { data: [], error: null };
   if (fError) return undo(fError.message);
 
+  // A hypothesis the team already validated keeps its validation (and so its status) when this run states it again.
+  const { data: validations } = await supabase.from("validations").select("id, hypothesis_title, hypothesis_statement").eq("investigation_id", investigationId);
+  const carried = matchValidations(
+    (validations ?? []).map((v) => ({ id: v.id, title: v.hypothesis_title, statement: v.hypothesis_statement })),
+    hypotheses,
+  );
+
   const { data: hRows, error: hError } = hypotheses.length
     ? await supabase
         .from("hypotheses")
@@ -75,6 +83,7 @@ export async function saveEvidenceRows(
             contradicting_findings: h.contradictingFindings,
             validation_method: h.validationMethod,
             assumptions: h.assumptions,
+            validation_id: carried.get(h.ref) ?? null,
           })),
         )
         .select("id, ref")

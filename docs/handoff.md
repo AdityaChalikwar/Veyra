@@ -59,6 +59,15 @@ evidence links. See the section in `docs/backend-plan.md`. Checked with saved re
 checks; needs one live Claude run. Next: Milestone 9 (validation, decisions, Decision Brief), then 10
 (Business Memory).
 
+## Milestone 9 — Validation, Decision Brief, decisions and Business Memory: built
+Validate hypotheses with evidence and a reason (AI drafts the plan and can check the call), carry
+validations across analysis runs, gate Pursuing on confirmed hypotheses, a 12-section Decision Brief
+with one of seven outcomes (PDF and read-only share link), decisions that complete the investigation,
+and structured Business Memory fed back into the AI. See the section in `docs/backend-plan.md`.
+Checked end to end on the DAU investigation with simulated AI parts; the four new Claude calls (draft
+plan, check call, brief, plus the earlier problem/opportunities) need one live run. Next: Milestone 10
+(remaining mocks).
+
 ## Since Milestone 5
 - No business details at sign-up; workspace created automatically; context optional.
 - One-click demo (`setUpDemo`). Connecting the Demo ERP always switches the business context to
@@ -69,5 +78,4 @@ checks; needs one live Claude run. Next: Milestone 9 (validation, decisions, Dec
 - Daily AI usage limit per person (`AI_DAILY_LIMIT`, default 25).
 
 ## Later
-- Secondary research with Claude's web search, feedback themes, interview guide, validation,
-  Ask Veyra, decision brief, memory.
+- Secondary research with Claude's web search, feedback themes, interview guide, Ask Veyra.

@@ -15,7 +15,7 @@ export const WORKSPACE_TABS = [
   { slug: "next-step", label: "Next Step" },
   { slug: "validation", label: "Validation" },
   { slug: "notes", label: "Notes" },
-  { slug: "report", label: "Report" },
+  { slug: "report", label: "Decision Brief" },
 ] as const;
 
 export type WorkspaceTabSlug = (typeof WORKSPACE_TABS)[number]["slug"];

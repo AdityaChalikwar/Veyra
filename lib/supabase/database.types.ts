@@ -11,6 +11,348 @@ export type Database = {
   };
   public: {
     Tables: {
+      validations: {
+        Row: {
+          id: string;
+          investigation_id: string;
+          workspace_id: string;
+          hypothesis_title: string;
+          hypothesis_statement: string;
+          method: string;
+          test: string;
+          confirm_if: string;
+          reject_if: string;
+          status: string;
+          outcome: string | null;
+          reason: string;
+          settled_at: string | null;
+          settled_by: string | null;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+          evidence_needed: Json;
+        };
+        Insert: {
+          id?: string;
+          investigation_id: string;
+          workspace_id?: string;
+          hypothesis_title?: string;
+          hypothesis_statement: string;
+          method?: string;
+          test?: string;
+          confirm_if?: string;
+          reject_if?: string;
+          status?: string;
+          outcome?: string | null;
+          reason?: string;
+          settled_at?: string | null;
+          settled_by?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          evidence_needed?: Json;
+        };
+        Update: {
+          id?: string;
+          investigation_id?: string;
+          workspace_id?: string;
+          hypothesis_title?: string;
+          hypothesis_statement?: string;
+          method?: string;
+          test?: string;
+          confirm_if?: string;
+          reject_if?: string;
+          status?: string;
+          outcome?: string | null;
+          reason?: string;
+          settled_at?: string | null;
+          settled_by?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          evidence_needed?: Json;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "validations_investigation_id_fkey";
+            columns: ["investigation_id"];
+            isOneToOne: false;
+            referencedRelation: "investigations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "validations_workspace_id_fkey";
+            columns: ["workspace_id"];
+            isOneToOne: false;
+            referencedRelation: "workspaces";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      validation_notes: {
+        Row: {
+          id: string;
+          validation_id: string;
+          investigation_id: string;
+          workspace_id: string;
+          kind: string;
+          research_task_id: string | null;
+          body: string;
+          relation: string;
+          created_by: string | null;
+          created_at: string;
+          need_id: string | null;
+        };
+        Insert: {
+          id?: string;
+          validation_id: string;
+          investigation_id: string;
+          workspace_id?: string;
+          kind: string;
+          research_task_id?: string | null;
+          body: string;
+          relation: string;
+          created_by?: string | null;
+          created_at?: string;
+          need_id?: string | null;
+        };
+        Update: {
+          id?: string;
+          validation_id?: string;
+          investigation_id?: string;
+          workspace_id?: string;
+          kind?: string;
+          research_task_id?: string | null;
+          body?: string;
+          relation?: string;
+          created_by?: string | null;
+          created_at?: string;
+          need_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "validation_notes_investigation_id_fkey";
+            columns: ["investigation_id"];
+            isOneToOne: false;
+            referencedRelation: "investigations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "validation_notes_workspace_id_fkey";
+            columns: ["workspace_id"];
+            isOneToOne: false;
+            referencedRelation: "workspaces";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "validation_notes_validation_id_fkey";
+            columns: ["validation_id"];
+            isOneToOne: false;
+            referencedRelation: "validations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "validation_notes_research_task_id_fkey";
+            columns: ["research_task_id"];
+            isOneToOne: false;
+            referencedRelation: "research_tasks";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      decisions: {
+        Row: {
+          id: string;
+          investigation_id: string;
+          workspace_id: string;
+          outcome: string;
+          summary: string;
+          rationale: string;
+          opportunity_id: string | null;
+          opportunity_title: string;
+          escalate_to: string;
+          options_rejected: string[];
+          risks: string[];
+          owner: string;
+          success_measure: string;
+          review_date: string | null;
+          result: string;
+          warnings: string[];
+          status: string;
+          decided_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          investigation_id: string;
+          workspace_id?: string;
+          outcome: string;
+          summary: string;
+          rationale?: string;
+          opportunity_id?: string | null;
+          opportunity_title?: string;
+          escalate_to?: string;
+          options_rejected?: string[];
+          risks?: string[];
+          owner?: string;
+          success_measure?: string;
+          review_date?: string | null;
+          result?: string;
+          warnings?: string[];
+          status?: string;
+          decided_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          investigation_id?: string;
+          workspace_id?: string;
+          outcome?: string;
+          summary?: string;
+          rationale?: string;
+          opportunity_id?: string | null;
+          opportunity_title?: string;
+          escalate_to?: string;
+          options_rejected?: string[];
+          risks?: string[];
+          owner?: string;
+          success_measure?: string;
+          review_date?: string | null;
+          result?: string;
+          warnings?: string[];
+          status?: string;
+          decided_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "decisions_investigation_id_fkey";
+            columns: ["investigation_id"];
+            isOneToOne: false;
+            referencedRelation: "investigations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "decisions_workspace_id_fkey";
+            columns: ["workspace_id"];
+            isOneToOne: false;
+            referencedRelation: "workspaces";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "decisions_opportunity_id_fkey";
+            columns: ["opportunity_id"];
+            isOneToOne: false;
+            referencedRelation: "opportunities";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      decision_briefs: {
+        Row: {
+          id: string;
+          investigation_id: string;
+          workspace_id: string;
+          content: Json;
+          share_token: string | null;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          investigation_id: string;
+          workspace_id?: string;
+          content: Json;
+          share_token?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          investigation_id?: string;
+          workspace_id?: string;
+          content?: Json;
+          share_token?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "decision_briefs_investigation_id_fkey";
+            columns: ["investigation_id"];
+            isOneToOne: false;
+            referencedRelation: "investigations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "decision_briefs_workspace_id_fkey";
+            columns: ["workspace_id"];
+            isOneToOne: false;
+            referencedRelation: "workspaces";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      memory_entries: {
+        Row: {
+          id: string;
+          workspace_id: string;
+          investigation_id: string | null;
+          kind: string;
+          title: string;
+          body: string;
+          source: Json;
+          archived: boolean;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          workspace_id: string;
+          investigation_id?: string | null;
+          kind: string;
+          title: string;
+          body?: string;
+          source?: Json;
+          archived?: boolean;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          workspace_id?: string;
+          investigation_id?: string | null;
+          kind?: string;
+          title?: string;
+          body?: string;
+          source?: Json;
+          archived?: boolean;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "memory_entries_investigation_id_fkey";
+            columns: ["investigation_id"];
+            isOneToOne: false;
+            referencedRelation: "investigations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "memory_entries_workspace_id_fkey";
+            columns: ["workspace_id"];
+            isOneToOne: false;
+            referencedRelation: "workspaces";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       problem_definitions: {
         Row: {
           id: string;
@@ -484,6 +826,7 @@ export type Database = {
           contradicting_findings: string[];
           validation_method: string;
           status: string;
+          validation_id: string | null;
         };
         Insert: {
           id?: string;
@@ -504,6 +847,7 @@ export type Database = {
           contradicting_findings?: string[];
           validation_method?: string;
           status?: string;
+          validation_id?: string | null;
         };
         Update: {
           id?: string;
@@ -524,8 +868,16 @@ export type Database = {
           contradicting_findings?: string[];
           validation_method?: string;
           status?: string;
+          validation_id?: string | null;
         };
         Relationships: [
+          {
+            foreignKeyName: "hypotheses_validation_id_fkey";
+            columns: ["validation_id"];
+            isOneToOne: false;
+            referencedRelation: "validations";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "hypotheses_investigation_id_fkey";
             columns: ["investigation_id"];
@@ -560,8 +912,10 @@ export type Database = {
           hypothesis_id: string | null;
           problem_definition_id: string | null;
           opportunity_id: string | null;
+          validation_id: string | null;
           relation: string;
           shows: string;
+          need_id: string | null;
         };
         Insert: {
           id?: string;
@@ -573,8 +927,10 @@ export type Database = {
           hypothesis_id?: string | null;
           problem_definition_id?: string | null;
           opportunity_id?: string | null;
+          validation_id?: string | null;
           relation: string;
           shows?: string;
+          need_id?: string | null;
         };
         Update: {
           id?: string;
@@ -586,10 +942,19 @@ export type Database = {
           hypothesis_id?: string | null;
           problem_definition_id?: string | null;
           opportunity_id?: string | null;
+          validation_id?: string | null;
           relation?: string;
           shows?: string;
+          need_id?: string | null;
         };
         Relationships: [
+          {
+            foreignKeyName: "evidence_links_validation_id_fkey";
+            columns: ["validation_id"];
+            isOneToOne: false;
+            referencedRelation: "validations";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "evidence_links_problem_definition_id_fkey";
             columns: ["problem_definition_id"];
@@ -1433,6 +1798,10 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      get_shared_brief: {
+        Args: { token: string };
+        Returns: Json;
+      };
       create_investigation: {
         Args: {
           p_attachments: string[];

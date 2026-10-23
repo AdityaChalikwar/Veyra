@@ -38,14 +38,26 @@ export function NextActionBar() {
       text = "The problem is defined. Find the opportunity areas that address it.";
       cta = "Find opportunities";
       tab = "opportunities";
-    } else if (!live.record.opportunities.some((o) => o.status === "pursuing")) {
-      text = "Choose which opportunity to pursue, after checking its assumptions.";
-      cta = "Review opportunities";
-      tab = "opportunities";
+    } else if (live.record.decisions.length) {
+      text = `Decision recorded: ${live.record.decisions[0].summary}`;
+      cta = "View Decision Brief";
+      tab = "report";
+    } else if (!workspace.hypotheses.some((h) => h.status === "confirmed") && workspace.hypotheses.some((h) => h.status !== "rejected" && h.status !== "unclear")) {
+      text = "Validate the hypotheses: plan a test, collect evidence, and settle each one. A confirmed cause unlocks the rest.";
+      cta = "Go to Validation";
+      tab = "validation";
+    } else if (live.record.problemDefinition.causeStatus === "open" && workspace.hypotheses.some((h) => h.status === "confirmed")) {
+      text = "A hypothesis is confirmed. Define the problem again so it includes the cause.";
+      cta = "Define again";
+      tab = "problem";
+    } else if (!live.record.brief) {
+      text = "Write the Decision Brief: what was found, what is believed, what is unknown and the recommended next step.";
+      cta = "Write the brief";
+      tab = "report";
     } else {
-      text = "Validate the assumptions behind the opportunity you're pursuing. Solution directions come after.";
-      cta = "Review opportunities";
-      tab = "opportunities";
+      text = "Read the Decision Brief and record the team's decision. That completes the investigation.";
+      cta = "Record the decision";
+      tab = "report";
     }
   } else if (progress.complete) {
     const o = workspace.opportunities.find((x) => x.id === choice?.opportunityId);

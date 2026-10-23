@@ -18,7 +18,7 @@ export function dailyLimit(): number {
  * Records one AI call for the signed-in person, or refuses it when they've
  * reached today's limit. Call it just before calling the model.
  */
-export async function takeAiAllowance(workspaceId: string, kind: "analysis" | "questions" | "problem" | "opportunities"): Promise<{ ok: true } | { error: string }> {
+export async function takeAiAllowance(workspaceId: string, kind: "analysis" | "questions" | "problem" | "opportunities" | "validation" | "brief"): Promise<{ ok: true } | { error: string }> {
   const supabase = await createClient();
   const since = new Date(Date.now() - DAY_MS).toISOString();
   const { count, error } = await supabase.from("ai_usage").select("id", { count: "exact", head: true }).gte("created_at", since);
