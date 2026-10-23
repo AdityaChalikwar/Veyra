@@ -283,7 +283,19 @@ export function WorkspaceFrame({ workspace: initial, children }: { workspace: In
     [investigationId, user.name],
   );
 
-  const progress = useMemo(() => deriveProgress(initial.stages, { market, validations, hypotheses, choice }), [initial.stages, market, validations, hypotheses, choice]);
+  const progress = useMemo(() => {
+    const p = deriveProgress(initial.stages, { market, validations, hypotheses, choice });
+    // The team's own investigation is complete once a decision is recorded.
+    if (!initial.live) return p;
+    const decided = initial.live.record.decisions.length > 0;
+    return {
+      ...p,
+      problemValidated: initial.hypotheses.some((h) => h.status === "confirmed"),
+      complete: decided,
+      allRejected: initial.hypotheses.length > 0 && initial.hypotheses.every((h) => h.status === "rejected"),
+      status: decided ? ("completed" as const) : p.status,
+    };
+  }, [initial.stages, initial.live, initial.hypotheses, market, validations, hypotheses, choice]);
 
   // The team's own investigation shows what is saved, as it arrives from the server;
   // only the sample keeps its simulated changes in the browser.

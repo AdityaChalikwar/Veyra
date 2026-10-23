@@ -33,10 +33,11 @@ export function HypothesisCard({ hypothesis: h, compact }: { hypothesis: Hypothe
           <KindBadge kind="hypothesis" />
           {h.status === "confirmed" && <span className="rounded bg-confirmed-50 px-1.5 py-0.5 text-[11px] font-medium text-confirmed-600">Confirmed</span>}
           {h.status === "rejected" && <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600">Rejected</span>}
+          {h.status === "unclear" && <span className="rounded bg-uncertain-50 px-1.5 py-0.5 text-[11px] font-medium text-uncertain-600">Unclear</span>}
         </div>
         <ChevronRight className="h-4 w-4 shrink-0 text-ink-faint transition-transform group-hover:translate-x-0.5 group-hover:text-brand-600" />
       </div>
-      <h3 className={cn("mt-2 font-semibold leading-snug", compact ? "text-[14px]" : "text-[15px]")}>{h.title ?? h.statement}</h3>
+      <h3 className={cn("mt-2 font-semibold leading-snug", compact ? "text-[14px]" : "text-[15px]", h.status === "rejected" && "text-ink-subtle line-through")}>{h.title ?? h.statement}</h3>
       <dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
         <div>
           <dt className="text-[10.5px] font-semibold uppercase tracking-wider text-ink-faint">Evidence</dt>

@@ -18,7 +18,7 @@ import { EvidenceCitation } from "./EvidenceCitation";
 import { useWorkspace } from "./workspace-context";
 
 /** Runs one of the discovery steps and refreshes the page when it's done. */
-function RunStep({ label, busyLabel, run, variant = "primary" }: { label: string; busyLabel: string; run: () => Promise<{ ok: true } | { error: string }>; variant?: "primary" | "secondary" }) {
+export function RunStep({ label, busyLabel, run, variant = "primary" }: { label: string; busyLabel: string; run: () => Promise<{ ok: true } | { error: string }>; variant?: "primary" | "secondary" }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -159,9 +159,19 @@ export function LiveProblem({ live }: { live: LiveInvestigation }) {
   }
 
   const stale = d.runId !== live.run.id;
+  const confirmed = workspace.hypotheses.filter((h) => h.status === "confirmed");
   return (
     <div className="mt-6 max-w-4xl space-y-4">
       {original}
+      {d.causeStatus === "open" && confirmed.length > 0 && (
+        <div className="flex flex-col gap-3 rounded-xl border border-confirmed-200 bg-confirmed-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-[13px] text-confirmed-600">
+            <b className="font-semibold">{confirmed.map((h) => h.label).join(", ")} confirmed.</b> Define the problem again to fill in what gets in the way. It
+            stops being provisional.
+          </p>
+          <RunStep label="Define again" busyLabel="Defining…" run={() => defineInvestigationProblem(workspace.investigation.id)} />
+        </div>
+      )}
       {stale && (
         <div className="flex flex-col gap-3 rounded-xl border border-uncertain-200 bg-uncertain-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-[13px] text-uncertain-600">This definition comes from an earlier analysis. Define it again to use the latest findings.</p>
@@ -287,7 +297,10 @@ export function LiveOpportunities({ live }: { live: LiveInvestigation }) {
 }
 
 function LiveOpportunityCard({ o, index }: { o: OpportunityRecord; index: number }) {
+  const { workspace } = useWorkspace();
   const router = useRouter();
+  const dependencies = o.dependsOn.map((ref) => ({ ref, h: workspace.hypotheses.find((x) => x.id === ref) }));
+  const unconfirmed = dependencies.filter((d) => d.h?.status !== "confirmed");
   const [open, setOpen] = useState(index === 1);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -357,6 +370,26 @@ function LiveOpportunityCard({ o, index }: { o: OpportunityRecord; index: number
               <p className="text-[13px] leading-relaxed text-ink">{o.potentialImpact}</p>
             </section>
           )}
+          {dependencies.length > 0 && (
+            <section>
+              <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-ink-faint">Assumes these hypotheses are true</h3>
+              <ul className="space-y-1">
+                {dependencies.map(({ ref, h }) => (
+                  <li key={ref} className="flex items-start gap-2 text-[13px] text-ink">
+                    <span
+                      className={cn(
+                        "shrink-0 rounded px-1.5 py-0.5 text-[10.5px] font-semibold",
+                        h?.status === "confirmed" ? "bg-confirmed-50 text-confirmed-600" : "bg-uncertain-50 text-uncertain-600",
+                      )}
+                    >
+                      {ref} · {h?.status === "confirmed" ? "Confirmed" : h?.status === "rejected" ? "Rejected" : "Not validated"}
+                    </span>
+                    {h?.title ?? h?.statement ?? ""}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
           <Bullets title="Assumptions" items={o.assumptions} tone="uncertain" />
           <Bullets title="Validate before pursuing" items={o.validationNeeds} />
           <Citations links={o.links} />
@@ -365,9 +398,11 @@ function LiveOpportunityCard({ o, index }: { o: OpportunityRecord; index: number
       )}
       <div className="flex gap-2 border-t border-line bg-canvas/60 px-5 py-3 text-xs text-ink-subtle">
         <Lock className="mt-px h-3.5 w-3.5 shrink-0" />
-        {o.status === "pursuing"
-          ? "Solution directions for this opportunity come in the next milestone, once you've validated what's above."
-          : "Solution directions open for opportunities you choose to pursue, after their assumptions are validated."}
+        {unconfirmed.length
+          ? `Pursuing it waits on validating ${unconfirmed.map((d) => d.ref).join(", ")} (Validation tab).`
+          : o.status === "pursuing"
+            ? "Pursuing. The Decision Brief suggests solution directions once a hypothesis about the cause is confirmed."
+            : "Solution directions open for opportunities you choose to pursue, once the cause is validated."}
       </div>
     </article>
   );

@@ -155,7 +155,8 @@ export function buildLiveWorkspace(record: InvestigationRecord, dataSources: Dat
       openQuestions: [],
       validationMethod: h.validationMethod,
       assumptions: h.assumptions,
-      status: "open",
+      status: h.status ?? "open",
+      validationId: h.validationId,
     };
   });
 

@@ -52,13 +52,19 @@ import type {
   InvestigationTrigger,
   InvestigationWorkspace,
   Level,
+  MemoryCategory,
   MemoryEntry,
+  MemoryStory,
   StageKey,
   UploadedEvidence,
   User,
   ResearchTaskRecord,
   ProblemDefinitionRecord,
   OpportunityRecord,
+  ValidationRecord,
+  InvestigationDecision,
+  DecisionOutcome,
+  DecisionBrief,
 } from "@/lib/types";
 
 export async function getCurrentUser(): Promise<User | null> {
@@ -172,7 +178,7 @@ export async function getInvestigationRecord(id: string): Promise<InvestigationR
   const { data } = await supabase
     .from("investigations")
     .select(
-      "triggers, outcomes, objective, current_stage, known_context, attachments, data_source_ids, plan, created_at, clarifying_questions (id, position, question, hint, answer), files (id, name, size_bytes, status, error, created_at, evidence (id, summary, coverage, profile, metrics, confidence, metadata)), investigation_stages (stage, completed_at), evidence (id, name, source, coverage, summary, profile, metrics, snapshot_id, file_id, confidence, metadata, created_at), analysis_runs (id, status, model, created_at, completed_at, error, result, pack, usage), findings (analysis_run_id, ref, position, kind, title, statement, observed, confidence, confidence_reason, based_on, evidence_links (evidence_id, relation, shows)), hypotheses (analysis_run_id, ref, position, title, statement, rationale, confidence, evidence_strength, evidence_status, supporting_findings, contradicting_findings, validation_method, assumptions, evidence_links (evidence_id, relation, shows)), open_questions (analysis_run_id, ref, position, question, why_it_matters, missing_evidence), next_steps (analysis_run_id, approach, approach_reason, evidence_sufficiency, type, title, detail, why, why_not_build_yet, would_change_if), problem_definitions (id, analysis_run_id, cause_status, statement, affected, need, obstacle, business_impact, confidence, confidence_reason, assumptions, finding_refs, hypothesis_refs, created_at, evidence_links (evidence_id, relation, shows), opportunities (id, position, title, customer_problem, potential_impact, impact_level, confidence, assumptions, validation_needs, finding_refs, depends_on, status, evidence_links (evidence_id, relation, shows))), research_tasks (id, analysis_run_id, position, title, question, method, method_detail, priority, status, rationale, question_ref, hypothesis_refs, outcome, created_at, updated_at)",
+      "triggers, outcomes, objective, current_stage, known_context, attachments, data_source_ids, plan, created_at, clarifying_questions (id, position, question, hint, answer), files (id, name, size_bytes, status, error, created_at, evidence (id, summary, coverage, profile, metrics, confidence, metadata)), investigation_stages (stage, completed_at), evidence (id, name, source, coverage, summary, profile, metrics, snapshot_id, file_id, confidence, metadata, created_at), analysis_runs (id, status, model, created_at, completed_at, error, result, pack, usage), findings (analysis_run_id, ref, position, kind, title, statement, observed, confidence, confidence_reason, based_on, evidence_links (evidence_id, relation, shows)), hypotheses (analysis_run_id, ref, position, title, statement, rationale, confidence, evidence_strength, evidence_status, supporting_findings, contradicting_findings, validation_method, assumptions, status, validation_id, evidence_links (evidence_id, relation, shows)), open_questions (analysis_run_id, ref, position, question, why_it_matters, missing_evidence), next_steps (analysis_run_id, approach, approach_reason, evidence_sufficiency, type, title, detail, why, why_not_build_yet, would_change_if), problem_definitions (id, analysis_run_id, cause_status, statement, affected, need, obstacle, business_impact, confidence, confidence_reason, assumptions, finding_refs, hypothesis_refs, created_at, evidence_links (evidence_id, relation, shows), opportunities (id, position, title, customer_problem, potential_impact, impact_level, confidence, assumptions, validation_needs, finding_refs, depends_on, status, evidence_links (evidence_id, relation, shows))), research_tasks (id, analysis_run_id, position, title, question, method, method_detail, priority, status, rationale, question_ref, hypothesis_refs, outcome, created_at, updated_at), validations (id, hypothesis_title, hypothesis_statement, method, test, confirm_if, reject_if, status, outcome, reason, settled_at, created_at, validation_notes (id, kind, relation, body, research_task_id, created_at), evidence_links (id, evidence_id, relation, shows)), decisions (id, outcome, summary, rationale, opportunity_id, opportunity_title, escalate_to, options_rejected, risks, owner, success_measure, review_date, result, warnings, status, created_at), decision_briefs (id, content, share_token, created_at)",
     )
     .eq("id", id)
     .maybeSingle();
@@ -197,6 +203,15 @@ export async function getInvestigationRecord(id: string): Promise<InvestigationR
       .slice(0, 10)
       .map((r) => toAnalysisRun(r, data.findings, data.hypotheses, data.open_questions, data.next_steps)),
     ...toDiscovery(data.problem_definitions),
+    validations: [...data.validations].sort((a, b) => a.created_at.localeCompare(b.created_at)).map(toValidation),
+    decisions: [...data.decisions]
+      .filter((d) => d.status === "decided")
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+      .map(toDecision),
+    brief: [...data.decision_briefs]
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+      .slice(0, 1)
+      .map((b) => ({ id: b.id, content: b.content as unknown as DecisionBrief, shareToken: b.share_token ?? undefined, createdAt: b.created_at }))[0],
     researchTasks: [...data.research_tasks]
       .sort((a, b) => a.created_at.localeCompare(b.created_at) || a.position - b.position)
       .map(toResearchTask),
@@ -265,6 +280,8 @@ type HypothesisRow = Pick<
   | "contradicting_findings"
   | "validation_method"
   | "assumptions"
+  | "status"
+  | "validation_id"
 > & { evidence_links: LinkRow[] };
 type QuestionRow = Pick<Tables<"open_questions">, "analysis_run_id" | "ref" | "position" | "question" | "why_it_matters" | "missing_evidence">;
 type NextStepRow = Pick<
@@ -375,6 +392,81 @@ function toResearchTask(t: ResearchTaskRow): ResearchTaskRecord {
   };
 }
 
+type ValidationRow = Pick<
+  Tables<"validations">,
+  "id" | "hypothesis_title" | "hypothesis_statement" | "method" | "test" | "confirm_if" | "reject_if" | "status" | "outcome" | "reason" | "settled_at" | "created_at"
+> & {
+  validation_notes: Pick<Tables<"validation_notes">, "id" | "kind" | "relation" | "body" | "research_task_id" | "created_at">[];
+  evidence_links: { id: string; evidence_id: string; relation: string; shows: string }[];
+};
+
+function toValidation(v: ValidationRow): ValidationRecord {
+  return {
+    id: v.id,
+    hypothesisTitle: v.hypothesis_title,
+    hypothesisStatement: v.hypothesis_statement,
+    method: v.method,
+    test: v.test,
+    confirmIf: v.confirm_if,
+    rejectIf: v.reject_if,
+    status: v.status as ValidationRecord["status"],
+    outcome: (v.outcome ?? undefined) as ValidationRecord["outcome"],
+    reason: v.reason,
+    settledAt: v.settled_at ?? undefined,
+    notes: [...v.validation_notes]
+      .sort((a, b) => a.created_at.localeCompare(b.created_at))
+      .map((n) => ({
+        id: n.id,
+        kind: n.kind as "note" | "research-task",
+        relation: n.relation as "supports" | "contradicts",
+        body: n.body,
+        researchTaskId: n.research_task_id ?? undefined,
+        createdAt: n.created_at,
+      })),
+    datasets: v.evidence_links.map((l) => ({ id: l.id, evidenceId: l.evidence_id, relation: l.relation as "supports" | "contradicts", shows: l.shows })),
+    createdAt: v.created_at,
+  };
+}
+
+type DecisionRow = Pick<
+  Tables<"decisions">,
+  | "id"
+  | "outcome"
+  | "summary"
+  | "rationale"
+  | "opportunity_id"
+  | "opportunity_title"
+  | "escalate_to"
+  | "options_rejected"
+  | "risks"
+  | "owner"
+  | "success_measure"
+  | "review_date"
+  | "result"
+  | "warnings"
+  | "created_at"
+>;
+
+function toDecision(d: DecisionRow): InvestigationDecision {
+  return {
+    id: d.id,
+    outcome: d.outcome as DecisionOutcome,
+    summary: d.summary,
+    rationale: d.rationale,
+    opportunityId: d.opportunity_id ?? undefined,
+    opportunityTitle: d.opportunity_title,
+    escalateTo: d.escalate_to,
+    optionsRejected: d.options_rejected,
+    risks: d.risks,
+    owner: d.owner,
+    successMeasure: d.success_measure,
+    reviewDate: d.review_date ?? undefined,
+    result: d.result,
+    warnings: d.warnings,
+    createdAt: d.created_at,
+  };
+}
+
 const toLinks = (rows: LinkRow[]): StructuredLink[] =>
   rows.map((l) => ({ evidenceId: l.evidence_id, relation: l.relation as StructuredLink["relation"], shows: l.shows }));
 
@@ -435,6 +527,8 @@ function toAnalysisRun(
               validationMethod: h.validation_method,
               assumptions: h.assumptions,
               links: toLinks(h.evidence_links),
+              status: h.status as StructuredHypothesis["status"],
+              validationId: h.validation_id ?? undefined,
             })),
             openQuestions: questions.map((q) => ({ ref: q.ref, question: q.question, whyItMatters: q.why_it_matters, missingEvidence: q.missing_evidence })),
             nextStep: next && {
@@ -482,14 +576,40 @@ export async function listRecentDecisions(limit = 4): Promise<DecisionRecord[]> 
   return (await listDecisions()).slice(0, limit);
 }
 
-/** Decisions recorded in investigations. Real decisions arrive with Milestone 5. */
+/** Decisions recorded in investigations, newest first; then the sample's. */
 export async function listDecisions(): Promise<DecisionRecord[]> {
-  const sample = await getSample();
-  if (!sample) return [];
-  return buildDecisions()
-    .filter((d) => d.investigationId === SAMPLE_MOCK_ID)
-    .map((d) => ({ ...d, investigationId: sample.id, investigationTitle: sampleTitle(sample) }))
-    .sort((a, b) => b.decidedAt.localeCompare(a.decidedAt));
+  const supabase = await createClient();
+  const [{ data }, sample] = await Promise.all([
+    supabase
+      .from("decisions")
+      .select("id, investigation_id, outcome, summary, rationale, owner, result, warnings, review_date, success_measure, created_at, investigations (title)")
+      .eq("status", "decided")
+      .order("created_at", { ascending: false })
+      .limit(100),
+    getSample(),
+  ]);
+  const real: DecisionRecord[] = (data ?? []).map((d) => ({
+    id: d.id,
+    investigationId: d.investigation_id,
+    investigationTitle: d.investigations?.title ?? "Investigation",
+    decision: d.summary,
+    status: "decided",
+    decidedAt: d.created_at,
+    owner: d.owner || "No owner set",
+    rationale: d.rationale || undefined,
+    outcome: d.result || undefined,
+    kind: d.outcome as DecisionOutcome,
+    warnings: d.warnings,
+    reviewDate: d.review_date ?? undefined,
+    successMeasure: d.success_measure || undefined,
+  }));
+  const fromSample = sample
+    ? buildDecisions()
+        .filter((d) => d.investigationId === SAMPLE_MOCK_ID)
+        .map((d) => ({ ...d, investigationId: sample.id, investigationTitle: sampleTitle(sample) }))
+        .sort((a, b) => b.decidedAt.localeCompare(a.decidedAt))
+    : [];
+  return [...real, ...fromSample];
 }
 
 /** Every piece of evidence across investigations, newest first: uploaded data, then the sample's. */
@@ -528,13 +648,72 @@ export async function listRecentEvidence(limit = 4): Promise<EvidenceWithContext
   return (await listAllEvidence()).slice(0, limit);
 }
 
-/** Business memory is written as investigations complete; none have yet. */
 export async function listMemoryHighlights(limit = 3): Promise<MemoryEntry[]> {
   return (await getBusinessMemory()).entries.slice(0, limit);
 }
 
+const memoryCategory: Record<string, MemoryCategory> = {
+  "validated-problem": "validated-problems",
+  "rejected-hypothesis": "rejected-hypotheses",
+  "customer-insight": "customer-insights",
+  decision: "decisions",
+  experiment: "experiments",
+  outcome: "outcomes",
+  lesson: "learnings",
+};
+
+/**
+ * Business Memory: what investigations validated, ruled out, learned from
+ * customers, decided, tried and found out (written as the team works), and
+ * each decided investigation's journey from problem to learning.
+ */
 export async function getBusinessMemory(): Promise<BusinessMemory> {
-  return { entries: [], stories: [] };
+  await requireWorkspace();
+  const supabase = await createClient();
+  const [{ data: entries }, { data: decisions }] = await Promise.all([
+    supabase
+      .from("memory_entries")
+      .select("id, investigation_id, kind, title, body, created_at, investigations (title)")
+      .eq("archived", false)
+      .order("created_at", { ascending: false })
+      .limit(200),
+    supabase
+      .from("decisions")
+      .select("id, investigation_id, summary, result, created_at, investigations (title, problem)")
+      .eq("status", "decided")
+      .order("created_at", { ascending: false })
+      .limit(20),
+  ]);
+  const list: MemoryEntry[] = (entries ?? []).map((e) => ({
+    id: e.id,
+    category: memoryCategory[e.kind] ?? "learnings",
+    kind: e.kind,
+    title: e.title,
+    body: e.body,
+    date: e.created_at,
+    sourceInvestigationId: e.investigation_id ?? undefined,
+    sourceInvestigationTitle: e.investigations?.title,
+  }));
+  // One story per investigation: its latest decision, with what was tried and learned.
+  const seen = new Set<string>();
+  const stories: MemoryStory[] = (decisions ?? [])
+    .filter((d) => !seen.has(d.investigation_id) && seen.add(d.investigation_id))
+    .map((d) => {
+      const from = list.filter((e) => e.sourceInvestigationId === d.investigation_id);
+      const first = (c: MemoryCategory) => from.find((e) => e.category === c);
+      return {
+        id: `story-${d.id}`,
+        investigationId: d.investigation_id,
+        investigationTitle: d.investigations?.title ?? "Investigation",
+        date: d.created_at,
+        problem: first("validated-problems")?.title ?? d.investigations?.problem ?? "",
+        decision: d.summary,
+        experiment: (first("experiments") ?? first("customer-insights"))?.title ?? "Nothing run yet",
+        result: d.result || "Not measured yet",
+        learning: first("learnings")?.title ?? "No lesson saved yet",
+      };
+    });
+  return { entries: list, stories };
 }
 
 /**
@@ -652,15 +831,33 @@ export type ValidationSummary = {
   result?: string;
 };
 
-/** Validations come with Milestone 5; only the sample has them so far. */
+/** Hypotheses being validated across investigations, then the sample's. */
 export async function listValidations(): Promise<ValidationSummary[]> {
-  const sample = await getSample();
-  if (!sample) return [];
-  return buildSampleWorkspace([]).validations.map((v) => ({
-    investigationId: sample.id,
-    investigationTitle: sampleTitle(sample),
-    hypothesis: v.belief,
-    test: v.test,
-    status: v.status,
+  const supabase = await createClient();
+  const [{ data }, sample] = await Promise.all([
+    supabase
+      .from("validations")
+      .select("investigation_id, hypothesis_title, hypothesis_statement, method, test, status, outcome, reason, updated_at, investigations (title)")
+      .order("updated_at", { ascending: false })
+      .limit(100),
+    getSample(),
+  ]);
+  const real: ValidationSummary[] = (data ?? []).map((v) => ({
+    investigationId: v.investigation_id,
+    investigationTitle: v.investigations?.title ?? "Investigation",
+    hypothesis: v.hypothesis_title || v.hypothesis_statement,
+    test: v.test || v.method || "Not written yet",
+    status: v.status === "settled" ? "completed" : v.status === "in-progress" ? "running" : "not-started",
+    result: v.outcome ? `${v.outcome.charAt(0).toUpperCase()}${v.outcome.slice(1)}: ${v.reason}` : undefined,
   }));
+  const fromSample: ValidationSummary[] = sample
+    ? buildSampleWorkspace([]).validations.map((v) => ({
+        investigationId: sample.id,
+        investigationTitle: sampleTitle(sample),
+        hypothesis: v.belief,
+        test: v.test,
+        status: v.status,
+      }))
+    : [];
+  return [...real, ...fromSample];
 }

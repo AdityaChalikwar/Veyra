@@ -2,7 +2,9 @@
 
 import { ArrowDown, ArrowRight } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { archiveMemory } from "@/app/(app)/investigations/decision-actions";
 import { cn } from "@/lib/cn";
 import { routes } from "@/lib/routes";
 import { formatDate } from "@/lib/time";
@@ -19,7 +21,9 @@ const filters: { id: Filter; label: string }[] = [
   { id: "investigations", label: "Past Investigations" },
   { id: "research", label: "Research" },
   { id: "decisions", label: "Decisions" },
+  { id: "customer-insights", label: "Customer Insights" },
   { id: "experiments", label: "Experiments" },
+  { id: "outcomes", label: "Outcomes" },
   { id: "learnings", label: "Learnings" },
 ];
 
@@ -33,6 +37,8 @@ const categoryLabel: Record<MemoryCategory, string> = {
   decisions: "Decision",
   experiments: "Experiment",
   learnings: "Learning",
+  "customer-insights": "Customer insight",
+  outcomes: "Outcome",
 };
 
 export function MemoryBrowser({ memory }: { memory: BusinessMemory }) {
@@ -60,7 +66,7 @@ export function MemoryBrowser({ memory }: { memory: BusinessMemory }) {
         ))}
       </div>
 
-      {showStories && (
+      {showStories && memory.stories.length > 0 && (
         <section className="mt-8">
           <h2 className="text-[15px] font-semibold">From problem to learning</h2>
           <p className="mt-1 text-[13px] text-ink-subtle">Past investigations, from problem to what was learned. New investigations start from here, not from zero.</p>
@@ -83,6 +89,7 @@ export function MemoryBrowser({ memory }: { memory: BusinessMemory }) {
                 </span>
                 <h3 className="mt-2 text-[14.5px] font-semibold leading-snug">{e.title}</h3>
                 <p className="mt-1 flex-1 text-[13px] leading-relaxed text-ink-muted">{e.body}</p>
+                {e.kind && <ForgetButton id={e.id} />}
                 {(e.sourceInvestigationId || e.date) && (
                   <p className="mt-3 border-t border-line pt-2.5 text-xs text-ink-subtle">
                     {e.sourceInvestigationId && (
@@ -100,8 +107,8 @@ export function MemoryBrowser({ memory }: { memory: BusinessMemory }) {
         </section>
       )}
 
-      {!showStories && entries.length === 0 && (
-        <p className="mt-10 text-center text-sm text-ink-subtle">Nothing here yet. Veyra adds to memory as investigations finish.</p>
+      {entries.length === 0 && (!showStories || memory.stories.length === 0) && (
+        <p className="mt-10 text-center text-sm text-ink-subtle">Nothing here yet. Veyra adds to memory as your team settles hypotheses, finishes research and records decisions.</p>
       )}
     </div>
   );
@@ -143,5 +150,26 @@ function StoryCard({ story: s }: { story: MemoryStory }) {
         ))}
       </ol>
     </article>
+  );
+}
+
+/** Hides an entry from memory: it no longer informs new analyses. */
+function ForgetButton({ id }: { id: string }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  return (
+    <button
+      type="button"
+      disabled={busy}
+      onClick={async () => {
+        if (!confirm("Remove this from Business Memory? New analyses won't use it.")) return;
+        setBusy(true);
+        await archiveMemory(id).catch(() => null);
+        router.refresh();
+      }}
+      className="mt-2 self-start text-[11.5px] text-ink-faint hover:text-danger-600"
+    >
+      {busy ? "Removing…" : "Remove from memory"}
+    </button>
   );
 }

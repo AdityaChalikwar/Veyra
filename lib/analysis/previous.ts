@@ -8,7 +8,7 @@ export async function loadPrevious(
   investigationId: string,
   currentRunId: string,
 ): Promise<PreviousArtifacts | undefined> {
-  const [{ data: last }, { data: tasks }] = await Promise.all([
+  const [{ data: last }, { data: tasks }, { data: settled }] = await Promise.all([
     supabase
       .from("analysis_runs")
       .select(
@@ -21,8 +21,14 @@ export async function loadPrevious(
       .limit(1)
       .maybeSingle(),
     supabase.from("research_tasks").select("title, question, method, status, outcome, created_at").eq("investigation_id", investigationId).order("created_at"),
+    supabase
+      .from("validations")
+      .select("hypothesis_title, hypothesis_statement, outcome, reason, settled_at")
+      .eq("investigation_id", investigationId)
+      .eq("status", "settled")
+      .order("settled_at"),
   ]);
-  if (!last && !tasks?.length) return undefined;
+  if (!last && !tasks?.length && !settled?.length) return undefined;
   const byPosition = <T extends { position: number }>(rows: T[] | undefined) => [...(rows ?? [])].sort((a, b) => a.position - b.position);
   return {
     ranAt: last?.completed_at ?? new Date().toISOString(),
@@ -30,5 +36,6 @@ export async function loadPrevious(
     hypotheses: byPosition(last?.hypotheses).map((h) => ({ ref: h.ref, statement: h.statement, evidenceStatus: h.evidence_status, status: h.status })),
     openQuestions: byPosition(last?.open_questions).map((q) => ({ ref: q.ref, question: q.question })),
     researchTasks: (tasks ?? []).map((t) => ({ title: t.title, question: t.question, method: t.method, status: t.status, outcome: t.outcome })),
+    validated: (settled ?? []).map((v) => ({ title: v.hypothesis_title, statement: v.hypothesis_statement, outcome: v.outcome ?? "unclear", reason: v.reason })),
   };
 }

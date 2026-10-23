@@ -25,8 +25,8 @@ next step, validation) and to run analysis over company data, not to host a chat
 | 6. Evidence engine — evidence confidence and source, findings, hypotheses and evidence links as rows; every finding cites evidence IDs | **Built** (`supabase/migrations/20261015*`, `lib/analysis/structure.ts`, `save.ts`, `confidence.ts`); checked with a simulated run, needs one live Claude check |
 | 7. Investigation engine — the engine picks a step, saves open questions, research tasks and the next step as rows, reads earlier runs and research outcomes; uploads get trends worked out in code | **Built** (`supabase/migrations/20261016*`, `lib/analysis/`); checked with simulated runs, needs one live Claude check |
 | 8. Problem definition and opportunity discovery — separate steps after the analysis, saved as rows with evidence links; problem never a solution, opportunities never features | **Built** (`supabase/migrations/20261020*`, `lib/analysis/discovery.ts`); checked with saved records, needs one live Claude check |
-| 9. Validation, decisions, Decision Brief | |
-| 10. Business Memory, clean-up of mocks | |
+| 9. Validation, Decision Brief, decisions and Business Memory — hypotheses settled with evidence and a reason, a 12-section brief with one of seven outcomes, PDF and share link, decisions that complete the investigation, structured memory fed back into the AI | **Built** (`supabase/migrations/20261023*`, `lib/analysis/validation.ts`, `lib/brief/`, `lib/data/memory.ts`); checked with saved records and a simulated brief, needs one live Claude check |
+| 10. Clean-up of remaining mocks (sample investigation, org pages for problems and opportunities) | |
 | Later. Real connectors (ERP, CRM, analytics, support, finance), scheduled sync | |
 
 Every workspace gets a **sample investigation** (Kitchen Returns Spike at Northwind Home, the Demo ERP's fictional retailer; its numbers match the Demo ERP): a real row, so it can
@@ -300,3 +300,66 @@ no longer writes a refined problem or opportunities, and can't recommend explori
   turns out to be: one that assumes an open hypothesis (`opportunities.depends_on`) is retried, then
   left out. Once Milestone 9 validates a hypothesis, defining the problem again fills in the cause.
 
+
+## Validation, Decision Brief, decisions and Business Memory (Milestone 9)
+
+Flow: Hypotheses → **Validation** → (problem defined again with the cause) → **Decision Brief** →
+**decision**, which completes the investigation. Everything the team settles or decides goes into
+Business Memory, which every later analysis, problem definition and brief reads.
+
+**Validation** (`validations`, `validation_notes`; actions in `app/(app)/investigations/validation-actions.ts`)
+- One validation per hypothesis: method, test, "confirmed if", "rejected if". Veyra drafts it on
+  request (`draftValidationPlan`, one Claude call, `ai_usage.kind` validation) or the team writes it.
+- Evidence for or against: a note, a finished research task's outcome, or a dataset in the
+  investigation (`evidence_links.validation_id`). Adding evidence moves it to in progress.
+- Settling (confirmed / rejected / unclear) needs a reason and at least one piece of evidence — the
+  database refuses otherwise (`private.guard_validation_settle`). "Ask Veyra to check my call"
+  (`checkValidationCall`) gives advice only; nothing is saved. Reopening clears the outcome.
+- The hypothesis's status follows its validation (triggers); members can only link a hypothesis to a
+  validation (`hypotheses.validation_id`), never set its status or rewrite what was validated.
+- **Carry-over:** when a new analysis states a validated hypothesis again (same headline, or mostly the
+  same words — `lib/analysis/carry-over.ts`), the new row is linked to the same validation and keeps its
+  status. The analysis prompt lists settled hypotheses: confirmed ones stay, rejected ones aren't
+  proposed again. Settled hypotheses a later run didn't restate still count, as V1, V2…
+- A confirmed hypothesis shows "Define again" on the Problem tab: the new definition is no longer
+  provisional and may name the cause.
+- **Pursuing gate:** an opportunity can be set to Pursuing only when every hypothesis it depends on
+  (`depends_on`) is confirmed (`setOpportunityStatus`).
+
+**Decision Brief** (`decision_briefs`; `lib/brief/build.ts`, `lib/brief/generate.ts`; Decision Brief tab)
+- Twelve sections: executive summary, what we found, what we believe, evidence, confidence, what we
+  don't know, problem to solve, opportunity, possible solution directions, recommended next step,
+  validation plan, decision status. Most are assembled in code from the records; one Claude call
+  (`ai_usage.kind` brief) writes the summary, beliefs, confidence, recommendation, solution directions,
+  next validations and lessons.
+- The recommendation is one of seven outcomes: solution exploration, more customer research, validate
+  a hypothesis, investigate further, no product intervention, escalate to another function, prioritise
+  an opportunity. Code checks it: solution exploration (and any solution directions) only when a
+  hypothesis about the cause is confirmed and an opportunity is being pursued — otherwise it becomes
+  "validate a hypothesis" or "customer research", with the reason shown; confidence is capped at
+  medium without a confirmed cause and at low when all data is weak.
+- Saved as a snapshot (`content`, not editable); rewriting adds a new one. PDF via the browser's print
+  (only the brief prints). Share: a random token (`share_token`) makes `/brief/<token>` readable by
+  anyone with the link through `get_shared_brief` (the brief and the decision taken, nothing else);
+  "Stop sharing" removes the token.
+- "Start next step": research outcomes create a research task; validate → Validation tab; prioritise /
+  solution exploration → Opportunities; no intervention / escalate → the decision form.
+
+**Decisions** (`decisions`; `app/(app)/investigations/decision-actions.ts`)
+- Outcome (the seven), one-line summary, rationale, opportunity, escalate-to, options rejected, risks,
+  owner, success measure, review date. Prefilled from the brief's recommendation.
+- Warnings are worked out in code, not by the person deciding: no validated cause, an opportunity
+  resting on unconfirmed hypotheses, a provisional problem, only weak data, unfinished high-priority
+  research. The decision is saved with them ("decided despite").
+- Recording a decision completes the investigation (trigger). "What happened" is recorded later, on
+  the brief or the Decision Log.
+
+**Business Memory** (`memory_entries`; `lib/data/memory.ts`; Business Memory page)
+- Structured rows, no vector search. Written automatically: confirmed → validated problem, rejected →
+  rejected hypothesis (hidden again if reopened), finished research → customer insight or experiment,
+  decision → decision, its result → outcome. Lessons are proposed by the brief and saved by the team.
+- Members can hide an entry ("Remove from memory"); hidden entries stop informing the AI.
+- The 20 newest entries from other investigations are passed to the analysis and problem/opportunity
+  steps (`<business_memory>`), and 10 to the brief, as information, never as data to quote.
+- The Decision Log, Validation and Business Memory pages now read these tables (the sample's demo
+  entries are listed after them).

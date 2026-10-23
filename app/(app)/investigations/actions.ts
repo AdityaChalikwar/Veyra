@@ -16,6 +16,7 @@ import type { AnalysisResult } from "@/lib/analysis/schema";
 import { clarify } from "@/lib/ai/clarify";
 import { takeAiAllowance } from "@/lib/ai/usage";
 import { getBusinessContext, listDataSources } from "@/lib/data";
+import { forget, memoryNotes, remember } from "@/lib/data/memory";
 import { requireWorkspace } from "@/lib/auth";
 import { deriveTitle, inferTopic } from "@/lib/investigation-text";
 import { OUTCOMES, TRIGGERS } from "@/lib/options";
@@ -348,6 +349,7 @@ export async function analyseInvestigation(investigationId: string): Promise<{ o
     questions: [...inv.clarifying_questions].sort((a, b) => a.position - b.position),
     pack,
     previous: await loadPrevious(supabase, investigationId, run.id),
+    memory: await memoryNotes(supabase, investigationId),
   });
 
   const finished = new Date().toISOString();
@@ -392,13 +394,31 @@ export async function updateResearchTask(
   taskId: string,
   update: { status: (typeof TASK_STATUSES)[number]; outcome: string },
 ): Promise<{ ok: true } | { error: string }> {
-  await requireWorkspace();
+  const { company } = await requireWorkspace();
   if (!/^[0-9a-f-]{36}$/i.test(taskId) || !TASK_STATUSES.includes(update.status)) return { error: "Something went wrong. Reload the page and try again." };
   const outcome = update.outcome.trim();
   if (outcome.length > 4000) return { error: "Shorten what you found a little." };
   const supabase = await createClient();
-  const { error, count } = await supabase.from("research_tasks").update({ status: update.status, outcome }, { count: "exact" }).eq("id", taskId);
-  if (error || !count) return { error: "Couldn't save it. Try again in a moment." };
+  const { data: task, error } = await supabase
+    .from("research_tasks")
+    .update({ status: update.status, outcome })
+    .eq("id", taskId)
+    .select("id, investigation_id, title, method")
+    .maybeSingle();
+  if (error || !task) return { error: "Couldn't save it. Try again in a moment." };
+  // What finished research found goes into Business Memory: experiments as experiments, the rest as customer insight.
+  if (update.status === "done" && outcome) {
+    await remember(supabase, {
+      workspaceId: company.id,
+      investigationId: task.investigation_id,
+      kind: task.method === "experiment" ? "experiment" : "customer-insight",
+      title: task.title,
+      body: outcome,
+      source: { researchTaskId: task.id },
+    });
+  } else {
+    await forget(supabase, task.investigation_id, { researchTaskId: task.id });
+  }
   revalidatePath("/", "layout");
   return { ok: true };
 }
@@ -419,11 +439,18 @@ async function loadDiscoveryInput(investigationId: string): Promise<{ input: Dis
     .maybeSingle();
   if (!run?.result || !run.pack) return { error: "Analyse your data first. The problem definition builds on the findings and hypotheses." };
   const pack = run.pack as unknown as AnalysisPack;
-  const [{ data: findings }, { data: hypotheses }, { data: questions }] = await Promise.all([
+  const [{ data: findings }, { data: hypotheses }, { data: questions }, { data: settled }, memory] = await Promise.all([
     supabase.from("findings").select("ref, kind, title, statement, observed, confidence, position").eq("analysis_run_id", run.id).order("position"),
-    supabase.from("hypotheses").select("ref, title, statement, evidence_status, status, assumptions, position").eq("analysis_run_id", run.id).order("position"),
+    supabase.from("hypotheses").select("ref, title, statement, evidence_status, status, assumptions, position, validation_id").eq("analysis_run_id", run.id).order("position"),
     supabase.from("open_questions").select("question, missing_evidence, position").eq("analysis_run_id", run.id).order("position"),
+    supabase.from("validations").select("id, hypothesis_title, hypothesis_statement, outcome, settled_at").eq("investigation_id", investigationId).eq("status", "settled").order("settled_at"),
+    memoryNotes(supabase, investigationId),
   ]);
+  // Hypotheses the team settled that the latest analysis didn't state again still count, as V1, V2…
+  const linked = new Set((hypotheses ?? []).map((h) => h.validation_id).filter(Boolean));
+  const carried = (settled ?? [])
+    .filter((v) => !linked.has(v.id))
+    .map((v, i) => ({ ref: `V${i + 1}`, title: v.hypothesis_title, statement: v.hypothesis_statement, evidenceStatus: "validated by the team", status: v.outcome ?? "unclear", assumptions: [] }));
   // Runs saved before their artifacts were rows are read from the run itself.
   const fallback = structureRun(run.result as unknown as AnalysisResult, (ref) => pack.datasets.find((d) => d.ref === ref)?.evidenceId);
   const observedText = (o: unknown) => {
@@ -440,12 +467,16 @@ async function loadDiscoveryInput(investigationId: string): Promise<{ input: Dis
       findings: findings?.length
         ? findings.map((f) => ({ ref: f.ref, kind: f.kind, title: f.title, statement: f.statement, observed: observedText(f.observed), confidence: f.confidence }))
         : fallback.findings.map((f) => ({ ref: f.ref, kind: f.kind, title: f.title, statement: f.statement, observed: observedText(f.observed), confidence: f.confidence })),
-      hypotheses: hypotheses?.length
-        ? hypotheses.map((h) => ({ ref: h.ref, title: h.title, statement: h.statement, evidenceStatus: h.evidence_status, status: h.status, assumptions: h.assumptions }))
-        : fallback.hypotheses.map((h) => ({ ref: h.ref, title: h.title, statement: h.statement, evidenceStatus: h.evidenceStatus, status: "open", assumptions: h.assumptions })),
+      hypotheses: [
+        ...(hypotheses?.length
+          ? hypotheses.map((h) => ({ ref: h.ref, title: h.title, statement: h.statement, evidenceStatus: h.evidence_status, status: h.status, assumptions: h.assumptions }))
+          : fallback.hypotheses.map((h) => ({ ref: h.ref, title: h.title, statement: h.statement, evidenceStatus: h.evidenceStatus, status: "open", assumptions: h.assumptions }))),
+        ...carried,
+      ],
       openQuestions: questions?.length
         ? questions.map((q) => ({ question: q.question, missingEvidence: q.missing_evidence }))
         : fallback.openQuestions.map((q) => ({ question: q.question, missingEvidence: q.missingEvidence })),
+      memory,
     },
   };
 }
@@ -520,8 +551,44 @@ export async function setOpportunityStatus(opportunityId: string, status: (typeo
   await requireWorkspace();
   if (!/^[0-9a-f-]{36}$/i.test(opportunityId) || !OPPORTUNITY_STATUSES.includes(status)) return { error: "Something went wrong. Reload the page and try again." };
   const supabase = await createClient();
+  if (status === "pursuing") {
+    const blocked = await unvalidatedDependencies(opportunityId);
+    if (blocked === null) return { error: "This opportunity no longer exists." };
+    if (blocked.length) {
+      return { error: `Validate ${blocked.join(", ")} first. This opportunity assumes ${blocked.length === 1 ? "it is" : "they are"} true, and ${blocked.length === 1 ? "it hasn't" : "they haven't"} been confirmed.` };
+    }
+  }
   const { error, count } = await supabase.from("opportunities").update({ status }, { count: "exact" }).eq("id", opportunityId);
   if (error || !count) return { error: "Couldn't save it. Try again in a moment." };
   revalidatePath("/", "layout");
   return { ok: true };
+}
+
+/**
+ * The hypotheses an opportunity depends on that the team hasn't confirmed, by ref
+ * (null if the opportunity is gone). An opportunity is pursued only once what it
+ * assumes is validated.
+ */
+async function unvalidatedDependencies(opportunityId: string): Promise<string[] | null> {
+  const supabase = await createClient();
+  const { data: o } = await supabase.from("opportunities").select("investigation_id, depends_on").eq("id", opportunityId).maybeSingle();
+  if (!o) return null;
+  if (!o.depends_on.length) return [];
+  const { data: run } = await supabase
+    .from("analysis_runs")
+    .select("id")
+    .eq("investigation_id", o.investigation_id)
+    .eq("status", "completed")
+    .order("completed_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const [{ data: hypotheses }, { data: settled }] = await Promise.all([
+    run ? supabase.from("hypotheses").select("ref, status, validation_id").eq("analysis_run_id", run.id) : Promise.resolve({ data: [] as { ref: string; status: string; validation_id: string | null }[] }),
+    supabase.from("validations").select("id, outcome, settled_at").eq("investigation_id", o.investigation_id).eq("status", "settled").order("settled_at"),
+  ]);
+  // Settled hypotheses the latest run didn't restate are V1, V2… (as in loadDiscoveryInput).
+  const linked = new Set((hypotheses ?? []).map((h) => h.validation_id).filter(Boolean));
+  const carried = (settled ?? []).filter((v) => !linked.has(v.id)).map((v, i) => ({ ref: `V${i + 1}`, status: v.outcome ?? "unclear" }));
+  const confirmed = new Set([...(hypotheses ?? []), ...carried].filter((h) => h.status === "confirmed").map((h) => h.ref));
+  return o.depends_on.filter((ref) => !confirmed.has(ref));
 }

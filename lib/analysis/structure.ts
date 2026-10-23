@@ -38,6 +38,9 @@ export type StructuredHypothesis = {
   validationMethod: string;
   assumptions: string[];
   links: StructuredLink[];
+  /** The team's validation status (saved rows only). */
+  status?: "open" | "confirmed" | "rejected" | "unclear";
+  validationId?: string;
 };
 
 export type StructuredQuestion = { ref: string; question: string; whyItMatters: string; missingEvidence: string };
