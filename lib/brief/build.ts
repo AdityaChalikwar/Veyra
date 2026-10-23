@@ -1,3 +1,4 @@
+import { coveredNeeds } from "@/lib/analysis/evidence-needs";
 import type { DecisionBrief, DecisionOutcome, InvestigationWorkspace, LiveInvestigation } from "@/lib/types";
 
 /**
@@ -140,7 +141,13 @@ export function assembleBrief(ws: Live, ai: BriefJudgement, now = new Date().toI
     },
     recommendation: settleRecommendation(ai.recommendation, gates, record.opportunities.length),
     validationPlan: {
-      existing: record.validations.map((v) => ({ hypothesis: v.hypothesisTitle || v.hypothesisStatement, method: v.method || v.test, status: label(v.status), outcome: v.outcome })),
+      existing: record.validations.map((v) => ({
+        hypothesis: v.hypothesisTitle || v.hypothesisStatement,
+        method: v.method || v.test,
+        status: label(v.status),
+        outcome: v.outcome,
+        evidence: v.evidenceNeeded.length ? `${coveredNeeds(v.evidenceNeeded, [...v.notes, ...v.datasets]).size} of ${v.evidenceNeeded.length} collected` : undefined,
+      })),
       proposed: ai.validationPlan.slice(0, 3),
     },
     decisionStatus: decision

@@ -2,7 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { checkValidationCall, draftValidationPlan, type CallCheck, type HypothesisToTest } from "@/lib/analysis/validation";
+import { cleanNeeds, type EvidenceNeed } from "@/lib/analysis/evidence-needs";
 import type { AnalysisPack } from "@/lib/analysis/pack";
+import type { Json } from "@/lib/supabase/database.types";
 import { takeAiAllowance } from "@/lib/ai/usage";
 import { requireWorkspace } from "@/lib/auth";
 import { getBusinessContext } from "@/lib/data";
@@ -73,7 +75,13 @@ export async function planValidation(investigationId: string, ref: string, useAi
   if (!loaded) return { error: "This hypothesis is no longer in the latest analysis. Reload the page." };
   if (loaded.row.validation_id) return { error: "This hypothesis is already being validated." };
 
-  let plan = { method: "", test: loaded.hypothesis.validationMethod, confirmIf: "", rejectIf: "" };
+  let plan: { method: string; test: string; confirmIf: string; rejectIf: string; evidenceNeeded: unknown[] } = {
+    method: "",
+    test: loaded.hypothesis.validationMethod,
+    confirmIf: "",
+    rejectIf: "",
+    evidenceNeeded: [],
+  };
   if (useAi) {
     const allowance = await takeAiAllowance(company.id, "validation");
     if ("error" in allowance) return allowance;
@@ -93,6 +101,7 @@ export async function planValidation(investigationId: string, ref: string, useAi
       test: plan.test.slice(0, 2000),
       confirm_if: plan.confirmIf.slice(0, 1000),
       reject_if: plan.rejectIf.slice(0, 1000),
+      evidence_needed: cleanNeeds(plan.evidenceNeeded) as unknown as Json,
     })
     .select("id")
     .single();
@@ -106,7 +115,7 @@ export async function planValidation(investigationId: string, ref: string, useAi
   return { ok: true };
 }
 
-export type PlanEdit = { method: string; test: string; confirmIf: string; rejectIf: string };
+export type PlanEdit = { method: string; test: string; confirmIf: string; rejectIf: string; evidenceNeeded: EvidenceNeed[] };
 
 /** The team's own wording of the plan. */
 export async function updateValidationPlan(validationId: string, edit: PlanEdit): Promise<Result> {
@@ -119,11 +128,19 @@ export async function updateValidationPlan(validationId: string, edit: PlanEdit)
   const supabase = await createClient();
   const { error, count } = await supabase
     .from("validations")
-    .update({ method, test, confirm_if: edit.confirmIf.trim(), reject_if: edit.rejectIf.trim() }, { count: "exact" })
+    .update(
+      { method, test, confirm_if: edit.confirmIf.trim(), reject_if: edit.rejectIf.trim(), evidence_needed: cleanNeeds(edit.evidenceNeeded) as unknown as Json },
+      { count: "exact" },
+    )
     .eq("id", validationId);
   if (error || !count) return { error: "Couldn't save the plan. Try again in a moment." };
   revalidatePath("/", "layout");
   return { ok: true };
+}
+
+/** The checklist item a piece of evidence covers, if it is one of the plan's. */
+function needFor(needed: Json, needId?: string): string | null {
+  return needId && cleanNeeds(needed).some((n) => n.id === needId) ? needId : null;
 }
 
 /** Moves a planned validation to in progress, as evidence starts coming in. */
@@ -135,14 +152,15 @@ async function markStarted(validationId: string) {
 /** Evidence for or against: a note, or a finished research task's outcome. */
 export async function addValidationNote(
   validationId: string,
-  note: { relation: (typeof RELATIONS)[number]; body?: string; researchTaskId?: string },
+  note: { relation: (typeof RELATIONS)[number]; body?: string; researchTaskId?: string; needId?: string },
 ): Promise<Result> {
   await requireWorkspace();
   if (!UUID.test(validationId) || !RELATIONS.includes(note.relation)) return { error: RETRY };
   const supabase = await createClient();
-  const { data: v } = await supabase.from("validations").select("id, investigation_id, status").eq("id", validationId).maybeSingle();
+  const { data: v } = await supabase.from("validations").select("id, investigation_id, status, evidence_needed").eq("id", validationId).maybeSingle();
   if (!v) return { error: "This validation no longer exists." };
   if (v.status === "settled") return { error: "This validation is settled. Reopen it to add evidence." };
+  const needId = needFor(v.evidence_needed, note.needId);
 
   let body = (note.body ?? "").trim();
   let kind: "note" | "research-task" = "note";
@@ -161,7 +179,7 @@ export async function addValidationNote(
 
   const { error } = await supabase
     .from("validation_notes")
-    .insert({ validation_id: validationId, investigation_id: v.investigation_id, kind, research_task_id: researchTaskId, body, relation: note.relation });
+    .insert({ validation_id: validationId, investigation_id: v.investigation_id, kind, research_task_id: researchTaskId, body, relation: note.relation, need_id: needId });
   if (error) return { error: "Couldn't save it. Try again in a moment." };
   await markStarted(validationId);
   revalidatePath("/", "layout");
@@ -171,7 +189,7 @@ export async function addValidationNote(
 /** Evidence for or against from a dataset in the investigation. */
 export async function addValidationDataset(
   validationId: string,
-  link: { evidenceId: string; relation: (typeof RELATIONS)[number]; shows: string },
+  link: { evidenceId: string; relation: (typeof RELATIONS)[number]; shows: string; needId?: string },
 ): Promise<Result> {
   await requireWorkspace();
   if (!UUID.test(validationId) || !UUID.test(link.evidenceId) || !RELATIONS.includes(link.relation)) return { error: RETRY };
@@ -179,12 +197,17 @@ export async function addValidationDataset(
   if (!shows) return { error: "Say what this data shows for the hypothesis." };
   if (shows.length > 1000) return { error: "Shorten it a little." };
   const supabase = await createClient();
-  const { data: v } = await supabase.from("validations").select("id, investigation_id, status").eq("id", validationId).maybeSingle();
+  const { data: v } = await supabase.from("validations").select("id, investigation_id, status, evidence_needed").eq("id", validationId).maybeSingle();
   if (!v) return { error: "This validation no longer exists." };
   if (v.status === "settled") return { error: "This validation is settled. Reopen it to add evidence." };
-  const { error } = await supabase
-    .from("evidence_links")
-    .insert({ investigation_id: v.investigation_id, evidence_id: link.evidenceId, validation_id: validationId, relation: link.relation, shows });
+  const { error } = await supabase.from("evidence_links").insert({
+    investigation_id: v.investigation_id,
+    evidence_id: link.evidenceId,
+    validation_id: validationId,
+    relation: link.relation,
+    shows,
+    need_id: needFor(v.evidence_needed, link.needId),
+  });
   if (error) return { error: "Couldn't link that data. Try again in a moment." };
   await markStarted(validationId);
   revalidatePath("/", "layout");
@@ -284,13 +307,13 @@ export async function checkCall(
   const supabase = await createClient();
   const { data: v } = await supabase
     .from("validations")
-    .select("id, investigation_id, method, test, confirm_if, reject_if, validation_notes (relation, body), evidence_links (relation, shows, evidence (name))")
+    .select("id, investigation_id, method, test, confirm_if, reject_if, evidence_needed, validation_notes (relation, body, need_id), evidence_links (relation, shows, need_id, evidence (name))")
     .eq("id", validationId)
     .maybeSingle();
   if (!v) return { error: "This validation no longer exists." };
   const evidence = [
-    ...v.validation_notes.map((n) => ({ relation: n.relation, text: n.body })),
-    ...v.evidence_links.map((l) => ({ relation: l.relation, text: `${l.evidence?.name ?? "Dataset"}: ${l.shows}` })),
+    ...v.validation_notes.map((n) => ({ relation: n.relation, text: n.body, needId: n.need_id ?? undefined })),
+    ...v.evidence_links.map((l) => ({ relation: l.relation, text: `${l.evidence?.name ?? "Dataset"}: ${l.shows}`, needId: l.need_id ?? undefined })),
   ];
   if (!evidence.length) return { error: "Add some evidence first, so there is something to check." };
   const { data: h } = await supabase.from("hypotheses").select("ref").eq("validation_id", validationId).order("created_at", { ascending: false }).limit(1).maybeSingle();
@@ -300,7 +323,7 @@ export async function checkCall(
   const allowance = await takeAiAllowance(company.id, "validation");
   if ("error" in allowance) return allowance;
   const result = await checkValidationCall(await getBusinessContext(), loaded.problem, loaded.pack, loaded.hypothesis, loaded.findings, {
-    plan: { method: v.method, test: v.test, confirmIf: v.confirm_if, rejectIf: v.reject_if },
+    plan: { method: v.method, test: v.test, confirmIf: v.confirm_if, rejectIf: v.reject_if, evidenceNeeded: cleanNeeds(v.evidence_needed) },
     evidence,
     outcome,
     reason: reason.trim().slice(0, 2000),

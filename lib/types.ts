@@ -1,3 +1,4 @@
+import type { EvidenceNeed } from "@/lib/analysis/evidence-needs";
 /**
  * Domain types shared by the UI and the data layer.
  * The mock layer (`/mocks`) and, later, the real backend must both satisfy these.
@@ -817,12 +818,15 @@ export type ValidationRecord = {
   test: string;
   confirmIf: string;
   rejectIf: string;
+  /** The evidence the test needs: what, from where, how much is enough. */
+  evidenceNeeded: EvidenceNeed[];
   status: "planned" | "in-progress" | "settled";
   outcome?: "confirmed" | "rejected" | "unclear";
   reason: string;
   settledAt?: string;
-  notes: { id: ID; kind: "note" | "research-task"; relation: "supports" | "contradicts"; body: string; researchTaskId?: ID; createdAt: string }[];
-  datasets: { id: ID; evidenceId: ID; relation: "supports" | "contradicts"; shows: string }[];
+  /** needId: the checklist item a piece of evidence covers. */
+  notes: { id: ID; kind: "note" | "research-task"; relation: "supports" | "contradicts"; body: string; researchTaskId?: ID; needId?: string; createdAt: string }[];
+  datasets: { id: ID; evidenceId: ID; relation: "supports" | "contradicts"; shows: string; needId?: string }[];
   createdAt: string;
 };
 
@@ -898,7 +902,7 @@ export type DecisionBrief = {
   recommendation: { outcome: DecisionOutcome; title: string; reasoning: string; wouldChangeIf: string[]; escalateTo: string; changedFrom?: DecisionOutcome; changedWhy?: string };
   /** 11 */
   validationPlan: {
-    existing: { hypothesis: string; method: string; status: string; outcome?: string }[];
+    existing: { hypothesis: string; method: string; status: string; outcome?: string; evidence?: string }[];
     proposed: { what: string; how: string; successSignal: string }[];
   };
   /** 12, as it stood when the brief was written; screens show the live decision. */

@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, CircleHelp, FlaskConical, Pencil, RotateCcw, Sparkles, Trash2, X } from "lucide-react";
+import { Check, Circle, CircleCheck, CircleHelp, FlaskConical, Pencil, Plus, RotateCcw, Sparkles, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import {
@@ -14,6 +14,7 @@ import {
   settleValidation,
   updateValidationPlan,
 } from "@/app/(app)/investigations/validation-actions";
+import { coveredNeeds, EVIDENCE_SOURCES, MAX_NEEDS, type EvidenceNeed, type EvidenceSource } from "@/lib/analysis/evidence-needs";
 import type { CallCheck } from "@/lib/analysis/validation";
 import { Button } from "@/components/ui/Button";
 import { EmptyNote } from "@/components/ui/EmptyNote";
@@ -147,7 +148,9 @@ function ValidationCard({ hypothesis: h, validation: v, live }: { hypothesis?: H
 function Plan({ v }: { v: ValidationRecord }) {
   const { busy, error, run } = useAction();
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState({ method: v.method, test: v.test, confirmIf: v.confirmIf, rejectIf: v.rejectIf });
+  const [draft, setDraft] = useState({ method: v.method, test: v.test, confirmIf: v.confirmIf, rejectIf: v.rejectIf, evidenceNeeded: v.evidenceNeeded });
+  const setNeed = (i: number, patch: Partial<EvidenceNeed>) =>
+    setDraft((d) => ({ ...d, evidenceNeeded: d.evidenceNeeded.map((n, j) => (j === i ? { ...n, ...patch } : n)) }));
   const settled = v.status === "settled";
 
   if (editing) {
@@ -158,6 +161,39 @@ function Plan({ v }: { v: ValidationRecord }) {
         <textarea className={textareaClass} rows={3} placeholder="What exactly you'll do" value={draft.test} onChange={(e) => setDraft({ ...draft, test: e.target.value })} aria-label="Test" />
         <textarea className={textareaClass} rows={2} placeholder="It's confirmed if…" value={draft.confirmIf} onChange={(e) => setDraft({ ...draft, confirmIf: e.target.value })} aria-label="Confirmed if" />
         <textarea className={textareaClass} rows={2} placeholder="It's rejected if…" value={draft.rejectIf} onChange={(e) => setDraft({ ...draft, rejectIf: e.target.value })} aria-label="Rejected if" />
+        <div className="space-y-2">
+          <p className="text-xs font-medium text-ink-muted">Evidence needed</p>
+          {draft.evidenceNeeded.map((n, i) => (
+            <div key={n.id || i} className="grid grid-cols-1 gap-2 rounded-lg border border-line p-2 sm:grid-cols-[1fr_10rem_12rem_auto]">
+              <input className={inputClass} placeholder="What to collect" value={n.what} onChange={(e) => setNeed(i, { what: e.target.value })} aria-label={`Evidence ${i + 1}: what`} />
+              <select className={inputClass} value={n.source} onChange={(e) => setNeed(i, { source: e.target.value as EvidenceSource })} aria-label={`Evidence ${i + 1}: source`}>
+                {Object.entries(EVIDENCE_SOURCES).map(([k, label]) => (
+                  <option key={k} value={k}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+              <input className={inputClass} placeholder="How much is enough" value={n.enough} onChange={(e) => setNeed(i, { enough: e.target.value })} aria-label={`Evidence ${i + 1}: enough`} />
+              <button
+                type="button"
+                aria-label="Remove"
+                onClick={() => setDraft((d) => ({ ...d, evidenceNeeded: d.evidenceNeeded.filter((_, j) => j !== i) }))}
+                className="justify-self-start px-1 text-ink-faint hover:text-danger-600"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          ))}
+          {draft.evidenceNeeded.length < MAX_NEEDS && (
+            <button
+              type="button"
+              onClick={() => setDraft((d) => ({ ...d, evidenceNeeded: [...d.evidenceNeeded, { id: "", what: "", source: "data", enough: "" }] }))}
+              className="inline-flex items-center gap-1 text-xs font-medium text-brand-600 hover:text-brand-700"
+            >
+              <Plus className="h-3.5 w-3.5" /> Add evidence needed
+            </button>
+          )}
+        </div>
         {error && (
           <p role="alert" className="text-[13px] text-danger-600">
             {error}
@@ -216,12 +252,51 @@ function Plan({ v }: { v: ValidationRecord }) {
           )}
         </dl>
       )}
+      <Checklist v={v} />
       {error && (
         <p role="alert" className="mt-2 text-[13px] text-danger-600">
           {error}
         </p>
       )}
     </section>
+  );
+}
+
+/** The evidence the test needs, ticked off as the team collects it. */
+function Checklist({ v }: { v: ValidationRecord }) {
+  if (!v.evidenceNeeded.length) {
+    return v.status === "settled" ? null : (
+      <p className="mt-3 text-xs text-ink-subtle">No evidence checklist yet. Edit the plan to list what the test needs.</p>
+    );
+  }
+  const covered = coveredNeeds(v.evidenceNeeded, [...v.notes, ...v.datasets]);
+  return (
+    <div className="mt-4">
+      <h5 className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wider text-ink-faint">
+        Evidence needed
+        <span className={cn("normal-case tracking-normal", covered.size === v.evidenceNeeded.length ? "text-confirmed-600" : "text-ink-subtle")}>
+          {covered.size} of {v.evidenceNeeded.length} collected
+        </span>
+      </h5>
+      <ul className="mt-1.5 space-y-1.5">
+        {v.evidenceNeeded.map((n) => {
+          const done = covered.has(n.id);
+          return (
+            <li key={n.id} className="flex items-start gap-2 text-[13px]">
+              {done ? <CircleCheck className="mt-0.5 h-4 w-4 shrink-0 text-confirmed-600" /> : <Circle className="mt-0.5 h-4 w-4 shrink-0 text-ink-faint" />}
+              <span className={cn(done ? "text-ink-muted" : "text-ink")}>
+                <span className="font-medium">{n.what}</span>
+                <span className="text-ink-subtle">
+                  {" "}
+                  · {EVIDENCE_SOURCES[n.source]}
+                  {n.enough && ` · Enough: ${n.enough}`}
+                </span>
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }
 
@@ -239,6 +314,8 @@ function EvidenceSection({ v, live }: { v: ValidationRecord; live: LiveInvestiga
   const [body, setBody] = useState("");
   const [taskId, setTaskId] = useState("");
   const [evidenceId, setEvidenceId] = useState("");
+  const [needId, setNeedId] = useState("");
+  const needLabel = (id?: string) => (id ? v.evidenceNeeded.find((n) => n.id === id)?.what : undefined);
   const tasks = live.record.researchTasks.filter((t) => t.outcome.trim() && !v.notes.some((n) => n.researchTaskId === t.id));
   const nameOf = (id: string) => workspace.evidence.find((e) => e.id === id)?.name ?? "A dataset";
   const count = v.notes.length + v.datasets.length;
@@ -248,10 +325,12 @@ function EvidenceSection({ v, live }: { v: ValidationRecord; live: LiveInvestiga
       setBody("");
       setTaskId("");
       setEvidenceId("");
+      setNeedId("");
     };
-    if (kind === "note") run("add", () => addValidationNote(v.id, { relation, body }), reset);
-    else if (kind === "task") run("add", () => addValidationNote(v.id, { relation, researchTaskId: taskId }), reset);
-    else run("add", () => addValidationDataset(v.id, { evidenceId, relation, shows: body }), reset);
+    const need = needId || undefined;
+    if (kind === "note") run("add", () => addValidationNote(v.id, { relation, body, needId: need }), reset);
+    else if (kind === "task") run("add", () => addValidationNote(v.id, { relation, researchTaskId: taskId, needId: need }), reset);
+    else run("add", () => addValidationDataset(v.id, { evidenceId, relation, shows: body, needId: need }), reset);
   }
 
   return (
@@ -265,6 +344,7 @@ function EvidenceSection({ v, live }: { v: ValidationRecord; live: LiveInvestiga
             <span className="min-w-0 flex-1 text-ink">
               {n.kind === "research-task" && <span className="text-ink-subtle">Research · </span>}
               {n.body}
+              {needLabel(n.needId) && <span className="mt-0.5 block text-xs text-ink-subtle">For: {needLabel(n.needId)}</span>}
             </span>
             {!settled && (
               <button type="button" aria-label="Remove" onClick={() => run(n.id, () => removeValidationEvidence("note", n.id))} className="text-ink-faint hover:text-danger-600">
@@ -279,6 +359,7 @@ function EvidenceSection({ v, live }: { v: ValidationRecord; live: LiveInvestiga
             <span className="min-w-0 flex-1 text-ink">
               <span className="text-ink-subtle">{nameOf(d.evidenceId)} · </span>
               {d.shows}
+              {needLabel(d.needId) && <span className="mt-0.5 block text-xs text-ink-subtle">For: {needLabel(d.needId)}</span>}
             </span>
             {!settled && (
               <button type="button" aria-label="Remove" onClick={() => run(d.id, () => removeValidationEvidence("dataset", d.id))} className="text-ink-faint hover:text-danger-600">
@@ -348,6 +429,16 @@ function EvidenceSection({ v, live }: { v: ValidationRecord; live: LiveInvestiga
                 aria-label={kind === "note" ? "Note" : "What the data shows"}
               />
             )}
+            {v.evidenceNeeded.length > 0 && (
+              <select value={needId} onChange={(e) => setNeedId(e.target.value)} aria-label="Covers" className={inputClass}>
+                <option value="">Which evidence needed does it cover? (optional)</option>
+                {v.evidenceNeeded.map((n) => (
+                  <option key={n.id} value={n.id}>
+                    {n.what}
+                  </option>
+                ))}
+              </select>
+            )}
             <Button
               type="button"
               size="sm"
@@ -406,6 +497,9 @@ function Settle({ v }: { v: ValidationRecord }) {
     );
   }
 
+  const covered = coveredNeeds(v.evidenceNeeded, [...v.notes, ...v.datasets]);
+  const missing = v.evidenceNeeded.filter((n) => !covered.has(n.id));
+
   async function askVeyra() {
     if (!outcome) return;
     setChecking(true);
@@ -438,6 +532,11 @@ function Settle({ v }: { v: ValidationRecord }) {
         ))}
       </div>
       <textarea className={textareaClass} rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Why? What in the evidence settles it" aria-label="Reason" />
+      {missing.length > 0 && (
+        <p className="rounded-lg bg-uncertain-50 px-3 py-2 text-[12.5px] text-uncertain-600">
+          Not collected yet: {missing.map((n) => n.what).join("; ")}. You can still settle it, but the call rests on less than the plan asked for.
+        </p>
+      )}
       {check && (
         <div className={cn("rounded-lg px-3.5 py-2.5 text-[13px]", check.agrees === "agree" ? "bg-confirmed-50 text-confirmed-600" : "bg-uncertain-50 text-uncertain-600")}>
           <p className="font-semibold">

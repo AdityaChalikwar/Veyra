@@ -3,6 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { apiFailure, callStep, describeMemory, formatOf, type MemoryNote, type StepFailure, type Usage } from "@/lib/analysis/run";
 import type { BusinessContext, InvestigationWorkspace, LiveInvestigation } from "@/lib/types";
+import { coveredNeeds } from "@/lib/analysis/evidence-needs";
 import { briefGates, OUTCOME_LABEL, type BriefJudgement } from "./build";
 
 const level = z.enum(["low", "medium", "high"]);
@@ -60,7 +61,7 @@ function describe(ws: Live, context: BusinessContext, memory: MemoryNote[]): str
     ...(r.validations.length
       ? r.validations.map(
           (v) =>
-            `- ${v.hypothesisTitle || v.hypothesisStatement}: ${v.status}${v.outcome ? ` → ${v.outcome} (${v.reason})` : ""}. Test: ${v.test}. Evidence: ${[...v.notes.map((n) => `[${n.relation}] ${n.body}`), ...v.datasets.map((x) => `[${x.relation}] ${x.shows}`)].join(" | ") || "none"}`,
+            `- ${v.hypothesisTitle || v.hypothesisStatement}: ${v.status}${v.outcome ? ` → ${v.outcome} (${v.reason})` : ""}. Test: ${v.test}.${v.evidenceNeeded.length ? ` Evidence needed: ${v.evidenceNeeded.map((n) => `${n.what} (${coveredNeeds(v.evidenceNeeded, [...v.notes, ...v.datasets]).has(n.id) ? "collected" : "missing"})`).join("; ")}.` : ""} Evidence: ${[...v.notes.map((n) => `[${n.relation}] ${n.body}`), ...v.datasets.map((x) => `[${x.relation}] ${x.shows}`)].join(" | ") || "none"}`,
         )
       : ["(none)"]),
     "",

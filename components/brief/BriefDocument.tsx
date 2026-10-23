@@ -185,7 +185,10 @@ export function BriefDocument({ brief: b, decision, children }: { brief: Decisio
               {b.validationPlan.existing.map((v) => (
                 <tr key={v.hypothesis} className="border-b border-line align-top">
                   <td className="py-2 pr-3">{v.hypothesis}</td>
-                  <td className="py-2 pr-3">{v.method}</td>
+                  <td className="py-2 pr-3">
+                    {v.method}
+                    {v.evidence && <span className="block text-ink-subtle">Evidence: {v.evidence}</span>}
+                  </td>
                   <td className="py-2 font-medium capitalize">{v.outcome ?? v.status}</td>
                 </tr>
               ))}

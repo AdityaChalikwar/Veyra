@@ -2,6 +2,7 @@ import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import type { BusinessContext } from "@/lib/types";
+import { EVIDENCE_SOURCES, type EvidenceNeed } from "./evidence-needs";
 import { renderPack, type AnalysisPack } from "./pack";
 import { apiFailure, callStep, formatOf, type StepFailure, type Usage } from "./run";
 
@@ -17,6 +18,15 @@ export const planSchema = z.object({
   test: z.string().describe("Exactly what to do, in two or three short sentences, using data the team has or can get"),
   confirmIf: z.string().describe("What result would confirm the hypothesis, specific enough to recognise when it happens"),
   rejectIf: z.string().describe("What result would reject it. A test that can't reject the hypothesis is not a test"),
+  evidenceNeeded: z
+    .array(
+      z.object({
+        what: z.string().describe('One piece of evidence to collect, specific, e.g. "Crash-free sessions by app version, 1 Aug – 30 Sep"'),
+        source: z.string().describe(`Where it comes from: one of ${Object.keys(EVIDENCE_SOURCES).join(", ")}`),
+        enough: z.string().describe('How much is enough to rely on, e.g. "At least 4 weeks either side of the release" or "5 interviews"'),
+      }),
+    )
+    .describe("Two to four pieces of evidence the test needs, the most decisive first"),
 });
 export type DraftPlan = z.infer<typeof planSchema>;
 
@@ -24,7 +34,7 @@ export const checkSchema = z.object({
   agrees: z.enum(["agree", "partly", "disagree"]).describe("Whether the evidence collected supports the team's call"),
   suggestedOutcome: z.enum(["confirmed", "rejected", "unclear"]).describe("The outcome the evidence supports, in your judgement"),
   reasoning: z.string().describe("Two or three short sentences on why, citing the evidence collected"),
-  gaps: z.array(z.string()).describe("What is missing or weak in the evidence for this call, at most three"),
+  gaps: z.array(z.string()).describe("What is missing or weak in the evidence for this call, at most three. Name any evidence the plan needs that hasn't been collected, or collected but not enough"),
 });
 export type CallCheck = z.infer<typeof checkSchema>;
 
@@ -84,8 +94,8 @@ export async function draftValidationPlan(
 }
 
 export type CallToCheck = {
-  plan: { method: string; test: string; confirmIf: string; rejectIf: string };
-  evidence: { relation: string; text: string }[];
+  plan: { method: string; test: string; confirmIf: string; rejectIf: string; evidenceNeeded: EvidenceNeed[] };
+  evidence: { relation: string; text: string; needId?: string }[];
   outcome: "confirmed" | "rejected" | "unclear";
   reason: string;
 };
@@ -100,9 +110,10 @@ export async function checkValidationCall(
 ): Promise<Outcome<CallCheck>> {
   if (!process.env.ANTHROPIC_API_KEY) return { ok: false, failure: { status: "failed", error: "AI isn't set up on this server yet." } };
   const client = new Anthropic();
-  const collected = call.evidence.map((e) => `- [${e.relation}] ${e.text}`).join("\n");
+  const collected = call.evidence.map((e) => `- [${e.relation}]${e.needId ? ` (for ${e.needId})` : ""} ${e.text}`).join("\n");
+  const needed = call.plan.evidenceNeeded.map((n) => `- ${n.id}: ${n.what} (${EVIDENCE_SOURCES[n.source]}; enough: ${n.enough || "not stated"})`).join("\n");
   const step = [
-    `<validation_plan>\nMethod: ${call.plan.method}\nTest: ${call.plan.test}\nConfirm if: ${call.plan.confirmIf}\nReject if: ${call.plan.rejectIf}\n</validation_plan>`,
+    `<validation_plan>\nMethod: ${call.plan.method}\nTest: ${call.plan.test}\nConfirm if: ${call.plan.confirmIf}\nReject if: ${call.plan.rejectIf}\nEvidence needed:\n${needed || "(no checklist)"}\n</validation_plan>`,
     `<evidence_collected>\n${collected || "(none)"}\n</evidence_collected>`,
     `<team_call>\nOutcome: ${call.outcome}\nReason: ${call.reason}\n</team_call>`,
     `Check the team's call on ${hypothesis.ref} against the plan and the evidence collected. Be honest; the team decides.`,

@@ -308,8 +308,14 @@ Flow: Hypotheses → **Validation** → (problem defined again with the cause) �
 Business Memory, which every later analysis, problem definition and brief reads.
 
 **Validation** (`validations`, `validation_notes`; actions in `app/(app)/investigations/validation-actions.ts`)
-- One validation per hypothesis: method, test, "confirmed if", "rejected if". Veyra drafts it on
-  request (`draftValidationPlan`, one Claude call, `ai_usage.kind` validation) or the team writes it.
+- One validation per hypothesis: method, test, "confirmed if", "rejected if", and an **evidence
+  needed** checklist (`validations.evidence_needed`, up to 6 items: what to collect, where from —
+  your data, interviews, survey, support tickets, experiment, desk research — and how much is
+  enough; `lib/analysis/evidence-needs.ts`). Veyra drafts it on request (`draftValidationPlan`, one
+  Claude call, `ai_usage.kind` validation) or the team writes it.
+- Each piece of evidence can say which checklist item it covers (`need_id` on `validation_notes` and
+  `evidence_links`); the card shows "2 of 3 collected", settling warns about what's missing (it
+  doesn't block), and the AI check and the Decision Brief see the coverage.
 - Evidence for or against: a note, a finished research task's outcome, or a dataset in the
   investigation (`evidence_links.validation_id`). Adding evidence moves it to in progress.
 - Settling (confirmed / rejected / unclear) needs a reason and at least one piece of evidence — the

@@ -23,6 +23,7 @@ import { buildLiveWorkspace } from "./live-workspace";
 import { listConnectedSources } from "./sources";
 import type { AnalysisResult } from "@/lib/analysis/schema";
 import { assessEvidence } from "@/lib/analysis/confidence";
+import { cleanNeeds } from "@/lib/analysis/evidence-needs";
 import type { Approach, StructuredFinding, StructuredHypothesis, StructuredLink, StructuredNextStep } from "@/lib/analysis/structure";
 import { buildSampleWorkspace, SAMPLE_ID, sampleOpenQuestions } from "@/mocks/sample-investigation";
 import { buildDecisions } from "@/mocks/decisions";
@@ -178,7 +179,7 @@ export async function getInvestigationRecord(id: string): Promise<InvestigationR
   const { data } = await supabase
     .from("investigations")
     .select(
-      "triggers, outcomes, objective, current_stage, known_context, attachments, data_source_ids, plan, created_at, clarifying_questions (id, position, question, hint, answer), files (id, name, size_bytes, status, error, created_at, evidence (id, summary, coverage, profile, metrics, confidence, metadata)), investigation_stages (stage, completed_at), evidence (id, name, source, coverage, summary, profile, metrics, snapshot_id, file_id, confidence, metadata, created_at), analysis_runs (id, status, model, created_at, completed_at, error, result, pack, usage), findings (analysis_run_id, ref, position, kind, title, statement, observed, confidence, confidence_reason, based_on, evidence_links (evidence_id, relation, shows)), hypotheses (analysis_run_id, ref, position, title, statement, rationale, confidence, evidence_strength, evidence_status, supporting_findings, contradicting_findings, validation_method, assumptions, status, validation_id, evidence_links (evidence_id, relation, shows)), open_questions (analysis_run_id, ref, position, question, why_it_matters, missing_evidence), next_steps (analysis_run_id, approach, approach_reason, evidence_sufficiency, type, title, detail, why, why_not_build_yet, would_change_if), problem_definitions (id, analysis_run_id, cause_status, statement, affected, need, obstacle, business_impact, confidence, confidence_reason, assumptions, finding_refs, hypothesis_refs, created_at, evidence_links (evidence_id, relation, shows), opportunities (id, position, title, customer_problem, potential_impact, impact_level, confidence, assumptions, validation_needs, finding_refs, depends_on, status, evidence_links (evidence_id, relation, shows))), research_tasks (id, analysis_run_id, position, title, question, method, method_detail, priority, status, rationale, question_ref, hypothesis_refs, outcome, created_at, updated_at), validations (id, hypothesis_title, hypothesis_statement, method, test, confirm_if, reject_if, status, outcome, reason, settled_at, created_at, validation_notes (id, kind, relation, body, research_task_id, created_at), evidence_links (id, evidence_id, relation, shows)), decisions (id, outcome, summary, rationale, opportunity_id, opportunity_title, escalate_to, options_rejected, risks, owner, success_measure, review_date, result, warnings, status, created_at), decision_briefs (id, content, share_token, created_at)",
+      "triggers, outcomes, objective, current_stage, known_context, attachments, data_source_ids, plan, created_at, clarifying_questions (id, position, question, hint, answer), files (id, name, size_bytes, status, error, created_at, evidence (id, summary, coverage, profile, metrics, confidence, metadata)), investigation_stages (stage, completed_at), evidence (id, name, source, coverage, summary, profile, metrics, snapshot_id, file_id, confidence, metadata, created_at), analysis_runs (id, status, model, created_at, completed_at, error, result, pack, usage), findings (analysis_run_id, ref, position, kind, title, statement, observed, confidence, confidence_reason, based_on, evidence_links (evidence_id, relation, shows)), hypotheses (analysis_run_id, ref, position, title, statement, rationale, confidence, evidence_strength, evidence_status, supporting_findings, contradicting_findings, validation_method, assumptions, status, validation_id, evidence_links (evidence_id, relation, shows)), open_questions (analysis_run_id, ref, position, question, why_it_matters, missing_evidence), next_steps (analysis_run_id, approach, approach_reason, evidence_sufficiency, type, title, detail, why, why_not_build_yet, would_change_if), problem_definitions (id, analysis_run_id, cause_status, statement, affected, need, obstacle, business_impact, confidence, confidence_reason, assumptions, finding_refs, hypothesis_refs, created_at, evidence_links (evidence_id, relation, shows), opportunities (id, position, title, customer_problem, potential_impact, impact_level, confidence, assumptions, validation_needs, finding_refs, depends_on, status, evidence_links (evidence_id, relation, shows))), research_tasks (id, analysis_run_id, position, title, question, method, method_detail, priority, status, rationale, question_ref, hypothesis_refs, outcome, created_at, updated_at), validations (id, hypothesis_title, hypothesis_statement, method, test, confirm_if, reject_if, evidence_needed, status, outcome, reason, settled_at, created_at, validation_notes (id, kind, relation, body, research_task_id, need_id, created_at), evidence_links (id, evidence_id, relation, shows, need_id)), decisions (id, outcome, summary, rationale, opportunity_id, opportunity_title, escalate_to, options_rejected, risks, owner, success_measure, review_date, result, warnings, status, created_at), decision_briefs (id, content, share_token, created_at)",
     )
     .eq("id", id)
     .maybeSingle();
@@ -394,10 +395,10 @@ function toResearchTask(t: ResearchTaskRow): ResearchTaskRecord {
 
 type ValidationRow = Pick<
   Tables<"validations">,
-  "id" | "hypothesis_title" | "hypothesis_statement" | "method" | "test" | "confirm_if" | "reject_if" | "status" | "outcome" | "reason" | "settled_at" | "created_at"
+  "id" | "hypothesis_title" | "hypothesis_statement" | "method" | "test" | "confirm_if" | "reject_if" | "evidence_needed" | "status" | "outcome" | "reason" | "settled_at" | "created_at"
 > & {
-  validation_notes: Pick<Tables<"validation_notes">, "id" | "kind" | "relation" | "body" | "research_task_id" | "created_at">[];
-  evidence_links: { id: string; evidence_id: string; relation: string; shows: string }[];
+  validation_notes: Pick<Tables<"validation_notes">, "id" | "kind" | "relation" | "body" | "research_task_id" | "need_id" | "created_at">[];
+  evidence_links: { id: string; evidence_id: string; relation: string; shows: string; need_id: string | null }[];
 };
 
 function toValidation(v: ValidationRow): ValidationRecord {
@@ -409,6 +410,7 @@ function toValidation(v: ValidationRow): ValidationRecord {
     test: v.test,
     confirmIf: v.confirm_if,
     rejectIf: v.reject_if,
+    evidenceNeeded: cleanNeeds(v.evidence_needed),
     status: v.status as ValidationRecord["status"],
     outcome: (v.outcome ?? undefined) as ValidationRecord["outcome"],
     reason: v.reason,
@@ -421,9 +423,10 @@ function toValidation(v: ValidationRow): ValidationRecord {
         relation: n.relation as "supports" | "contradicts",
         body: n.body,
         researchTaskId: n.research_task_id ?? undefined,
+        needId: n.need_id ?? undefined,
         createdAt: n.created_at,
       })),
-    datasets: v.evidence_links.map((l) => ({ id: l.id, evidenceId: l.evidence_id, relation: l.relation as "supports" | "contradicts", shows: l.shows })),
+    datasets: v.evidence_links.map((l) => ({ id: l.id, evidenceId: l.evidence_id, relation: l.relation as "supports" | "contradicts", shows: l.shows, needId: l.need_id ?? undefined })),
     createdAt: v.created_at,
   };
 }
