@@ -8,6 +8,7 @@ import { briefGates, OUTCOME_LABEL } from "@/lib/brief/build";
 import { writeBriefFor } from "@/lib/brief/write";
 import { getInvestigationWorkspace } from "@/lib/data";
 import { remember } from "@/lib/data/memory";
+import { COMPLETED, isCompleted } from "@/lib/investigation/completed";
 import { createClient } from "@/lib/supabase/server";
 import type { DecisionBrief, DecisionOutcome } from "@/lib/types";
 
@@ -31,6 +32,7 @@ async function liveWorkspace(investigationId: string) {
 export async function writeDecisionBrief(investigationId: string): Promise<Result> {
   const { company } = await requireWorkspace();
   if (!UUID.test(investigationId)) return { error: RETRY };
+  if (await isCompleted(investigationId)) return COMPLETED;
   const allowance = await takeAiAllowance(company.id, "brief");
   if ("error" in allowance) return allowance;
   const result = await writeBriefFor(investigationId);
@@ -141,6 +143,7 @@ export async function recordDecision(investigationId: string, form: DecisionForm
   if (summary.length > 1000 || form.rationale.length > 4000 || form.successMeasure.length > 1000) return { error: "Shorten the decision a little." };
   if (form.outcome === "escalate" && !form.escalateTo.trim()) return { error: "Say which team it goes to." };
   if (form.reviewDate && !/^\d{4}-\d{2}-\d{2}$/.test(form.reviewDate)) return { error: "Choose a valid review date." };
+  if (await isCompleted(investigationId)) return COMPLETED;
 
   const ws = await liveWorkspace(investigationId);
   if (!ws) return { error: "This investigation no longer exists." };
@@ -191,6 +194,35 @@ export async function recordDecision(investigationId: string, form: DecisionForm
     body: [`${OUTCOME_LABEL[form.outcome]}.`, form.rationale.trim(), warnings.length ? `Decided despite: ${warnings.join(" ")}` : ""].filter(Boolean).join("\n"),
     source: { decisionId: decision.id, part: "decision" },
   });
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+/** Where an investigation is, in the words of its status, follows its stage (as in lib/data). */
+const STATUS_OF_STAGE: Record<string, string> = {
+  problem_definition: "planning",
+  add_data: "investigating",
+  analysis: "investigating",
+  problem_validation: "validating",
+  opportunity_discovery: "opportunity-discovery",
+};
+
+/**
+ * Reopens a completed investigation so the team can keep working on it. The
+ * decision stays on record; recording a new one completes it again.
+ */
+export async function reopenInvestigation(investigationId: string): Promise<Result> {
+  await requireWorkspace();
+  if (!UUID.test(investigationId)) return { error: RETRY };
+  const supabase = await createClient();
+  const { data: inv } = await supabase.from("investigations").select("status, current_stage").eq("id", investigationId).maybeSingle();
+  if (!inv) return { error: "This investigation no longer exists." };
+  if (inv.status !== "completed") return { ok: true };
+  const { error } = await supabase
+    .from("investigations")
+    .update({ status: STATUS_OF_STAGE[inv.current_stage] ?? "investigating" })
+    .eq("id", investigationId);
+  if (error) return { error: "Couldn't reopen it. Try again in a moment." };
   revalidatePath("/", "layout");
   return { ok: true };
 }

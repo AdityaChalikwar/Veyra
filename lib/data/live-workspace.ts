@@ -1,6 +1,7 @@
 import "server-only";
 import type { AnalysisResult } from "@/lib/analysis/schema";
 import { structureRun, type StructuredRun } from "@/lib/analysis/structure";
+import { withDecision } from "@/lib/investigation/guide";
 import type {
   AnalysisRunRecord,
   Confidence,
@@ -10,6 +11,7 @@ import type {
   Hypothesis,
   InvestigationRecord,
   InvestigationWorkspace,
+  LiveInvestigation,
   NextStep,
   OpenQuestion,
   Opportunity,
@@ -215,7 +217,7 @@ export function buildLiveWorkspace(record: InvestigationRecord, dataSources: Dat
 
   const confidence: Confidence = definition?.confidence ?? record.summary.confidence;
 
-  return {
+  const ws: InvestigationWorkspace & { live: LiveInvestigation } = {
     investigation: {
       ...record.summary,
       confidence,
@@ -261,4 +263,5 @@ export function buildLiveWorkspace(record: InvestigationRecord, dataSources: Dat
     notes: record.notes,
     live: { record, dataSources, run },
   };
+  return { ...ws, stages: withDecision(ws.stages, ws) };
 }

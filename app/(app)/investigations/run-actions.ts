@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { takeAiAllowance } from "@/lib/ai/usage";
 import { requireWorkspace } from "@/lib/auth";
 import { forget } from "@/lib/data/memory";
+import { COMPLETED, isCompleted } from "@/lib/investigation/completed";
 import { createClient } from "@/lib/supabase/server";
 import type { Json } from "@/lib/supabase/database.types";
 import { advanceRun, createRun } from "@/lib/validation-run/engine";
@@ -49,8 +50,9 @@ export async function runValidation(investigationId: string, ref: string): Promi
   const { data: h } = run
     ? await supabase.from("hypotheses").select("id, title, statement, validation_method, validation_id").eq("analysis_run_id", run.id).eq("ref", ref).maybeSingle()
     : { data: null };
-  const { data: inv } = await supabase.from("investigations").select("is_sample").eq("id", investigationId).maybeSingle();
+  const { data: inv } = await supabase.from("investigations").select("is_sample, status").eq("id", investigationId).maybeSingle();
   if (!h || !inv || inv.is_sample) return { error: "This hypothesis is no longer in the latest analysis. Reload the page." };
+  if (inv.status === "completed") return COMPLETED;
 
   let validationId = h.validation_id;
   if (validationId) {
@@ -151,6 +153,7 @@ export async function rerunWithEvidence(runId: string): Promise<Result<{ runId: 
   const { data: old } = await supabase.from("validation_runs").select("validation_id, investigation_id, requests, phase").eq("id", runId).maybeSingle();
   if (!old) return { error: "This validation run no longer exists." };
   if (ACTIVE_PHASES.includes(old.phase as RunPhase)) return { error: "This validation is still running." };
+  if (await isCompleted(old.investigation_id)) return COMPLETED;
   const allowance = await takeAiAllowance(company.id, "validation-run");
   if ("error" in allowance) return allowance;
   await reopen(old.validation_id, old.investigation_id);

@@ -12,7 +12,6 @@ export const WORKSPACE_TABS = [
   { slug: "opportunities", label: "Opportunities" },
   { slug: "research", label: "Research Needed" },
   { slug: "customers", label: "Customers & Market" },
-  { slug: "next-step", label: "Next Step" },
   { slug: "validation", label: "Validation" },
   { slug: "notes", label: "Notes & Activity" },
   { slug: "report", label: "Decision Brief" },

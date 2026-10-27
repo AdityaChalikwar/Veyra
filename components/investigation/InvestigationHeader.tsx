@@ -47,7 +47,8 @@ export function InvestigationHeader({ actions }: { actions?: React.ReactNode }) 
             <CalendarDays className="h-3.5 w-3.5" /> Created {formatDate(inv.createdAt)}
           </div>
           <div className="flex items-center gap-1.5">
-            <Clock className="h-3.5 w-3.5" /> Updated {formatRelative(inv.updatedAt).toLowerCase()}
+            {/* Relative time can tick over between the server render and the browser's. */}
+            <Clock className="h-3.5 w-3.5" /> <span suppressHydrationWarning>Updated {formatRelative(inv.updatedAt).toLowerCase()}</span>
           </div>
         </dl>
       </div>
