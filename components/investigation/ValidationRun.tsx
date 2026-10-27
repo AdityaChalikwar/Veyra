@@ -4,6 +4,7 @@ import { ArrowRight, Check, CircleAlert, ExternalLink, FileUp, Link2, Loader2, M
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { addHeldBackDemoFile } from "@/app/(app)/investigations/demo-actions";
 import { answerRequest, continueRun, rerunWithEvidence } from "@/app/(app)/investigations/run-actions";
 import { Button } from "@/components/ui/Button";
 import { textareaClass } from "@/components/ui/Field";
@@ -150,6 +151,14 @@ function RequestItem({ runId, r, n }: { runId: string; r: RunRequest; n: number 
     else router.refresh();
     setBusy(false);
   }
+  async function addDemo() {
+    setBusy(true);
+    setError(null);
+    const res = await addHeldBackDemoFile(runId, r.id).catch(() => OFFLINE);
+    if ("error" in res) setError(res.error);
+    else router.refresh();
+    setBusy(false);
+  }
   const Icon = r.answer === "upload" ? FileUp : r.answer === "source" ? Link2 : MessageSquareText;
   return (
     <li className={cn("rounded-lg border bg-surface p-3", done ? "border-confirmed-200" : "border-line")}>
@@ -178,6 +187,12 @@ function RequestItem({ runId, r, n }: { runId: string; r: RunRequest; n: number 
               </div>
             ) : (
               <div className="mt-2 flex flex-wrap items-center gap-2">
+                {/* The full demo keeps its crash export back for exactly this moment. */}
+                {workspace.investigation.demoScenario && r.answer === "upload" && /crash|stabil|anr|vital|login|sign-?in/i.test(`${r.what} ${r.how}`) && (
+                  <Button type="button" size="sm" disabled={busy} onClick={() => addDemo()}>
+                    {busy ? <Spinner /> : <FileUp className="h-3.5 w-3.5" />} Add the demo&rsquo;s crash export
+                  </Button>
+                )}
                 <Link
                   href={r.answer === "upload" ? routes.investigation(workspace.investigation.id, "evidence") : routes.dataSources}
                   target="_blank"

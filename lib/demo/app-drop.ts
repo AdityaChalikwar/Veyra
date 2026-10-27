@@ -184,7 +184,7 @@ export function releaseNotesCsv(): string {
       "25% → 55% → 80% → 100% (7–10 Sep)",
       "New sign-in with Northwind ID: replaces the old login screen and moves sessions to new tokens. Users are asked to sign in again after updating. Analytics SDK and event tracking unchanged.",
     ],
-    ["5.2.0", "ios", "planned", "on hold", "Same sign-in change as Android. Held back pending Android feedback."],
+    ["5.2.0", "ios", "", "on hold (planned)", "Same sign-in change as Android. Held back pending Android feedback."],
   ]);
 }
 

@@ -117,8 +117,12 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type InvestigationRow = Pick<
   Tables<"investigations">,
-  "id" | "title" | "problem" | "topic" | "status" | "confidence" | "is_sample" | "updated_at" | "current_stage"
-> & { clarifying_questions: { answer: string }[]; evidence: { count: number }[] };
+  "id" | "title" | "problem" | "topic" | "status" | "confidence" | "is_sample" | "updated_at" | "current_stage" | "demo_scenario"
+> & {
+  clarifying_questions: { answer: string }[];
+  evidence: { count: number }[];
+  analysis_runs: { status: string; completed_at: string | null; hypotheses: { count: number }[]; open_questions: { count: number }[] }[];
+};
 
 /** Where an investigation is, in the words the status badge uses, follows its stage. */
 const stageStatus: Record<StageKey, InvestigationStatus> = {
@@ -131,6 +135,10 @@ const stageStatus: Record<StageKey, InvestigationStatus> = {
 
 function toSummary(row: InvestigationRow): InvestigationSummary {
   if (row.is_sample) return { ...buildSampleSummary(), id: row.id };
+  // Counts come from the latest finished analysis.
+  const latest = row.analysis_runs
+    .filter((r) => r.status === "completed" && r.completed_at)
+    .sort((a, b) => b.completed_at!.localeCompare(a.completed_at!))[0];
   return {
     id: row.id,
     title: row.title,
@@ -138,9 +146,10 @@ function toSummary(row: InvestigationRow): InvestigationSummary {
     status: row.status === "completed" ? "completed" : stageStatus[row.current_stage as StageKey],
     problem: row.problem,
     evidenceCount: row.evidence[0]?.count ?? 0,
-    hypothesisCount: 0,
+    hypothesisCount: latest?.hypotheses[0]?.count ?? 0,
     // Until analysis exists, unanswered clarifying questions are the open questions.
-    openQuestionCount: row.clarifying_questions.filter((q) => !q.answer.trim()).length,
+    openQuestionCount: latest ? (latest.open_questions[0]?.count ?? 0) : row.clarifying_questions.filter((q) => !q.answer.trim()).length,
+    demoScenario: row.demo_scenario ?? undefined,
     confidence: row.confidence as Confidence,
     updatedAt: row.updated_at,
   };
@@ -153,7 +162,9 @@ export const listInvestigations = cache(async (): Promise<InvestigationSummary[]
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("investigations")
-    .select("id, title, problem, topic, status, confidence, is_sample, updated_at, current_stage, clarifying_questions (answer), evidence (count)")
+    .select(
+      "id, title, problem, topic, status, confidence, is_sample, updated_at, current_stage, demo_scenario, clarifying_questions (answer), evidence (count), analysis_runs (status, completed_at, hypotheses (count), open_questions (count))",
+    )
     .order("updated_at", { ascending: false });
   if (error) throw new Error(`Couldn't load investigations: ${error.message}`);
   // Real investigations first; the sample after them.

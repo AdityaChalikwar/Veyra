@@ -110,6 +110,8 @@ export type InvestigationSummary = {
   updatedAt: string; // ISO
   /** The read-only demo investigation every workspace starts with. */
   isSample?: boolean;
+  /** The full demo (Milestone 10), whose data goes all the way to a decision. */
+  demoScenario?: string;
 };
 
 /* ── Starting an investigation ───────────────────────────────────────── */
