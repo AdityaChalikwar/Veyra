@@ -51,6 +51,7 @@ export async function askVeyra(investigationId: string, question: string): Promi
   if (text.length > 2000) return { error: "Shorten the question a little." };
   const ws = await getInvestigationWorkspace(investigationId);
   if (!ws?.live) return { error: "This investigation no longer exists." };
+  if (!process.env.ANTHROPIC_API_KEY) return { error: "AI isn't set up on this server yet." };
   const allowance = await takeAiAllowance(company.id, "ask");
   if ("error" in allowance) return allowance;
 
