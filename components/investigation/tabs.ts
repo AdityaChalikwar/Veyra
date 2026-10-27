@@ -14,7 +14,7 @@ export const WORKSPACE_TABS = [
   { slug: "customers", label: "Customers & Market" },
   { slug: "next-step", label: "Next Step" },
   { slug: "validation", label: "Validation" },
-  { slug: "notes", label: "Notes" },
+  { slug: "notes", label: "Notes & Activity" },
   { slug: "report", label: "Decision Brief" },
 ] as const;
 

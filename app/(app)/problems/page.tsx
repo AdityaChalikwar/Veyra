@@ -10,8 +10,8 @@ export const metadata = { title: "Problems" };
 
 const statusStyle = {
   draft: { label: "Draft", className: "bg-slate-100 text-slate-600" },
-  refined: { label: "Refined by evidence", className: "bg-brand-50 text-brand-700" },
-  validated: { label: "Validated", className: "bg-confirmed-50 text-confirmed-600" },
+  refined: { label: "Defined · provisional", className: "bg-uncertain-50 text-uncertain-600" },
+  validated: { label: "Defined · cause validated", className: "bg-confirmed-50 text-confirmed-600" },
 } as const;
 
 export default async function ProblemsPage() {
@@ -20,7 +20,7 @@ export default async function ProblemsPage() {
     <PageContainer>
       <PageHeader
         title="Problems"
-        description="Problem statements across investigations, refined by evidence. Problems come before solutions."
+        description="Problem statements across investigations, defined from the evidence. Provisional until a hypothesis about the cause is confirmed. Problems come before solutions."
       />
       {problems.length === 0 && <EmptyNote className="mt-8">No problems yet. Start an investigation to define one.</EmptyNote>}
       <ul className="mt-8 space-y-3">

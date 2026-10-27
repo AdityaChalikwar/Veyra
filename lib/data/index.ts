@@ -67,6 +67,7 @@ import type {
   InvestigationDecision,
   DecisionOutcome,
   DecisionBrief,
+  ChatMessage,
 } from "@/lib/types";
 
 export async function getCurrentUser(): Promise<User | null> {
@@ -188,13 +189,18 @@ export async function getInvestigationRecord(id: string): Promise<InvestigationR
   const summary = await getInvestigationSummary(id);
   if (!summary || summary.isSample) return undefined;
   const supabase = await createClient();
-  const { data } = await supabase
+  const [{ data }, ...talk] = await Promise.all([
+    supabase
     .from("investigations")
     .select(
       "triggers, outcomes, objective, current_stage, known_context, attachments, data_source_ids, plan, created_at, clarifying_questions (id, position, question, hint, answer), files (id, name, size_bytes, status, error, created_at, evidence (id, summary, coverage, profile, metrics, confidence, metadata)), investigation_stages (stage, completed_at), evidence (id, name, source, coverage, summary, profile, metrics, snapshot_id, file_id, confidence, metadata, created_at), analysis_runs (id, status, model, created_at, completed_at, error, result, pack, usage), findings (analysis_run_id, ref, position, kind, title, statement, observed, confidence, confidence_reason, based_on, evidence_links (evidence_id, relation, shows)), hypotheses (analysis_run_id, ref, position, title, statement, rationale, confidence, evidence_strength, evidence_status, supporting_findings, contradicting_findings, validation_method, assumptions, status, validation_id, evidence_links (evidence_id, relation, shows)), open_questions (analysis_run_id, ref, position, question, why_it_matters, missing_evidence), next_steps (analysis_run_id, approach, approach_reason, evidence_sufficiency, type, title, detail, why, why_not_build_yet, would_change_if), problem_definitions (id, analysis_run_id, cause_status, statement, affected, need, obstacle, business_impact, confidence, confidence_reason, assumptions, finding_refs, hypothesis_refs, created_at, evidence_links (evidence_id, relation, shows), opportunities (id, position, title, customer_problem, potential_impact, impact_level, confidence, assumptions, validation_needs, finding_refs, depends_on, status, evidence_links (evidence_id, relation, shows))), research_tasks (id, analysis_run_id, position, title, question, method, method_detail, priority, status, rationale, question_ref, hypothesis_refs, outcome, created_at, updated_at), validations (id, hypothesis_title, hypothesis_statement, method, test, confirm_if, reject_if, evidence_needed, status, outcome, reason, settled_at, settled_by_kind, confidence, created_at, validation_notes (id, kind, relation, body, research_task_id, need_id, run_id, created_at), evidence_links (id, evidence_id, relation, shows, need_id), validation_runs (id, phase, steps, design, requests, results, verdict, follow_through, proceed_without, error, lease_until, created_at, updated_at, completed_at)), decisions (id, outcome, summary, rationale, opportunity_id, opportunity_title, escalate_to, options_rejected, risks, owner, success_measure, review_date, result, warnings, status, created_at), decision_briefs (id, content, share_token, created_at)",
     )
     .eq("id", id)
-    .maybeSingle();
+    .maybeSingle(),
+    // Kept apart: one query with everything is too deep for the type checker.
+    supabase.from("investigation_notes").select("id, author_name, body, created_at").eq("investigation_id", id),
+    supabase.from("chat_messages").select("id, role, text, list, refs, created_at").eq("investigation_id", id),
+  ]);
   if (!data) return undefined;
   return {
     summary,
@@ -221,6 +227,19 @@ export async function getInvestigationRecord(id: string): Promise<InvestigationR
       .filter((d) => d.status === "decided")
       .sort((a, b) => b.created_at.localeCompare(a.created_at))
       .map(toDecision),
+    notes: [...(talk[0].data ?? [])]
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+      .map((n) => ({ id: n.id, investigationId: id, author: n.author_name || "A teammate", text: n.body, createdAt: n.created_at })),
+    conversation: [...(talk[1].data ?? [])]
+      .sort((a, b) => a.created_at.localeCompare(b.created_at))
+      .map((m) => ({
+        id: m.id,
+        role: m.role as "user" | "assistant",
+        text: m.text,
+        list: m.list.length ? m.list : undefined,
+        refs: (m.refs as unknown as ChatMessage["refs"]) ?? [],
+        createdAt: m.created_at,
+      })),
     brief: [...data.decision_briefs]
       .sort((a, b) => b.created_at.localeCompare(a.created_at))
       .slice(0, 1)
@@ -831,13 +850,32 @@ export type ProblemSummary = {
   confidence: Confidence;
 };
 
-/** Problem statements across investigations. New investigations have the problem as written. */
+/**
+ * Problem statements across investigations: the newest definition of each
+ * (provisional until its cause is validated), or the problem as written.
+ */
 export async function listProblems(): Promise<ProblemSummary[]> {
   const investigations = await listInvestigations();
+  const supabase = await createClient();
+  const { data } = await supabase.from("problem_definitions").select("investigation_id, statement, cause_status, confidence, created_at").order("created_at", { ascending: false });
+  const latest = new Map<string, NonNullable<typeof data>[number]>();
+  for (const d of data ?? []) if (!latest.has(d.investigation_id)) latest.set(d.investigation_id, d);
   const sample = investigations.find((i) => i.isSample);
   const real: ProblemSummary[] = investigations
     .filter((i) => !i.isSample)
-    .map((i) => ({ investigationId: i.id, investigationTitle: i.title, refined: i.problem, status: "draft", confidence: i.confidence }));
+    .map((i) => {
+      const d = latest.get(i.id);
+      return d
+        ? {
+            investigationId: i.id,
+            investigationTitle: i.title,
+            original: i.problem,
+            refined: d.statement,
+            status: d.cause_status === "validated" ? "validated" : "refined",
+            confidence: d.confidence as Confidence,
+          }
+        : { investigationId: i.id, investigationTitle: i.title, refined: i.problem, status: "draft", confidence: i.confidence };
+    });
   if (!sample) return real;
   const sampleWs = buildSampleWorkspace([]);
   return [
@@ -860,20 +898,61 @@ export type OpportunitySummary = {
   evidenceStrength: EvidenceStrength;
   impact?: Level;
   confidence: Confidence;
+  /** Real opportunities: whether the team is pursuing it. */
+  status?: "open" | "pursuing" | "parked";
 };
 
-/** Opportunities come from analysis (Milestone 4); only the sample has them so far. */
+/** Opportunity areas across investigations (each investigation's current set), then the sample's. */
 export async function listOpportunities(): Promise<OpportunitySummary[]> {
-  const sample = await getSample();
-  if (!sample) return [];
-  return buildSampleWorkspace([]).opportunities.map((o) => ({
-    investigationId: sample.id,
-    investigationTitle: sampleTitle(sample),
-    title: o.title,
-    evidenceStrength: o.evidenceStrength,
-    impact: o.impact,
-    confidence: o.confidence,
-  }));
+  const supabase = await createClient();
+  const [{ data: defs }, { data: opps }, sample] = await Promise.all([
+    supabase.from("problem_definitions").select("id, investigation_id, created_at").order("created_at", { ascending: false }),
+    supabase.from("opportunities").select("investigation_id, problem_definition_id, title, impact_level, confidence, status, position, investigations (title)").order("position"),
+    getSample(),
+  ]);
+  const current = new Set<string>();
+  const seen = new Set<string>();
+  for (const d of defs ?? []) if (!seen.has(d.investigation_id) && seen.add(d.investigation_id)) current.add(d.id);
+  const strength = (c: string): EvidenceStrength => (c === "high" ? "strong" : c === "medium" ? "moderate" : "weak");
+  const real: OpportunitySummary[] = (opps ?? [])
+    .filter((o) => current.has(o.problem_definition_id))
+    .map((o) => ({
+      investigationId: o.investigation_id,
+      investigationTitle: o.investigations?.title ?? "Investigation",
+      title: o.title,
+      evidenceStrength: strength(o.confidence),
+      impact: o.impact_level as Level,
+      confidence: o.confidence as Confidence,
+      status: o.status as OpportunitySummary["status"],
+    }))
+    .sort((a, b) => (a.status === "pursuing" ? 0 : 1) - (b.status === "pursuing" ? 0 : 1));
+  const fromSample: OpportunitySummary[] = sample
+    ? buildSampleWorkspace([]).opportunities.map((o) => ({
+        investigationId: sample.id,
+        investigationTitle: sampleTitle(sample),
+        title: o.title,
+        evidenceStrength: o.evidenceStrength,
+        impact: o.impact,
+        confidence: o.confidence,
+      }))
+    : [];
+  return [...real, ...fromSample];
+}
+
+export type ResearchTaskSummary = ResearchTaskRecord & { investigationId: string; investigationTitle: string };
+
+/** Research tasks across investigations: open ones first, then what was found. */
+export async function listResearchTasks(): Promise<ResearchTaskSummary[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("research_tasks")
+    .select("id, investigation_id, analysis_run_id, position, title, question, method, method_detail, priority, status, rationale, question_ref, hypothesis_refs, outcome, created_at, updated_at, investigations (title)")
+    .order("updated_at", { ascending: false })
+    .limit(200);
+  const order = { "in-progress": 0, "not-started": 1, done: 2, dropped: 3 } as Record<string, number>;
+  return (data ?? [])
+    .map((t) => ({ ...toResearchTask(t), investigationId: t.investigation_id, investigationTitle: t.investigations?.title ?? "Investigation" }))
+    .sort((a, b) => (order[a.status] ?? 9) - (order[b.status] ?? 9));
 }
 
 export type ValidationSummary = {

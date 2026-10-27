@@ -10,6 +10,8 @@ import type { ArtifactRef } from "@/lib/types";
 import { ChatInput } from "./ChatInput";
 import { ChatMessage } from "./ChatMessage";
 
+const livePrompts = ["What does the evidence show so far?", "What don't we know yet?", "What should we do next, and why?"];
+
 /**
  * Ask Veyra: a supporting panel, not the main surface. Every answer links back
  * to evidence, findings, hypotheses or the problem definition.
@@ -34,11 +36,19 @@ export function AiAssistant({ onNavigate }: { onNavigate?: () => void }) {
   }
 
   const asked = new Set(messages.filter((m) => m.role === "user").map((m) => m.text));
-  const suggestions = suggestedPrompts.filter((p) => !asked.has(p));
+  const prompts = workspace.live ? livePrompts : suggestedPrompts;
+  const suggestions = prompts.filter((p) => !asked.has(p));
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div ref={scroller} className="flex-1 space-y-4 overflow-y-auto px-4 py-4" aria-live="polite">
+        {messages.length === 0 && (
+          <p className="text-[13px] leading-relaxed text-ink-muted">
+            Ask anything about this investigation. Veyra answers only from its records — evidence, findings, hypotheses and what
+            the team has validated — links to what it rests on, and says so when the records can&rsquo;t answer. Each question uses one of
+            today&rsquo;s AI requests.
+          </p>
+        )}
         {messages.map((m) => (
           <ChatMessage key={m.id} message={m} onOpenRef={openRef} />
         ))}

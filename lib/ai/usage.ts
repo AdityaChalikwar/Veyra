@@ -31,3 +31,11 @@ export async function takeAiAllowance(workspaceId: string, kind: "analysis" | "q
   if (insertError) return { error: "Couldn't record your AI usage. Try again in a moment." };
   return { ok: true };
 }
+
+/** How many AI requests the signed-in person has used in the last 24 hours, against the limit. */
+export async function getAiUsage(): Promise<{ used: number; limit: number }> {
+  const supabase = await createClient();
+  const since = new Date(Date.now() - DAY_MS).toISOString();
+  const { count } = await supabase.from("ai_usage").select("id", { count: "exact", head: true }).gte("created_at", since);
+  return { used: count ?? 0, limit: dailyLimit() };
+}

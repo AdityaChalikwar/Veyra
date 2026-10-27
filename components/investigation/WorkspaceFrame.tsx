@@ -13,6 +13,7 @@ import { Drawer } from "@/components/ui/Drawer";
 import { cn } from "@/lib/cn";
 import { routes } from "@/lib/routes";
 import { askVeyra } from "@/lib/data/assistant";
+import { askVeyra as askVeyraLive } from "@/app/(app)/investigations/team-actions";
 import { analyseEvidence, reviewProposal } from "@/lib/data/evidence";
 import { analyseExistingFeedback, runResearchTask } from "@/lib/data/research";
 import { getValidationResult } from "@/lib/data/validation";
@@ -183,13 +184,24 @@ export function WorkspaceFrame({ workspace: initial, children }: { workspace: In
 
   const sendMessage = useCallback(
     async (text: string) => {
-      setMessages((m) => [...m, { id: `u-${Date.now()}`, role: "user", text, createdAt: now() }]);
+      const pending = { id: `u-${Date.now()}`, role: "user" as const, text, createdAt: now() };
+      setMessages((m) => [...m, pending]);
       setThinking(true);
-      const reply = await askVeyra(investigationId, text);
-      setMessages((m) => [...m, reply]);
+      if (initial.live) {
+        // The team's own investigation: answered from its records by Claude, and saved.
+        const r = await askVeyraLive(investigationId, text).catch(() => ({ error: "Couldn't reach Veyra. Check your connection and try again." }));
+        setMessages((m) =>
+          "error" in r
+            ? [...m, { id: `e-${Date.now()}`, role: "assistant", text: r.error, createdAt: now() }]
+            : [...m.filter((x) => x.id !== pending.id), r.question, r.reply],
+        );
+      } else {
+        const reply = await askVeyra(investigationId, text);
+        setMessages((m) => [...m, reply]);
+      }
       setThinking(false);
     },
-    [investigationId],
+    [investigationId, initial.live],
   );
 
   const startValidation = useCallback((id: string) => {
@@ -498,14 +510,6 @@ function SidePanel({
               onSelect={(item) => openDetail({ type: "evidence", id: item.id })}
               onAdd={openAddEvidence}
             />
-          </div>
-        ) : workspace.live ? (
-          <div className="px-5 py-6 text-[13px] text-ink-muted">
-            <p className="font-medium text-ink">Ask Veyra comes later.</p>
-            <p className="mt-1">
-              You&rsquo;ll be able to ask questions about this investigation and get answers that link back to its evidence, findings and
-              hypotheses — and that say so when the evidence can&rsquo;t answer.
-            </p>
           </div>
         ) : (
           <AiAssistant onNavigate={onNavigate} />

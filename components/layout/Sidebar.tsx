@@ -68,7 +68,7 @@ type Props = {
 };
 
 export function Sidebar({ investigations, onNavigate }: Props) {
-  const { demo } = useSession();
+  const { demo, aiUsage } = useSession();
   const pathname = usePathname();
   const active = investigations.filter((i) => i.status !== "completed").slice(0, 4);
   const isCurrent = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
@@ -144,6 +144,7 @@ export function Sidebar({ investigations, onNavigate }: Props) {
             </span>
           </Link>
         )}
+        {aiUsage && <AiUsageMeter used={aiUsage.used} limit={aiUsage.limit} />}
         <UserMenu />
       </div>
     </div>
@@ -176,5 +177,27 @@ function NavLink({
       <Icon className="h-[17px] w-[17px] shrink-0" />
       {label}
     </Link>
+  );
+}
+
+/**
+ * Today's AI requests. Each analysis, problem definition, opportunity search,
+ * brief, question to Veyra and validation run counts once.
+ */
+function AiUsageMeter({ used, limit }: { used: number; limit: number }) {
+  const left = Math.max(0, limit - used);
+  const share = Math.min(1, used / Math.max(1, limit));
+  return (
+    <div className="mb-2 px-2.5 py-1.5" title="Each analysis, problem definition, opportunity search, brief, question to Veyra and validation run counts once. The count refreshes over 24 hours.">
+      <div className="flex items-center justify-between text-[11px] text-navy-300">
+        <span>AI requests today</span>
+        <span className={cn("font-medium", left <= 3 ? "text-uncertain-200" : "text-white")}>
+          {left} of {limit} left
+        </span>
+      </div>
+      <div className="mt-1 h-1 overflow-hidden rounded-full bg-navy-700">
+        <div className={cn("h-full rounded-full", left <= 3 ? "bg-uncertain-600" : "bg-brand-500")} style={{ width: `${share * 100}%` }} />
+      </div>
+    </div>
   );
 }
