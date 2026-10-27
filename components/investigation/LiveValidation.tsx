@@ -4,6 +4,9 @@ import { Check, ChevronDown, Circle, CircleCheck, CircleHelp, FlaskConical, Penc
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { rerunWithEvidence, resumeRun, runValidation } from "@/app/(app)/investigations/run-actions";
+import Link from "next/link";
+import { readiness, suggestNext } from "@/lib/investigation/guide";
+import { routes } from "@/lib/routes";
 import { ACTIVE_PHASES } from "@/lib/validation-run/types";
 import { RunPanel } from "./ValidationRun";
 import {
@@ -19,7 +22,7 @@ import {
 } from "@/app/(app)/investigations/validation-actions";
 import { coveredNeeds, EVIDENCE_SOURCES, MAX_NEEDS, type EvidenceNeed, type EvidenceSource } from "@/lib/analysis/evidence-needs";
 import type { CallCheck } from "@/lib/analysis/validation";
-import { Button } from "@/components/ui/Button";
+import { Button, buttonClass } from "@/components/ui/Button";
 import { EmptyNote } from "@/components/ui/EmptyNote";
 import { inputClass, textareaClass } from "@/components/ui/Field";
 import { Spinner } from "@/components/ui/Spinner";
@@ -72,6 +75,7 @@ export function LiveValidation({ live }: { live: LiveInvestigation }) {
   const earlier = validations.filter((v) => !linked.has(v.id));
   const settled = validations.filter((v) => v.status === "settled");
   const next = suggestNext(workspace.hypotheses, live);
+  const ready = readiness({ ...workspace, live });
 
   return (
     <div className="mt-6 max-w-4xl space-y-4">
@@ -86,6 +90,16 @@ export function LiveValidation({ live }: { live: LiveInvestigation }) {
           {settled.length} of {workspace.hypotheses.length + earlier.length} settled
         </p>
       </div>
+      {ready.ready && !live.record.decisions.length && (
+        <div className="flex flex-col gap-2 rounded-xl border border-confirmed-200 bg-confirmed-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-[13px] text-confirmed-600">
+            <b className="font-semibold">You have enough to decide.</b> {ready.reason} You can keep validating, but it&rsquo;s unlikely to change the decision.
+          </p>
+          <Link href={routes.investigation(workspace.investigation.id, "report")} className={buttonClass({ size: "sm", className: "shrink-0" })}>
+            Go to the Decision Brief
+          </Link>
+        </div>
+      )}
       {workspace.hypotheses.length === 0 && earlier.length === 0 && <EmptyNote>The latest analysis didn&rsquo;t propose any hypotheses.</EmptyNote>}
       {workspace.hypotheses.map((h) => (
         <ValidationCard key={h.id} hypothesis={h} validation={validations.find((v) => v.id === h.validationId)} live={live} suggested={next === h.id} />
@@ -199,16 +213,6 @@ function useRunWatcher(live: LiveInvestigation) {
  * Which hypothesis to validate next: one an opportunity depends on, then the
  * most confident, among those not yet settled or running.
  */
-function suggestNext(hypotheses: Hypothesis[], live: LiveInvestigation): string | undefined {
-  const rank = { high: 3, "medium-high": 2.5, medium: 2, "low-medium": 1.5, low: 1 } as Record<string, number>;
-  const depended = new Set(live.record.opportunities.flatMap((o) => o.dependsOn));
-  const open = hypotheses.filter((h) => {
-    const v = live.record.validations.find((x) => x.id === h.validationId);
-    return h.status !== "confirmed" && h.status !== "rejected" && !(v?.run && (ACTIVE_PHASES.includes(v.run.phase) || v.run.phase === "needs-input"));
-  });
-  return open.sort((a, b) => (depended.has(b.id) ? 10 : 0) + (rank[b.confidence] ?? 0) - ((depended.has(a.id) ? 10 : 0) + (rank[a.confidence] ?? 0)))[0]?.id;
-}
-
 function Plan({ v }: { v: ValidationRecord }) {
   const { busy, error, run } = useAction();
   const [editing, setEditing] = useState(false);

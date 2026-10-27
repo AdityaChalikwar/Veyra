@@ -12,6 +12,7 @@ import { defineProblemFor, findOpportunitiesFor } from "@/lib/analysis/discovery
 import { clarify } from "@/lib/ai/clarify";
 import { takeAiAllowance } from "@/lib/ai/usage";
 import { getBusinessContext, listDataSources } from "@/lib/data";
+import { COMPLETED, isCompleted } from "@/lib/investigation/completed";
 import { forget, memoryNotes, remember } from "@/lib/data/memory";
 import { requireWorkspace } from "@/lib/auth";
 import { deriveTitle, inferTopic } from "@/lib/investigation-text";
@@ -284,11 +285,12 @@ export async function analyseInvestigation(investigationId: string): Promise<{ o
 
   const { data: inv } = await supabase
     .from("investigations")
-    .select("id, is_sample, problem, objective, triggers, outcomes, known_context, clarifying_questions (position, question, answer)")
+    .select("id, is_sample, status, problem, objective, triggers, outcomes, known_context, clarifying_questions (position, question, answer)")
     .eq("id", investigationId)
     .maybeSingle();
   if (!inv) return { error: "This investigation no longer exists." };
   if (inv.is_sample) return { error: "The sample investigation is already analysed." };
+  if (inv.status === "completed") return COMPLETED;
 
   const { data: evidence } = await supabase
     .from("evidence")
@@ -423,6 +425,7 @@ export async function updateResearchTask(
 export async function defineInvestigationProblem(investigationId: string): Promise<{ ok: true } | { error: string }> {
   const { company } = await requireWorkspace();
   if (!/^[0-9a-f-]{36}$/i.test(investigationId)) return { error: "Something went wrong. Reload the page and try again." };
+  if (await isCompleted(investigationId)) return COMPLETED;
   const allowance = await takeAiAllowance(company.id, "problem");
   if ("error" in allowance) return allowance;
   const result = await defineProblemFor(investigationId);
@@ -434,6 +437,7 @@ export async function defineInvestigationProblem(investigationId: string): Promi
 export async function findInvestigationOpportunities(investigationId: string): Promise<{ ok: true } | { error: string }> {
   const { company } = await requireWorkspace();
   if (!/^[0-9a-f-]{36}$/i.test(investigationId)) return { error: "Something went wrong. Reload the page and try again." };
+  if (await isCompleted(investigationId)) return COMPLETED;
   const allowance = await takeAiAllowance(company.id, "opportunities");
   if ("error" in allowance) return allowance;
   const result = await findOpportunitiesFor(investigationId);

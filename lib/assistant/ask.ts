@@ -18,7 +18,7 @@ const answerSchema = z.object({
   refs: z
     .array(
       z.object({
-        kind: z.string().describe("finding, hypothesis, evidence, problem, opportunities, validation, research, next-step or report"),
+        kind: z.string().describe("finding, hypothesis, evidence, problem, opportunities, validation, research or report"),
         id: z.string().describe("The finding or hypothesis id (F1, H1), the evidence id, or the tab name for the others"),
       }),
     )
@@ -76,13 +76,12 @@ function describe(ws: Live, context: BusinessContext): string {
   return `<investigation>\n${lines.join("\n")}\n</investigation>`;
 }
 
-const TABS = new Set(["problem", "opportunities", "validation", "research", "next-step", "report"]);
+const TABS = new Set(["problem", "opportunities", "validation", "research", "report"]);
 const TAB_LABEL: Record<string, string> = {
   problem: "View the problem",
   opportunities: "View opportunities",
   validation: "View validation",
   research: "View research",
-  "next-step": "View next step",
   report: "View the Decision Brief",
 };
 

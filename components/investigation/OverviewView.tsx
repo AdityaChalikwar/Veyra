@@ -7,7 +7,6 @@ import { ArrowRight, Brain, CheckCircle2, ChevronDown, CircleHelp, CircleSlash, 
 import Link from "next/link";
 import { useState } from "react";
 import { ConfidenceBadge } from "@/components/ui/ConfidenceBadge";
-import { KindBadge } from "@/components/ui/KindBadge";
 import { cn } from "@/lib/cn";
 import { outcomesLabel, triggersLabel } from "@/lib/options";
 import { routes } from "@/lib/routes";
@@ -21,7 +20,6 @@ import { DeleteInvestigationButton } from "./DeleteInvestigationButton";
 import { HypothesisCard } from "./HypothesisCard";
 import { InvestigationMap } from "./InvestigationMap";
 import { KpiCard } from "./KpiCard";
-import { nextStepTypeLabel } from "./NextStepView";
 import { QuestionCard } from "./QuestionCard";
 import { RatesChart, RatesLegend } from "./RatesChart";
 import { useWorkspace } from "./workspace-context";
@@ -50,7 +48,6 @@ export function OverviewView() {
         <WhatWeDontKnow href={tab("research")} />
       </div>
 
-      <NextStepSummary href={tab("next-step")} />
 
       <section>
         <SectionHeader title="Active Hypotheses" href={tab("hypotheses")} linkLabel="All hypotheses" />
@@ -186,32 +183,6 @@ function WhatWeDontKnow({ href }: { href: string }) {
           );
         })}
       </ul>
-    </section>
-  );
-}
-
-function NextStepSummary({ href }: { href: string }) {
-  const { workspace, nextStepAcceptedAt } = useWorkspace();
-  const step = workspace.nextStep;
-  const type = nextStepTypeLabel[step.type];
-  return (
-    <section className="flex flex-col gap-4 rounded-xl border-2 border-brand-200 bg-surface p-5 shadow-card sm:flex-row sm:items-center sm:justify-between">
-      <div className="min-w-0">
-        <div className="flex flex-wrap items-center gap-2">
-          <KindBadge kind="recommendation" />
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-brand-700">Recommended next step</span>
-          <span className={cn("rounded px-1.5 py-0.5 text-[11px] font-medium", type.className)}>{type.label}</span>
-          {nextStepAcceptedAt && <span className="text-xs font-medium text-confirmed-600">Accepted</span>}
-        </div>
-        <p className="mt-1.5 text-[15px] font-semibold leading-snug">{step.title}</p>
-        <p className="mt-0.5 text-[13px] text-ink-muted">{step.detail}</p>
-      </div>
-      <Link
-        href={href}
-        className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 text-[13px] font-medium text-white hover:bg-brand-700"
-      >
-        Why this step <ArrowRight className="h-3.5 w-3.5" />
-      </Link>
     </section>
   );
 }
@@ -421,8 +392,6 @@ function LiveOverview({ live, tab }: { live: LiveInvestigation; tab: (slug: stri
         <WhatWeKnow href={tab("findings")} />
         <WhatWeDontKnow href={tab("research")} />
       </div>
-
-      {live.run && <NextStepSummary href={tab("next-step")} />}
 
       {workspace.hypotheses.length > 0 && (
         <section>

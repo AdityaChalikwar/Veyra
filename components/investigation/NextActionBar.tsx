@@ -1,9 +1,13 @@
 "use client";
 
-import { ArrowRight, Compass, FileText } from "lucide-react";
+import { ArrowRight, CheckCircle2, Compass, FileText, Gavel, Loader2 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { reopenInvestigation } from "@/app/(app)/investigations/decision-actions";
 import { buttonClass } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
+import { nextAction, type NextAction } from "@/lib/investigation/guide";
 import { routes } from "@/lib/routes";
 import { useWorkspace } from "./workspace-context";
 
@@ -17,49 +21,13 @@ export function NextActionBar() {
   const lead = workspace.validations.find((v) => v.status !== "completed");
   const leadLabel = workspace.hypotheses.find((h) => h.id === lead?.hypothesisId)?.label ?? "the leading hypothesis";
 
+  const live = workspace.live;
+  if (live) return <LiveNext action={nextAction({ ...workspace, live })} id={id} />;
+
   let text: string;
   let cta: string;
   let tab: string;
-  const live = workspace.live;
-  if (live) {
-    if (!workspace.evidence.length) {
-      text = "Add data: take datasets from a connected source like the Demo ERP, or upload a CSV export.";
-      cta = "Add data";
-      tab = "evidence";
-    } else if (!live.run) {
-      text = "Analyse your data to turn it into findings, hypotheses and a recommended next step.";
-      cta = "Go to Evidence";
-      tab = "evidence";
-    } else if (!live.record.problemDefinition) {
-      text = "Review the findings and hypotheses, then define the problem they point to.";
-      cta = "Define the problem";
-      tab = "problem";
-    } else if (!live.record.opportunities.length) {
-      text = "The problem is defined. Find the opportunity areas that address it.";
-      cta = "Find opportunities";
-      tab = "opportunities";
-    } else if (live.record.decisions.length) {
-      text = `Decision recorded: ${live.record.decisions[0].summary}`;
-      cta = "View Decision Brief";
-      tab = "report";
-    } else if (!workspace.hypotheses.some((h) => h.status === "confirmed") && workspace.hypotheses.some((h) => h.status !== "rejected" && h.status !== "unclear")) {
-      text = "Choose a hypothesis and let Veyra validate it: it gathers the evidence, runs the tests and settles it. A confirmed cause unlocks the rest.";
-      cta = "Go to Validation";
-      tab = "validation";
-    } else if (live.record.problemDefinition.causeStatus === "open" && workspace.hypotheses.some((h) => h.status === "confirmed")) {
-      text = "A hypothesis is confirmed. Define the problem again so it includes the cause.";
-      cta = "Define again";
-      tab = "problem";
-    } else if (!live.record.brief) {
-      text = "Write the Decision Brief: what was found, what is believed, what is unknown and the recommended next step.";
-      cta = "Write the brief";
-      tab = "report";
-    } else {
-      text = "Read the Decision Brief and record the team's decision. That completes the investigation.";
-      cta = "Record the decision";
-      tab = "report";
-    }
-  } else if (progress.complete) {
+  if (progress.complete) {
     const o = workspace.opportunities.find((x) => x.id === choice?.opportunityId);
     text = `Investigation complete. The team chose to pursue “${o?.title}”.`;
     cta = "View report";
@@ -106,6 +74,55 @@ export function NextActionBar() {
       <Link href={routes.investigation(id, tab)} className={buttonClass({ size: "sm", variant: progress.complete ? "primary" : "secondary", className: "shrink-0" })}>
         {cta} <ArrowRight className="h-3.5 w-3.5" />
       </Link>
+    </div>
+  );
+}
+
+const TONE = {
+  next: { box: "border-brand-200 bg-brand-50/60", text: "text-brand-700", Icon: Compass },
+  working: { box: "border-brand-200 bg-brand-50/60", text: "text-brand-700", Icon: Loader2 },
+  ready: { box: "border-confirmed-200 bg-confirmed-50", text: "text-confirmed-600", Icon: Gavel },
+  done: { box: "border-confirmed-200 bg-confirmed-50", text: "text-confirmed-600", Icon: CheckCircle2 },
+} as const;
+
+/** The team's own investigation: what moves it forward now, and when it is ready to decide. */
+function LiveNext({ action: a, id }: { action: NextAction; id: string }) {
+  const t = TONE[a.tone];
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  async function reopen() {
+    setBusy(true);
+    setError(null);
+    const r = await reopenInvestigation(id).catch(() => ({ error: "Couldn't reach Veyra. Check your connection and try again." }));
+    if ("error" in r) setError(r.error);
+    else router.refresh();
+    setBusy(false);
+  }
+  return (
+    <div className={cn("mt-2 flex flex-col gap-2 rounded-lg border px-3.5 py-2.5 sm:flex-row sm:items-center sm:justify-between", t.box)}>
+      <p className={cn("flex items-start gap-2 text-[13px]", t.text)}>
+        <t.Icon className={cn("mt-0.5 h-4 w-4 shrink-0", a.tone === "working" && "animate-spin")} />
+        <span>
+          <b className="font-semibold">{a.label}</b> {a.text}
+          {error && <span className="mt-0.5 block text-danger-600">{error}</span>}
+        </span>
+      </p>
+      <div className="flex shrink-0 items-center gap-2">
+        {a.tone === "done" && (
+          <button type="button" disabled={busy} onClick={reopen} className="text-[13px] font-medium text-ink-subtle hover:text-ink disabled:opacity-50">
+            {busy ? "Reopening…" : "Reopen"}
+          </button>
+        )}
+        {a.alt && (
+          <Link href={routes.investigation(id, a.alt.tab)} className="text-[13px] font-medium text-ink-subtle hover:text-ink">
+            {a.alt.cta}
+          </Link>
+        )}
+        <Link href={routes.investigation(id, a.tab)} className={buttonClass({ size: "sm", variant: a.tone === "ready" ? "primary" : "secondary", className: "shrink-0" })}>
+          {a.cta} <ArrowRight className="h-3.5 w-3.5" />
+        </Link>
+      </div>
     </div>
   );
 }
