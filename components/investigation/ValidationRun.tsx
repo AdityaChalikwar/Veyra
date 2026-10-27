@@ -398,7 +398,7 @@ function MakeStronger({
       )}
       {error && <p className="mt-2 text-[13px] text-danger-600">{error}</p>}
       <div className="mt-3 flex flex-wrap gap-2">
-        {run.requests.some((r) => r.status === "provided" && !run.results.some((x) => x.id === r.id)) && (
+        {run.requests.some((r) => r.status === "provided" && !run.results.some((x) => x.id === r.id && x.kind !== "skipped")) && (
           <Button type="button" size="sm" disabled={busy} onClick={rerun}>
             {busy ? <Spinner /> : <ArrowRight className="h-3.5 w-3.5" />} Run again with this
           </Button>
