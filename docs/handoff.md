@@ -86,6 +86,12 @@ a run need one live check.
   answers from the investigation's records, saved), Customers & Market, and the Problems,
   Opportunities, Research and Customers pages. Hypothesis counts fixed.
 - Sidebar shows the AI requests left today.
+- A clear ending (`lib/investigation/guide.ts`): the bar under the progress steps names the one next
+  action; "Ready to decide" once a cause is confirmed or nothing likely is left to test; progress ends
+  with a Decision step; a recorded decision completes and locks the investigation (Reopen to carry on).
+  The Next Step tab was removed.
+- Checked live on production with real AI: analysis → validation (Unclear without the crash export,
+  Confirmed with it) → problem redefined → opportunities → brief → decision → completed → reopen.
 - Next: run the full demo live on production, then rebuild the sample from a real run and remove mocks.
 
 ## Since Milestone 5

@@ -62,7 +62,8 @@ export async function askVeyra(investigationId: string, question: string): Promi
   const { data, error } = await supabase
     .from("chat_messages")
     .insert([
-      { investigation_id: investigationId, role: "user", text },
+      // Rows inserted together share columns: a key one row leaves out is sent as null.
+      { investigation_id: investigationId, role: "user", text, list: [], refs: [] },
       { investigation_id: investigationId, role: "assistant", text: result.reply.text.slice(0, 8000), list: result.reply.list ?? [], refs: (result.reply.refs ?? []) as unknown as Json },
     ])
     .select("id, role, text, list, refs, created_at");
