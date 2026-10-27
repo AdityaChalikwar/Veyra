@@ -77,6 +77,17 @@ steps simulated (planning, the background chain, needs-input, the data tests on 
 storage and the Demo ERP, settling, follow-through, the stalled-run resume); the five Claude calls in
 a run need one live check.
 
+## Milestone 10 — The whole flow on real data: in progress
+- **Full demo** (dashboard: "Try the full demo"): creates "App users dropped in September" with three
+  files (daily activity, support tickets, release notes) and holds back a crash export that Veyra asks
+  for during validation. Data kit in `lib/demo/app-drop.ts`; the Demo ERP shows the same drop in app orders.
+- New data test "groups compared over the same days" (e.g. crash-free sessions by app version).
+- Real data on the remaining screens: Notes (saved, with an Activity timeline), Ask Veyra (Claude,
+  answers from the investigation's records, saved), Customers & Market, and the Problems,
+  Opportunities, Research and Customers pages. Hypothesis counts fixed.
+- Sidebar shows the AI requests left today.
+- Next: run the full demo live on production, then rebuild the sample from a real run and remove mocks.
+
 ## Since Milestone 5
 - No business details at sign-up; workspace created automatically; context optional.
 - One-click demo (`setUpDemo`). Connecting the Demo ERP always switches the business context to
@@ -87,4 +98,4 @@ a run need one live check.
 - Daily AI usage limit per person (`AI_DAILY_LIMIT`, default 25).
 
 ## Later
-- Secondary research with Claude's web search, feedback themes, interview guide, Ask Veyra.
+- Feedback themes, interview guide.

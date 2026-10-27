@@ -1,4 +1,5 @@
 import { AppShell } from "@/components/layout/AppShell";
+import { getAiUsage } from "@/lib/ai/usage";
 import { requireWorkspace } from "@/lib/auth";
 import { listInvestigations } from "@/lib/data";
 import { listConnectedSources } from "@/lib/data/sources";
@@ -8,12 +9,12 @@ export const dynamic = "force-dynamic";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const { session, company } = await requireWorkspace();
-  const [investigations, connected] = await Promise.all([listInvestigations(), listConnectedSources()]);
+  const [investigations, connected, aiUsage] = await Promise.all([listInvestigations(), listConnectedSources(), getAiUsage()]);
   const demo = connected.find((c) => c.connector === "demo-erp");
   return (
     <AppShell
       investigations={investigations}
-      session={{ user: session.user, company, method: session.method, demo: demo ? { sourceId: demo.id, name: "Northwind Home" } : undefined }}
+      session={{ user: session.user, company, method: session.method, demo: demo ? { sourceId: demo.id, name: "Northwind Home" } : undefined, aiUsage }}
     >
       {children}
     </AppShell>

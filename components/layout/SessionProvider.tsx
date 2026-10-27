@@ -9,6 +9,8 @@ export type ClientSession = {
   method: "email" | "google";
   /** Set while the Demo ERP is connected: its data source, for the sidebar's "Demo data" label. */
   demo?: { sourceId: string; name: string };
+  /** AI requests used in the last 24 hours, against the daily limit. */
+  aiUsage?: { used: number; limit: number };
 };
 
 const SessionContext = createContext<ClientSession | null>(null);

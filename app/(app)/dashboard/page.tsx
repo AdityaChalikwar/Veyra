@@ -7,11 +7,13 @@ import { MemoryPreview } from "@/components/dashboard/MemoryPreview";
 import { OpenQuestions } from "@/components/dashboard/OpenQuestions";
 import { RecentEvidence } from "@/components/dashboard/RecentEvidence";
 import { TryDemoButton } from "@/components/data-sources/TryDemoButton";
+import { FullDemoButton } from "@/components/data-sources/FullDemoButton";
 import { ButtonLink } from "@/components/ui/Button";
 import { EmptyNote } from "@/components/ui/EmptyNote";
 import { Panel } from "@/components/ui/Panel";
 import {
   listActiveInvestigations,
+  listInvestigations,
   listDataSources,
   listMemoryHighlights,
   listOpenQuestions,
@@ -35,6 +37,7 @@ export default async function DashboardPage() {
     listConnectedSources(),
   ]);
   const hasDemo = connected.some((c) => c.connector === "demo-erp");
+  const fullDemo = (await listInvestigations()).find((i) => i.demoScenario);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-8 lg:py-10">
@@ -71,6 +74,24 @@ export default async function DashboardPage() {
           <TryDemoButton />
         </section>
       )}
+
+      <section className="mt-6 flex flex-col gap-4 rounded-xl border border-line bg-surface p-5 shadow-card sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-[15px] font-semibold">Watch the whole flow, problem to decision</h2>
+          <p className="mt-0.5 max-w-2xl text-[13px] text-ink-muted">
+            Northwind Home&rsquo;s app lost a third of its daily users in September. The demo has the data a real team would have —
+            app activity, support tickets, release notes, and crash reports Veyra will ask you for — so you can analyse it, let Veyra
+            validate the hypotheses, define the problem, find opportunities and record a decision.
+          </p>
+        </div>
+        {fullDemo ? (
+          <ButtonLink href={routes.investigation(fullDemo.id)} variant="secondary" className="shrink-0">
+            Open the demo <ArrowRight className="h-4 w-4" />
+          </ButtonLink>
+        ) : (
+          <FullDemoButton variant={hasDemo ? "primary" : "secondary"} />
+        )}
+      </section>
 
       <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <ConnectedData sources={sources} />

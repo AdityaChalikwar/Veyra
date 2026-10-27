@@ -74,6 +74,8 @@ const SUPPLIER_SWITCH = "2026-06-01";
 const KITCHEN_DROP_FROM = "2026-08-01";
 const BEDDING_STOCKOUT = { from: "2026-08-03", to: "2026-08-30" };
 const RETURNS_SPIKE_FROM = "2026-07-01";
+/** Android app 5.2.0 (the full demo's story): from here about a third of app orders are lost. */
+export const APP_RELEASE = "2026-09-07";
 
 const FIRST = ["Olivia", "Liam", "Amelia", "Noah", "Isla", "Arjun", "Mia", "Leo", "Ava", "Oscar", "Zara", "Ethan", "Sofia", "Lucas", "Priya", "Jack", "Emily", "Aiden", "Grace", "Mateo"];
 const LAST = ["Smith", "Patel", "Jones", "Chen", "Williams", "Garcia", "Brown", "Khan", "Taylor", "Murphy", "Wilson", "Singh", "Davies", "Novak", "Evans", "Rossi", "Clarke", "Kim", "Lewis", "Silva"];
@@ -225,6 +227,20 @@ function generate(): DemoErpData {
     }
   }
 
+  // From the Android 5.2.0 release, about a third of app orders are lost (the full demo's story).
+  // Removed after generation so every other figure — including the Kitchen returns story — is unchanged;
+  // orders with a Kitchen line are kept.
+  const kitchen = new Set(products.filter((p) => p.category === "Kitchen").map((p) => p.no));
+  const docs = new Map<string, { app: boolean; kitchen: boolean; date: string }>();
+  for (const o of orders) {
+    const d = docs.get(o.SalesDoc) ?? { app: false, kitchen: false, date: o.DocDate };
+    d.app ||= o.Channel === "App";
+    d.kitchen ||= kitchen.has(o.MatNo);
+    docs.set(o.SalesDoc, d);
+  }
+  const lost = new Set([...docs].filter(([doc, d]) => d.app && !d.kitchen && d.date >= APP_RELEASE && (Number(doc) * 2654435761) % 100 < 45).map(([doc]) => doc));
+  const keep = <T extends Row>(rows: T[]) => rows.filter((x) => !lost.has(x.SalesDoc));
+
   // Purchases: a replenishment order per product every month.
   const purchases: Row[] = [];
   let po = 4100001;
@@ -261,10 +277,10 @@ function generate(): DemoErpData {
     customers: customers.map((c) => ({ CustNo: c.no, CustName: c.name, EmailAddr: c.email, CreatedOn: c.created, CustGroup: c.group, Region: c.region })),
     // Master data shows the current supplier.
     products: products.map((p) => ({ MatNo: p.no, MatDesc: p.name, ProdHier: p.category, VendorName: p.category === "Kitchen" ? NEW_KITCHEN_VENDOR : VENDORS[p.category], ListPrice: money(p.price), StdCost: money(p.cost) })),
-    orders,
+    orders: keep(orders),
     inventory,
     purchases,
-    returns,
-    invoices,
+    returns: keep(returns),
+    invoices: keep(invoices),
   };
 }

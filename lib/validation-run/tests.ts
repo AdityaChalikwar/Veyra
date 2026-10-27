@@ -13,6 +13,7 @@ export const TEST_KINDS = {
   "rate-compare": "Share compared",
   correlation: "Two measures together",
   "category-shift": "Mix of categories before vs after",
+  "group-compare": "Groups compared over the same days",
 } as const;
 export type TestKind = keyof typeof TEST_KINDS;
 
@@ -232,6 +233,44 @@ function correlation(c: Ctx): TestOutcome {
   };
 }
 
+/** Groups side by side over the same days (e.g. app versions from a date on): daily values, the top two tested. */
+function groupCompare(c: Ctx): TestOutcome {
+  const g = col(c.t, c.spec.groupColumn);
+  const from = isoDate(c.spec.splitDate) ? c.spec.splitDate : "";
+  const title = `${what(c.spec)}${filtered(c.spec)} by ${c.spec.groupColumn}${from ? ` from ${fmtDate(from)}` : ""}`;
+  if (c.dateIdx < 0 || g < 0) return { ok: false, title, reason: "This test needs a date column and a group column." };
+  const to = from ? addDays(from, (c.spec.windowDays || 90) - 1) : "9999-12-31";
+  const groups = new Map<string, string[][]>();
+  for (const r of rowsOf(c)) {
+    const day = parseDate(r[c.dateIdx] ?? "", c.dayFirst);
+    if (!day || (from && (day < from || day > to))) continue;
+    const k = (r[g] ?? "").trim() || "(blank)";
+    groups.set(k, [...(groups.get(k) ?? []), r]);
+  }
+  const lines = [...groups]
+    .map(([k, rows]) => {
+      const values = [...daily(c, rows).values()];
+      return { k, values, m: mean(values) };
+    })
+    .filter((l) => l.values.length >= 3)
+    .sort((x, y) => y.values.length - x.values.length || y.m - x.m)
+    .slice(0, 8);
+  if (lines.length < 2) return { ok: false, title, reason: "Fewer than two groups have 3 or more days of data in the period." };
+  const [a, b] = [...lines.slice(0, 2)].sort((x, y) => x.m - y.m);
+  const per = (m: number) => (c.spec.aggregate === "mean" && c.spec.metric ? `${fmt(m)} on average` : `${fmt(m)} a day`);
+  const w = welch(a.values, b.values);
+  const gap = b.m ? ((a.m - b.m) / Math.abs(b.m)) * 100 : NaN;
+  return {
+    ok: true,
+    title,
+    summary: `${lines.map((l) => `${l.k}: ${per(l.m)}`).join("; ")}. ${a.k} vs ${b.k}: ${pct(gap)}; ${significance(w?.p)}.`,
+    figures: lines.map((l) => ({ label: l.k, value: `${per(l.m)} (${l.values.length} days)` })),
+    p: w?.p,
+    change: gap,
+    sample: `${lines.reduce((n, l) => n + l.values.length, 0)} group-days${from ? ` from ${fmtDate(from)}` : ""}`,
+  };
+}
+
 function categoryShift(c: Ctx): TestOutcome {
   const g = col(c.t, c.spec.groupColumn);
   const title = `Mix of ${c.spec.groupColumn}${filtered(c.spec)} before vs after ${fmtDate(c.spec.splitDate)}`;
@@ -282,6 +321,8 @@ export function runTest(t: Table, spec: TestSpec): TestOutcome {
         return rateCompare(c);
       case "correlation":
         return correlation(c);
+      case "group-compare":
+        return groupCompare(c);
       case "category-shift":
         return categoryShift(c);
       default:

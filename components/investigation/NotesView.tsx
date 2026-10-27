@@ -1,28 +1,48 @@
 "use client";
 
+import { Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { addNote as saveNote, deleteNote } from "@/app/(app)/investigations/team-actions";
+import { Spinner } from "@/components/ui/Spinner";
 import { Button } from "@/components/ui/Button";
 import { textareaClass } from "@/components/ui/Field";
 import { formatRelative } from "@/lib/time";
-import { ComingNext } from "./ComingNext";
+import { ActivityTimeline } from "./ActivityTimeline";
 import { useWorkspace } from "./workspace-context";
 
 export function NotesView() {
   const { workspace, addNote } = useWorkspace();
+  const router = useRouter();
   const [text, setText] = useState("");
-  if (workspace.live) {
-    return (
-      <ComingNext title="Notes come next">
-        <p>Team notes will be saved here. Until then, add context with Edit details, or answer the clarifying questions on the Overview.</p>
-      </ComingNext>
-    );
-  }
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const live = !!workspace.live;
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!text.trim()) return;
-    addNote(text.trim());
-    setText("");
+    if (!live) {
+      addNote(text.trim());
+      setText("");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    const r = await saveNote(workspace.investigation.id, text).catch(() => ({ error: "Couldn't reach Veyra. Try again." }));
+    if ("error" in r) setError(r.error);
+    else {
+      setText("");
+      router.refresh();
+    }
+    setBusy(false);
+  }
+
+  async function remove(id: string) {
+    setError(null);
+    const r = await deleteNote(id).catch(() => ({ error: "Couldn't reach Veyra. Try again." }));
+    if ("error" in r) setError(r.error);
+    else router.refresh();
   }
 
   return (
@@ -43,21 +63,35 @@ export function NotesView() {
           className={textareaClass}
         />
         <div className="mt-2 flex justify-end">
-          <Button type="submit" size="sm" disabled={!text.trim()}>
-            Add note
+          <Button type="submit" size="sm" disabled={!text.trim() || busy}>
+            {busy && <Spinner />} Add note
           </Button>
         </div>
       </form>
+      {error && (
+        <p role="alert" className="mt-2 text-[13px] text-danger-600">
+          {error}
+        </p>
+      )}
+      {workspace.notes.length === 0 && <p className="mt-4 text-[13px] text-ink-subtle">No notes yet.</p>}
       <ul className="mt-4 space-y-3">
         {workspace.notes.map((n) => (
           <li key={n.id} className="rounded-xl border border-line bg-surface px-4 py-3 shadow-card">
             <p className="text-sm leading-relaxed text-ink">{n.text}</p>
-            <p className="mt-1.5 text-xs text-ink-subtle">
-              {n.author} · {formatRelative(n.createdAt)}
+            <p className="mt-1.5 flex items-center justify-between text-xs text-ink-subtle">
+              <span>
+                {n.author} · {formatRelative(n.createdAt)}
+              </span>
+              {live && (
+                <button type="button" aria-label="Delete note" onClick={() => remove(n.id)} className="text-ink-faint hover:text-danger-600">
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              )}
             </p>
           </li>
         ))}
       </ul>
+      {workspace.live && <ActivityTimeline live={workspace.live} />}
     </div>
   );
 }

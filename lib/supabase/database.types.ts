@@ -11,6 +11,102 @@ export type Database = {
   };
   public: {
     Tables: {
+      investigation_notes: {
+        Row: {
+          id: string;
+          investigation_id: string;
+          workspace_id: string;
+          author_id: string | null;
+          author_name: string;
+          body: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          investigation_id: string;
+          workspace_id?: string;
+          author_id?: string | null;
+          author_name?: string;
+          body: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          investigation_id?: string;
+          workspace_id?: string;
+          author_id?: string | null;
+          author_name?: string;
+          body?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "investigation_notes_investigation_id_fkey";
+            columns: ["investigation_id"];
+            isOneToOne: false;
+            referencedRelation: "investigations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "investigation_notes_workspace_id_fkey";
+            columns: ["workspace_id"];
+            isOneToOne: false;
+            referencedRelation: "workspaces";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      chat_messages: {
+        Row: {
+          id: string;
+          investigation_id: string;
+          workspace_id: string;
+          role: string;
+          text: string;
+          list: string[];
+          refs: Json;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          investigation_id: string;
+          workspace_id?: string;
+          role: string;
+          text: string;
+          list?: string[];
+          refs?: Json;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          investigation_id?: string;
+          workspace_id?: string;
+          role?: string;
+          text?: string;
+          list?: string[];
+          refs?: Json;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_investigation_id_fkey";
+            columns: ["investigation_id"];
+            isOneToOne: false;
+            referencedRelation: "investigations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "chat_messages_workspace_id_fkey";
+            columns: ["workspace_id"];
+            isOneToOne: false;
+            referencedRelation: "workspaces";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       validation_runs: {
         Row: {
           id: string;
@@ -1634,6 +1730,7 @@ export type Database = {
           triggers: string[];
           updated_at: string;
           workspace_id: string;
+          demo_scenario: string | null;
         };
         Insert: {
           attachments?: string[];
@@ -1657,6 +1754,7 @@ export type Database = {
           triggers?: string[];
           updated_at?: string;
           workspace_id: string;
+          demo_scenario?: string | null;
         };
         Update: {
           attachments?: string[];
@@ -1680,6 +1778,7 @@ export type Database = {
           triggers?: string[];
           updated_at?: string;
           workspace_id?: string;
+          demo_scenario?: string | null;
         };
         Relationships: [
           {

@@ -256,9 +256,9 @@ export function buildLiveWorkspace(record: InvestigationRecord, dataSources: Dat
     nextStep,
     validations: [],
     relatedMemory: [],
-    conversation: [],
+    conversation: record.conversation,
     proposals: [],
-    notes: [],
+    notes: record.notes,
     live: { record, dataSources, run },
   };
 }

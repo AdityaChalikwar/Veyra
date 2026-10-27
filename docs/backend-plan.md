@@ -411,3 +411,13 @@ The team stays in charge: **Make this stronger** lists what was skipped or would
 evidence and own call stay available as **Override**. A run counts once towards the daily AI limit
 (`ai_usage.kind` validation-run). The Validation tab marks the suggested next hypothesis (one an
 opportunity depends on, then the most confident).
+
+## Milestone 10: the whole flow on real data
+
+- Migration `20261027000001_demo_notes_chat.sql`: `investigations.demo_scenario`, `investigation_notes`
+  (authors delete their own), `chat_messages` (role, text, list, refs), AI usage kind `ask`.
+- `startFullDemo` / `addHeldBackDemoFile` (`demo-actions.ts`): one click creates the App activity
+  investigation with its files; the crash export is added only when Veyra asks for it.
+- `addNote`, `deleteNote`, `askVeyra` (`team-actions.ts`). Ask Veyra answers only from the records;
+  links are checked in code (`lib/assistant/ask.ts`). One AI request per question.
+- `getAiUsage()` feeds the sidebar meter. The Activity timeline is built from existing records.

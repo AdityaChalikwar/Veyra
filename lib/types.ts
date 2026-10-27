@@ -110,6 +110,8 @@ export type InvestigationSummary = {
   updatedAt: string; // ISO
   /** The read-only demo investigation every workspace starts with. */
   isSample?: boolean;
+  /** The full demo (Milestone 10), whose data goes all the way to a decision. */
+  demoScenario?: string;
 };
 
 /* ── Starting an investigation ───────────────────────────────────────── */
@@ -805,6 +807,10 @@ export type InvestigationRecord = {
   validations: ValidationRecord[];
   /** Decisions recorded, newest first. */
   decisions: InvestigationDecision[];
+  /** Team notes, newest first. */
+  notes: InvestigationNote[];
+  /** The Ask Veyra conversation, oldest first. */
+  conversation: ChatMessage[];
   /** The newest Decision Brief, if one was written. */
   brief?: BriefRecord;
   createdAt: string; // ISO
