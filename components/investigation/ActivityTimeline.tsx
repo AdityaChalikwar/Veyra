@@ -25,7 +25,7 @@ export function ActivityTimeline({ live }: { live: LiveInvestigation }) {
       ? [
           {
             at: r.problemDefinition.createdAt,
-            text: `Defined the problem (${r.problemDefinition.causeStatus === "validated" ? "cause validated" : "provisional"})`,
+            text: `Defined the problem (${{ validated: "cause validated", likely: "likely cause", open: "provisional" }[r.problemDefinition.causeStatus]})`,
             by: "veyra" as const,
           },
         ]

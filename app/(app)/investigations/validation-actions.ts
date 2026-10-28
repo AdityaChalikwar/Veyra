@@ -10,6 +10,8 @@ import { requireWorkspace } from "@/lib/auth";
 import { getBusinessContext } from "@/lib/data";
 import { forget, rememberValidation } from "@/lib/data/memory";
 import { createClient } from "@/lib/supabase/server";
+import type { Verdict } from "@/lib/types";
+import { VERDICTS } from "@/lib/verdicts";
 
 /**
  * Hypothesis validation (Milestone 9): plan a test, collect evidence for and
@@ -22,7 +24,7 @@ type Result = { ok: true } | { error: string };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const RETRY = "Something went wrong. Reload the page and try again.";
 const RELATIONS = ["supports", "contradicts"] as const;
-const OUTCOMES = ["confirmed", "rejected", "unclear"] as const;
+const OUTCOMES = VERDICTS;
 
 /** A hypothesis from the latest finished analysis, with what a validation needs to know. */
 async function loadHypothesis(investigationId: string, ref: string) {
@@ -234,7 +236,7 @@ export async function removeValidationEvidence(kind: "note" | "dataset", id: str
  * The team's call: confirmed, rejected or unclear, with the reason. A confirmed
  * or rejected hypothesis goes into Business Memory.
  */
-export async function settleValidation(validationId: string, outcome: (typeof OUTCOMES)[number], reason: string): Promise<Result> {
+export async function settleValidation(validationId: string, outcome: Verdict, reason: string): Promise<Result> {
   const { company } = await requireWorkspace();
   if (!UUID.test(validationId) || !OUTCOMES.includes(outcome)) return { error: RETRY };
   const why = reason.trim();
@@ -293,7 +295,7 @@ export async function deleteValidation(validationId: string): Promise<Result> {
 /** Veyra's second opinion on a call before the team makes it. Advice only: nothing is saved. */
 export async function checkCall(
   validationId: string,
-  outcome: (typeof OUTCOMES)[number],
+  outcome: Verdict,
   reason: string,
 ): Promise<{ ok: true; check: CallCheck } | { error: string }> {
   const { company } = await requireWorkspace();

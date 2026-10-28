@@ -76,6 +76,12 @@ export type Company = {
 };
 
 /** Persistent business context, reused by every investigation. */
+/**
+ * A validation's verdict, strongest for to strongest against. "Likely" and "unlikely" mean the
+ * tests point one way but something isn't ruled out; "unclear" means the data can't tell.
+ */
+export type Verdict = "confirmed" | "likely" | "unclear" | "unlikely" | "rejected";
+
 export type BusinessContext = {
   company: string;
   product: string;
@@ -382,7 +388,7 @@ export type Hypothesis = {
   /** What must be true for it to hold. */
   assumptions?: string[];
   /** Set once a validation settles it. Untested hypotheses stay "open". */
-  status?: "open" | "confirmed" | "rejected" | "unclear";
+  status?: "open" | Verdict;
   /** The validation testing it (real investigations). */
   validationId?: ID;
 };
@@ -738,7 +744,7 @@ export type ProblemDefinitionRecord = {
   findingRefs: string[];
   hypothesisRefs: string[];
   /** "open" until a hypothesis about the cause is validated: the definition is provisional. */
-  causeStatus: "open" | "validated";
+  causeStatus: "open" | "likely" | "validated";
   links: EvidenceLink[];
   createdAt: string;
 };
@@ -840,7 +846,7 @@ export type ValidationRecord = {
   /** The evidence the test needs: what, from where, how much is enough. */
   evidenceNeeded: EvidenceNeed[];
   status: "planned" | "in-progress" | "settled";
-  outcome?: "confirmed" | "rejected" | "unclear";
+  outcome?: Verdict;
   reason: string;
   settledAt?: string;
   /** Who made the call: the team, or Veyra's own validation run. */

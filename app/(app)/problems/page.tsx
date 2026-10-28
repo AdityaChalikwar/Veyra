@@ -11,6 +11,7 @@ export const metadata = { title: "Problems" };
 const statusStyle = {
   draft: { label: "Draft", className: "bg-slate-100 text-slate-600" },
   refined: { label: "Defined · provisional", className: "bg-uncertain-50 text-uncertain-600" },
+  likely: { label: "Defined · likely cause", className: "bg-confirmed-50/60 text-confirmed-600" },
   validated: { label: "Defined · cause validated", className: "bg-confirmed-50 text-confirmed-600" },
 } as const;
 
