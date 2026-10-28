@@ -40,6 +40,8 @@ export async function researchOnWeb(
   problem: string,
   problemDefinition: string | undefined,
   q: ResearchQuestion,
+  /** What is already known (earlier research, web findings from validations): search for what's new. */
+  known: string[] = [],
 ): Promise<{ ok: true; research: WebResearch; usage: Usage } | { ok: false; failure: StepFailure }> {
   const company = [
     `Company: ${context.company || "not given"}`,
@@ -52,7 +54,11 @@ export async function researchOnWeb(
   const r = await webSearchStep({
     system: SYSTEM,
     context: `<company>\n${company}\n</company>\n\n<problem>\n${problem}${problemDefinition ? `\nAs defined so far: ${problemDefinition}` : ""}\n</problem>`,
-    instruction: `<question>\n${q.title}\n${q.question}${q.detail ? `\nHow: ${q.detail}` : ""}\n</question>\n\nResearch this on the web and answer it.`,
+    instruction: `<question>\n${q.title}\n${q.question}${q.detail ? `\nHow: ${q.detail}` : ""}\n</question>${
+      known.length
+        ? `\n\n<already_known>\n${known.map((k) => `- ${k}`).join("\n")}\n</already_known>\n\nThis has been researched before. Search for what is new or not yet covered: other competitors, other sources, more recent news, evidence against what is known. Don't repeat items already known. The answer should sum up the whole picture, old and new.`
+        : ""
+    }\n\nResearch this on the web and answer it.`,
     schema,
     firstKey: "answer",
     maxUses: 8,
@@ -94,4 +100,28 @@ export function researchOutcome(research: WebResearch): string {
     .filter(Boolean)
     .join("\n")
     .slice(0, 4000);
+}
+
+/**
+ * Research again adds to what was found: the new answer replaces the old one (it sums up
+ * both), and facts, views and sources are merged, without repeats.
+ */
+export function mergeResearch(before: WebResearch | undefined, after: WebResearch): WebResearch {
+  if (!before) return after;
+  const sources = [...before.sources];
+  const index = (s: { url: string; title: string }) => {
+    let i = sources.findIndex((x) => x.url === s.url);
+    if (i < 0) i = sources.push(s) - 1;
+    return i;
+  };
+  const move = (items: WebResearch["facts"], from: WebResearch) => items.map((x) => ({ text: x.text, sources: x.sources.map((i) => index(from.sources[i])) }));
+  const seen = new Set([...before.facts, ...before.views].map((x) => x.text.toLowerCase()));
+  const fresh = (items: WebResearch["facts"]) => items.filter((x) => !seen.has(x.text.toLowerCase()));
+  return {
+    answer: after.answer,
+    facts: [...before.facts, ...move(fresh(after.facts), after)].slice(-12),
+    views: [...before.views, ...move(fresh(after.views), after)].slice(-8),
+    unknowns: after.unknowns || before.unknowns,
+    sources,
+  };
 }

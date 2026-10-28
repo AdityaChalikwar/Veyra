@@ -1,6 +1,6 @@
 "use client";
 
-import { ExternalLink, Globe, MessageSquareQuote, Search, TrendingUp, Users } from "lucide-react";
+import { ExternalLink, MessageSquareQuote, Search, TrendingUp, Users } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
@@ -22,7 +22,8 @@ const CUSTOMER_METHODS = new Set(["customer-interviews", "survey", "feedback-ana
 /**
  * Customers & Market for the team's own investigation: who is affected, what
  * customers say (text Veyra read during validation, and customer research the
- * team finished), and outside context Veyra found on the web — each with its source.
+ * team finished), and competitors and the market from the web — Veyra's own research and
+ * what its validations found — each with its source.
  */
 export function LiveCustomers({ live }: { live: LiveInvestigation }) {
   const { workspace } = useWorkspace();
@@ -118,11 +119,14 @@ export function LiveCustomers({ live }: { live: LiveInvestigation }) {
       <Section icon={TrendingUp} title="Competitors and the market">
         <div className="flex flex-col gap-2 rounded-xl border border-line bg-surface p-4 shadow-card sm:flex-row sm:items-center sm:justify-between">
           <p className="text-[13px] text-ink-muted">
-            Veyra searches the public web: how competitors and similar companies handle this problem, and news, releases or public reviews that help
-            explain it. One AI request; usually one to two minutes.
+            {market || web.length
+              ? "What Veyra has found on the public web so far. Research again to look for more: other competitors, other sources and newer news, added to what is here."
+              : "Veyra searches the public web: how competitors and similar companies handle this problem, and news, releases or public reviews that help explain it."}{" "}
+            One AI request; usually one to two minutes.
           </p>
-          <Button type="button" size="sm" variant={market ? "secondary" : "primary"} disabled={busy} onClick={runMarket} className="shrink-0">
-            {busy ? <Spinner /> : <Search className="h-3.5 w-3.5" />} {busy ? "Searching the web…" : market ? "Research again" : "Research competitors and the market"}
+          <Button type="button" size="sm" variant={market || web.length ? "secondary" : "primary"} disabled={busy} onClick={runMarket} className="shrink-0">
+            {busy ? <Spinner /> : <Search className="h-3.5 w-3.5" />}{" "}
+            {busy ? "Searching the web…" : market || web.length ? "Research again" : "Research competitors and the market"}
           </Button>
         </div>
         {error && (
@@ -140,29 +144,27 @@ export function LiveCustomers({ live }: { live: LiveInvestigation }) {
             ))}
           </ul>
         )}
-      </Section>
-
-      <Section icon={Globe} title="Outside context found while validating">
-        {web.length === 0 ? (
-          <EmptyNote>Veyra searches the web for public evidence — release notes, reviews, outages, market news — when it validates a hypothesis. What it finds shows here with its sources.</EmptyNote>
-        ) : (
-          <ul className="space-y-3">
-            {web.map(({ r, about }) => (
-              <li key={`${about}-${r.id}`} className="rounded-xl border border-line bg-surface p-4 shadow-card">
-                <p className="text-[13px] text-ink">{r.finding}</p>
-                <p className="mt-0.5 text-xs text-ink-subtle">While validating &ldquo;{about}&rdquo;</p>
-                <ul className="mt-1.5 space-y-0.5">
-                  {r.sources.map((s) => (
-                    <li key={s.url}>
-                      <a href={s.url} target="_blank" rel="noreferrer noopener" className="inline-flex items-center gap-1 text-xs text-brand-600 hover:text-brand-700">
-                        {s.title || s.url} <ExternalLink className="h-3 w-3" />
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              </li>
-            ))}
-          </ul>
+        {web.length > 0 && (
+          <>
+            <p className="mb-1 mt-4 text-[13.5px] font-semibold text-ink">Found while validating hypotheses</p>
+            <ul className="space-y-3">
+              {web.map(({ r, about }) => (
+                <li key={`${about}-${r.id}`} className="rounded-xl border border-line bg-surface p-4 shadow-card">
+                  <p className="text-[13px] text-ink">{r.finding}</p>
+                  <p className="mt-0.5 text-xs text-ink-subtle">While validating &ldquo;{about}&rdquo;</p>
+                  <ul className="mt-1.5 space-y-0.5">
+                    {r.sources.map((src) => (
+                      <li key={src.url}>
+                        <a href={src.url} target="_blank" rel="noreferrer noopener" className="inline-flex items-center gap-1 text-xs text-brand-600 hover:text-brand-700">
+                          {src.title || src.url} <ExternalLink className="h-3 w-3" />
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </li>
+              ))}
+            </ul>
+          </>
         )}
       </Section>
     </div>

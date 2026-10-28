@@ -6,9 +6,11 @@ import { requireWorkspace } from "@/lib/auth";
 import { getBusinessContext } from "@/lib/data";
 import { remember } from "@/lib/data/memory";
 import { COMPLETED } from "@/lib/investigation/completed";
-import { researchOnWeb, researchOutcome } from "@/lib/research/web";
+import { mergeResearch, researchOnWeb, researchOutcome } from "@/lib/research/web";
 import { createClient } from "@/lib/supabase/server";
 import type { Json } from "@/lib/supabase/database.types";
+import type { WebResearch } from "@/lib/types";
+import type { RunResult } from "@/lib/validation-run/types";
 
 /** Secondary research: Veyra researches a question on the public web (Milestone 10). */
 
@@ -25,7 +27,7 @@ export async function researchTask(taskId: string): Promise<Result> {
   const supabase = await createClient();
   const { data: task } = await supabase
     .from("research_tasks")
-    .select("id, investigation_id, title, question, method, method_detail, status, investigations (problem, status, is_sample)")
+    .select("id, investigation_id, title, question, method, method_detail, status, research, investigations (problem, status, is_sample)")
     .eq("id", taskId)
     .maybeSingle();
   if (!task?.investigations) return { error: "This research task no longer exists." };
@@ -38,28 +40,35 @@ export async function researchTask(taskId: string): Promise<Result> {
   if ("error" in allowance) return allowance;
   await supabase.from("research_tasks").update({ status: "in-progress" }).eq("id", task.id);
 
-  const { data: definition } = await supabase
-    .from("problem_definitions")
-    .select("statement")
-    .eq("investigation_id", task.investigation_id)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  const r = await researchOnWeb(await getBusinessContext(), inv.problem, definition?.statement, {
-    title: task.title,
-    question: task.question,
-    detail: task.method_detail,
-  });
+  const [{ data: definition }, { data: runs }] = await Promise.all([
+    supabase.from("problem_definitions").select("statement").eq("investigation_id", task.investigation_id).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+    supabase.from("validation_runs").select("results").eq("investigation_id", task.investigation_id).eq("phase", "completed"),
+  ]);
+  // What is already known, so research again looks for something new: this task's earlier
+  // research, and what validations found on the web.
+  const before = (task.research as unknown as WebResearch | null) ?? undefined;
+  const fromValidations = (runs ?? []).flatMap((run) =>
+    ((run.results as unknown as RunResult[] | null) ?? []).flatMap((x) => (x.kind === "web" ? [x.finding] : [])),
+  );
+  const known = [...(before ? [before.answer, ...before.facts.map((f) => f.text), ...before.views.map((v) => v.text)] : []), ...fromValidations].slice(0, 30);
+  const r = await researchOnWeb(
+    await getBusinessContext(),
+    inv.problem,
+    definition?.statement,
+    { title: task.title, question: task.question, detail: task.method_detail },
+    known,
+  );
   if (!r.ok) {
     await supabase.from("research_tasks").update({ status: task.status === "in-progress" ? "not-started" : task.status }).eq("id", task.id);
     revalidatePath("/", "layout");
     return { error: r.failure.error };
   }
 
-  const outcome = researchOutcome(r.research);
+  const research = mergeResearch(before, r.research);
+  const outcome = researchOutcome(research);
   const { error } = await supabase
     .from("research_tasks")
-    .update({ status: "done", outcome, researched_by: "veyra", research: r.research as unknown as Json })
+    .update({ status: "done", outcome, researched_by: "veyra", research: research as unknown as Json })
     .eq("id", task.id);
   if (error) return { error: "Veyra found the answer, but it couldn't be saved. Try again." };
   await remember(supabase, {

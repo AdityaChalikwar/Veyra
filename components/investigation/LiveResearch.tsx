@@ -255,9 +255,10 @@ function TaskCard({ task: t }: { task: ResearchTaskRecord }) {
             Status: <span className="font-medium text-ink">{researching ? "Veyra is researching…" : statusLabel[t.status]}</span>
           </span>
           <div className="flex flex-wrap items-center gap-3">
-            {t.method === "desk-research" && t.status !== "done" && t.status !== "dropped" && (
+            {t.method === "desk-research" && t.status !== "dropped" && (t.status !== "done" || t.research) && (
               <Button type="button" size="sm" variant="secondary" disabled={researching} onClick={research}>
-                {researching ? <Spinner /> : <Globe className="h-3.5 w-3.5" />} {researching ? "Searching the web…" : "Let Veyra research this"}
+                {researching ? <Spinner /> : <Globe className="h-3.5 w-3.5" />}{" "}
+                {researching ? "Searching the web…" : t.research ? "Research again" : "Let Veyra research this"}
               </Button>
             )}
             <button type="button" onClick={() => setEditing(true)} className="inline-flex items-center gap-1 text-xs font-medium text-brand-600 hover:text-brand-700">
