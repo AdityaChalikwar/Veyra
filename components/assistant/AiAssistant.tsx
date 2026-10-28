@@ -4,13 +4,12 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 import { LogoMark } from "@/components/brand/Logo";
 import { useWorkspace } from "@/components/investigation/workspace-context";
-import { suggestedPrompts } from "@/lib/data/assistant";
 import { routes } from "@/lib/routes";
 import type { ArtifactRef } from "@/lib/types";
 import { ChatInput } from "./ChatInput";
 import { ChatMessage } from "./ChatMessage";
 
-const livePrompts = ["What does the evidence show so far?", "What don't we know yet?", "What should we do next, and why?"];
+const prompts = ["What does the evidence show so far?", "What don't we know yet?", "What should we do next, and why?"];
 
 /**
  * Ask Veyra: a supporting panel, not the main surface. Every answer links back
@@ -36,7 +35,6 @@ export function AiAssistant({ onNavigate }: { onNavigate?: () => void }) {
   }
 
   const asked = new Set(messages.filter((m) => m.role === "user").map((m) => m.text));
-  const prompts = workspace.live ? livePrompts : suggestedPrompts;
   const suggestions = prompts.filter((p) => !asked.has(p));
 
   return (

@@ -1,16 +1,10 @@
 /**
- * Data access layer.
- *
- * Every screen reads data through these functions — never from `/mocks` directly.
- * Functions are moving from mock data to Supabase one area at a time; the
+ * Data access layer. Every screen reads data through these functions; the
  * signatures (and `lib/types.ts`) are the contract the UI depends on.
  *
- * Real today: the signed-in user, their company (workspace), business context,
- * and investigations (problem, context, clarifying questions, plan).
- *
- * Every workspace also has a sample investigation. Its row is real (so it can
- * be listed and removed) but its content is the Kitchen Returns Spike demo from /mocks,
- * until evidence and analysis are stored in the database.
+ * Everything comes from Supabase. Every workspace also has a sample
+ * investigation: a real one, copied from a full run of the demo when the
+ * workspace is created (private.seed_sample).
  */
 import "server-only";
 import { getSession, requireWorkspace } from "@/lib/auth";
@@ -26,10 +20,6 @@ import { assessEvidence } from "@/lib/analysis/confidence";
 import { cleanNeeds } from "@/lib/analysis/evidence-needs";
 import type { ValidationRunRecord } from "@/lib/validation-run/types";
 import type { Approach, StructuredFinding, StructuredHypothesis, StructuredLink, StructuredNextStep } from "@/lib/analysis/structure";
-import { buildSampleWorkspace, SAMPLE_ID, sampleOpenQuestions } from "@/mocks/sample-investigation";
-import { buildDecisions } from "@/mocks/decisions";
-import { buildEvidence } from "@/mocks/evidence";
-import { buildSampleSummary } from "@/mocks/investigations";
 import type { Json, Tables } from "@/lib/supabase/database.types";
 import type {
   AnalysisRunRecord,
@@ -113,8 +103,6 @@ const STAGES: { key: StageKey; label: string }[] = [
   { key: "opportunity_discovery", label: "Opportunity discovery" },
 ];
 
-/** The sample's content still uses these IDs inside /mocks. */
-const SAMPLE_MOCK_ID = SAMPLE_ID;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type InvestigationRow = Pick<
@@ -136,7 +124,6 @@ const stageStatus: Record<StageKey, InvestigationStatus> = {
 };
 
 function toSummary(row: InvestigationRow): InvestigationSummary {
-  if (row.is_sample) return { ...buildSampleSummary(), id: row.id };
   // Counts come from the latest finished analysis.
   const latest = row.analysis_runs
     .filter((r) => r.status === "completed" && r.completed_at)
@@ -152,6 +139,7 @@ function toSummary(row: InvestigationRow): InvestigationSummary {
     // Until analysis exists, unanswered clarifying questions are the open questions.
     openQuestionCount: latest ? (latest.open_questions[0]?.count ?? 0) : row.clarifying_questions.filter((q) => !q.answer.trim()).length,
     demoScenario: row.demo_scenario ?? undefined,
+    isSample: row.is_sample || undefined,
     confidence: row.confidence as Confidence,
     updatedAt: row.updated_at,
   };
@@ -188,7 +176,7 @@ export async function listActiveInvestigations(limit?: number): Promise<Investig
 /** Everything the brief page shows for a saved (not yet analysed) investigation. */
 export async function getInvestigationRecord(id: string): Promise<InvestigationRecord | undefined> {
   const summary = await getInvestigationSummary(id);
-  if (!summary || summary.isSample) return undefined;
+  if (!summary) return undefined;
   const supabase = await createClient();
   const [{ data }, ...talk] = await Promise.all([
     supabase
@@ -628,25 +616,16 @@ function toAnalysisRun(
 }
 
 /**
- * The full workspace (evidence, findings, hypotheses…). The sample's comes from
- * the demo content; the team's own is built from what is saved.
+ * The full workspace (evidence, findings, hypotheses…), built from what is
+ * saved. The sample is a real investigation too: a copy of a full run.
  */
 export async function getInvestigationWorkspace(id: string): Promise<InvestigationWorkspace | undefined> {
-  const summary = await getInvestigationSummary(id);
-  if (!summary) return undefined;
-  if (!summary.isSample) {
-    const [record, dataSources] = await Promise.all([getInvestigationRecord(id), listDataSources()]);
-    return record ? buildLiveWorkspace(record, dataSources) : undefined;
-  }
-  const ws = buildSampleWorkspace(buildEvidence().filter((e) => e.investigationId === SAMPLE_MOCK_ID));
-  return { ...ws, investigation: { ...ws.investigation, id: summary.id } };
+  const [record, dataSources] = await Promise.all([getInvestigationRecord(id), listDataSources()]);
+  return record ? buildLiveWorkspace(record, dataSources) : undefined;
 }
 
-async function getSample(): Promise<InvestigationSummary | undefined> {
-  return (await listInvestigations()).find((i) => i.isSample);
-}
-
-const sampleTitle = (s: InvestigationSummary) => `${s.title} (sample)`;
+/** An investigation's title in lists across investigations, the sample marked as such. */
+const titleOf = (inv: { title: string; is_sample: boolean } | null | undefined) => (inv ? `${inv.title}${inv.is_sample ? " (sample)" : ""}` : "Investigation");
 
 /* ── Across investigations ──────────────────────────────────────────── */
 
@@ -654,22 +633,19 @@ export async function listRecentDecisions(limit = 4): Promise<DecisionRecord[]> 
   return (await listDecisions()).slice(0, limit);
 }
 
-/** Decisions recorded in investigations, newest first; then the sample's. */
+/** Decisions recorded in investigations, newest first. */
 export async function listDecisions(): Promise<DecisionRecord[]> {
   const supabase = await createClient();
-  const [{ data }, sample] = await Promise.all([
-    supabase
-      .from("decisions")
-      .select("id, investigation_id, outcome, summary, rationale, owner, result, warnings, review_date, success_measure, created_at, investigations (title)")
-      .eq("status", "decided")
-      .order("created_at", { ascending: false })
-      .limit(100),
-    getSample(),
-  ]);
-  const real: DecisionRecord[] = (data ?? []).map((d) => ({
+  const { data } = await supabase
+    .from("decisions")
+    .select("id, investigation_id, outcome, summary, rationale, owner, result, warnings, review_date, success_measure, created_at, investigations (title, is_sample)")
+    .eq("status", "decided")
+    .order("created_at", { ascending: false })
+    .limit(100);
+  return (data ?? []).map((d) => ({
     id: d.id,
     investigationId: d.investigation_id,
-    investigationTitle: d.investigations?.title ?? "Investigation",
+    investigationTitle: titleOf(d.investigations),
     decision: d.summary,
     status: "decided",
     decidedAt: d.created_at,
@@ -681,30 +657,20 @@ export async function listDecisions(): Promise<DecisionRecord[]> {
     reviewDate: d.review_date ?? undefined,
     successMeasure: d.success_measure || undefined,
   }));
-  const fromSample = sample
-    ? buildDecisions()
-        .filter((d) => d.investigationId === SAMPLE_MOCK_ID)
-        .map((d) => ({ ...d, investigationId: sample.id, investigationTitle: sampleTitle(sample) }))
-        .sort((a, b) => b.decidedAt.localeCompare(a.decidedAt))
-    : [];
-  return [...real, ...fromSample];
 }
 
-/** Every piece of evidence across investigations, newest first: uploaded data, then the sample's. */
+/** Every piece of evidence across investigations, newest first. */
 export async function listAllEvidence(): Promise<EvidenceWithContext[]> {
   const supabase = await createClient();
-  const [{ data }, sample] = await Promise.all([
-    supabase
-      .from("evidence")
-      .select("id, investigation_id, name, category, source, format, coverage, summary, created_at, investigations (title)")
-      .order("created_at", { ascending: false })
-      .limit(100),
-    getSample(),
-  ]);
-  const real: EvidenceWithContext[] = (data ?? []).map((e) => ({
+  const { data } = await supabase
+    .from("evidence")
+    .select("id, investigation_id, name, category, source, format, coverage, summary, created_at, investigations (title, is_sample)")
+    .order("created_at", { ascending: false })
+    .limit(100);
+  return (data ?? []).map((e) => ({
     id: e.id,
     investigationId: e.investigation_id,
-    investigationTitle: e.investigations?.title ?? "Investigation",
+    investigationTitle: titleOf(e.investigations),
     name: e.name,
     category: e.category as EvidenceCategory,
     source: e.source,
@@ -713,13 +679,6 @@ export async function listAllEvidence(): Promise<EvidenceWithContext[]> {
     description: e.summary,
     addedAt: e.created_at,
   }));
-  const fromSample: EvidenceWithContext[] = sample
-    ? buildEvidence()
-        .filter((e) => e.investigationId === SAMPLE_MOCK_ID)
-        .sort((a, b) => b.addedAt.localeCompare(a.addedAt))
-        .map((e) => ({ ...e, investigationId: sample.id, investigationTitle: sampleTitle(sample) }))
-    : [];
-  return [...real, ...fromSample];
 }
 
 export async function listRecentEvidence(limit = 4): Promise<EvidenceWithContext[]> {
@@ -827,24 +786,17 @@ export async function listDataSources(): Promise<DataSource[]> {
   ];
 }
 
-/** Open questions across active investigations: unanswered clarifying questions, plus the sample's. */
+/** Open questions across active investigations: unanswered clarifying questions. */
 export async function listOpenQuestions(): Promise<{ investigationId: string; investigationTitle: string; question: string }[]> {
   const supabase = await createClient();
-  const [{ data }, sample] = await Promise.all([
-    supabase
-      .from("clarifying_questions")
-      .select("question, position, investigation_id, investigations!inner (title, status, updated_at)")
-      .eq("answer", "")
-      .neq("investigations.status", "completed"),
-    getSample(),
-  ]);
-  const real = (data ?? [])
+  const { data } = await supabase
+    .from("clarifying_questions")
+    .select("question, position, investigation_id, investigations!inner (title, is_sample, status, updated_at)")
+    .eq("answer", "")
+    .neq("investigations.status", "completed");
+  return (data ?? [])
     .sort((a, b) => b.investigations.updated_at.localeCompare(a.investigations.updated_at) || a.position - b.position)
-    .map((q) => ({ investigationId: q.investigation_id, investigationTitle: q.investigations.title, question: q.question }));
-  const fromSample = sample
-    ? sampleOpenQuestions.map((q) => ({ investigationId: sample.id, investigationTitle: sampleTitle(sample), question: q.question }))
-    : [];
-  return [...real, ...fromSample];
+    .map((q) => ({ investigationId: q.investigation_id, investigationTitle: titleOf(q.investigations), question: q.question }));
 }
 
 export type ProblemSummary = {
@@ -866,35 +818,20 @@ export async function listProblems(): Promise<ProblemSummary[]> {
   const { data } = await supabase.from("problem_definitions").select("investigation_id, statement, cause_status, confidence, created_at").order("created_at", { ascending: false });
   const latest = new Map<string, NonNullable<typeof data>[number]>();
   for (const d of data ?? []) if (!latest.has(d.investigation_id)) latest.set(d.investigation_id, d);
-  const sample = investigations.find((i) => i.isSample);
-  const real: ProblemSummary[] = investigations
-    .filter((i) => !i.isSample)
-    .map((i) => {
+  return investigations.map((i): ProblemSummary => {
       const d = latest.get(i.id);
+      const investigationTitle = `${i.title}${i.isSample ? " (sample)" : ""}`;
       return d
         ? {
             investigationId: i.id,
-            investigationTitle: i.title,
+            investigationTitle,
             original: i.problem,
             refined: d.statement,
             status: d.cause_status === "validated" ? "validated" : d.cause_status === "likely" ? "likely" : "refined",
             confidence: d.confidence as Confidence,
           }
-        : { investigationId: i.id, investigationTitle: i.title, refined: i.problem, status: "draft", confidence: i.confidence };
+        : { investigationId: i.id, investigationTitle, refined: i.problem, status: "draft", confidence: i.confidence };
     });
-  if (!sample) return real;
-  const sampleWs = buildSampleWorkspace([]);
-  return [
-    ...real,
-    {
-      investigationId: sample.id,
-      investigationTitle: sampleTitle(sample),
-      original: sampleWs.problem.original,
-      refined: sampleWs.problem.refined,
-      status: "refined",
-      confidence: sampleWs.problem.confidence,
-    },
-  ];
 }
 
 export type OpportunitySummary = {
@@ -908,23 +845,22 @@ export type OpportunitySummary = {
   status?: "open" | "pursuing" | "parked";
 };
 
-/** Opportunity areas across investigations (each investigation's current set), then the sample's. */
+/** Opportunity areas across investigations: each investigation's current set. */
 export async function listOpportunities(): Promise<OpportunitySummary[]> {
   const supabase = await createClient();
-  const [{ data: defs }, { data: opps }, sample] = await Promise.all([
+  const [{ data: defs }, { data: opps }] = await Promise.all([
     supabase.from("problem_definitions").select("id, investigation_id, created_at").order("created_at", { ascending: false }),
-    supabase.from("opportunities").select("investigation_id, problem_definition_id, title, impact_level, confidence, status, position, investigations (title)").order("position"),
-    getSample(),
+    supabase.from("opportunities").select("investigation_id, problem_definition_id, title, impact_level, confidence, status, position, investigations (title, is_sample)").order("position"),
   ]);
   const current = new Set<string>();
   const seen = new Set<string>();
   for (const d of defs ?? []) if (!seen.has(d.investigation_id) && seen.add(d.investigation_id)) current.add(d.id);
   const strength = (c: string): EvidenceStrength => (c === "high" ? "strong" : c === "medium" ? "moderate" : "weak");
-  const real: OpportunitySummary[] = (opps ?? [])
+  return (opps ?? [])
     .filter((o) => current.has(o.problem_definition_id))
-    .map((o) => ({
+    .map((o): OpportunitySummary => ({
       investigationId: o.investigation_id,
-      investigationTitle: o.investigations?.title ?? "Investigation",
+      investigationTitle: titleOf(o.investigations),
       title: o.title,
       evidenceStrength: strength(o.confidence),
       impact: o.impact_level as Level,
@@ -932,17 +868,6 @@ export async function listOpportunities(): Promise<OpportunitySummary[]> {
       status: o.status as OpportunitySummary["status"],
     }))
     .sort((a, b) => (a.status === "pursuing" ? 0 : 1) - (b.status === "pursuing" ? 0 : 1));
-  const fromSample: OpportunitySummary[] = sample
-    ? buildSampleWorkspace([]).opportunities.map((o) => ({
-        investigationId: sample.id,
-        investigationTitle: sampleTitle(sample),
-        title: o.title,
-        evidenceStrength: o.evidenceStrength,
-        impact: o.impact,
-        confidence: o.confidence,
-      }))
-    : [];
-  return [...real, ...fromSample];
 }
 
 export type ResearchTaskSummary = ResearchTaskRecord & { investigationId: string; investigationTitle: string };
@@ -952,12 +877,12 @@ export async function listResearchTasks(): Promise<ResearchTaskSummary[]> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("research_tasks")
-    .select("id, investigation_id, analysis_run_id, position, title, question, method, method_detail, priority, status, rationale, question_ref, hypothesis_refs, outcome, researched_by, research, created_at, updated_at, investigations (title)")
+    .select("id, investigation_id, analysis_run_id, position, title, question, method, method_detail, priority, status, rationale, question_ref, hypothesis_refs, outcome, researched_by, research, created_at, updated_at, investigations (title, is_sample)")
     .order("updated_at", { ascending: false })
     .limit(200);
   const order = { "in-progress": 0, "not-started": 1, done: 2, dropped: 3 } as Record<string, number>;
   return (data ?? [])
-    .map((t) => ({ ...toResearchTask(t), investigationId: t.investigation_id, investigationTitle: t.investigations?.title ?? "Investigation" }))
+    .map((t) => ({ ...toResearchTask(t), investigationId: t.investigation_id, investigationTitle: titleOf(t.investigations) }))
     .sort((a, b) => (order[a.status] ?? 9) - (order[b.status] ?? 9));
 }
 
@@ -970,33 +895,20 @@ export type ValidationSummary = {
   result?: string;
 };
 
-/** Hypotheses being validated across investigations, then the sample's. */
+/** Hypotheses being validated across investigations. */
 export async function listValidations(): Promise<ValidationSummary[]> {
   const supabase = await createClient();
-  const [{ data }, sample] = await Promise.all([
-    supabase
-      .from("validations")
-      .select("investigation_id, hypothesis_title, hypothesis_statement, method, test, status, outcome, reason, updated_at, investigations (title)")
-      .order("updated_at", { ascending: false })
-      .limit(100),
-    getSample(),
-  ]);
-  const real: ValidationSummary[] = (data ?? []).map((v) => ({
+  const { data } = await supabase
+    .from("validations")
+    .select("investigation_id, hypothesis_title, hypothesis_statement, method, test, status, outcome, reason, updated_at, investigations (title, is_sample)")
+    .order("updated_at", { ascending: false })
+    .limit(100);
+  return (data ?? []).map((v) => ({
     investigationId: v.investigation_id,
-    investigationTitle: v.investigations?.title ?? "Investigation",
+    investigationTitle: titleOf(v.investigations),
     hypothesis: v.hypothesis_title || v.hypothesis_statement,
     test: v.test || v.method || "Not written yet",
     status: v.status === "settled" ? "completed" : v.status === "in-progress" ? "running" : "not-started",
     result: v.outcome ? `${v.outcome.charAt(0).toUpperCase()}${v.outcome.slice(1)}: ${v.reason}` : undefined,
   }));
-  const fromSample: ValidationSummary[] = sample
-    ? buildSampleWorkspace([]).validations.map((v) => ({
-        investigationId: sample.id,
-        investigationTitle: sampleTitle(sample),
-        hypothesis: v.belief,
-        test: v.test,
-        status: v.status,
-      }))
-    : [];
-  return [...real, ...fromSample];
 }

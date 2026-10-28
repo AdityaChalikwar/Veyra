@@ -8,8 +8,9 @@ export function SampleBanner({ investigationId }: { investigationId: string }) {
       <p className="flex gap-2 text-[13px] text-violet-700">
         <FlaskConical className="mt-0.5 h-4 w-4 shrink-0" />
         <span>
-          <b className="font-semibold">Sample investigation.</b> Northwind Home, the fictional retailer behind the Demo ERP — see how an
-          investigation works end to end. Changes here aren&rsquo;t saved.
+          <b className="font-semibold">Sample investigation.</b> A real run of Veyra on Northwind Home, the fictional retailer behind the
+          Demo ERP: from the problem through validation and research to the decision. It stays as it is; try the full demo from Home to run it
+          yourself.
         </span>
       </p>
       <DeleteInvestigationButton investigationId={investigationId} title="the sample investigation" label="Remove sample" />

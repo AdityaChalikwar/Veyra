@@ -3,9 +3,8 @@
 import { buildKpis } from "@/lib/analysis/kpis";
 import { pickCharts } from "@/lib/analysis/charts";
 import { MetricChart, MetricLegend } from "./MetricChart";
-import { ArrowRight, Brain, CheckCircle2, ChevronDown, CircleHelp, CircleSlash, Compass, Database, Info, Upload } from "lucide-react";
+import { ArrowRight, CheckCircle2, CircleHelp, CircleSlash, Compass, Database, Info, Upload } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
 import { ConfidenceBadge } from "@/components/ui/ConfidenceBadge";
 import { cn } from "@/lib/cn";
 import { outcomesLabel, triggersLabel } from "@/lib/options";
@@ -15,13 +14,9 @@ import { AnalysisSection } from "./AnalysisSection";
 import { AnswersEditor } from "./AnswersEditor";
 import { ChartCard } from "./ChartCard";
 import { DataUploader } from "./DataUploader";
-import { DauTrendChart } from "./DauTrendChart";
 import { DeleteInvestigationButton } from "./DeleteInvestigationButton";
 import { HypothesisCard } from "./HypothesisCard";
-import { InvestigationMap } from "./InvestigationMap";
 import { KpiCard } from "./KpiCard";
-import { QuestionCard } from "./QuestionCard";
-import { RatesChart, RatesLegend } from "./RatesChart";
 import { useWorkspace } from "./workspace-context";
 
 /**
@@ -33,64 +28,7 @@ export function OverviewView() {
   const id = workspace.investigation.id;
   const tab = (slug: string) => routes.investigation(id, slug);
 
-  if (workspace.live) return <LiveOverview live={workspace.live} tab={tab} />;
-
-  return (
-    <div className="mt-6 space-y-6">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-4">
-        {workspace.kpis.map((k) => (
-          <KpiCard key={k.id} kpi={k} />
-        ))}
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
-        <WhatWeKnow href={tab("findings")} />
-        <WhatWeDontKnow href={tab("research")} />
-      </div>
-
-
-      <section>
-        <SectionHeader title="Active Hypotheses" href={tab("hypotheses")} linkLabel="All hypotheses" />
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
-          {workspace.hypotheses.map((h) => (
-            <HypothesisCard key={h.id} hypothesis={h} compact />
-          ))}
-        </div>
-      </section>
-
-      <RelatedMemory />
-
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <ChartCard
-          title={workspace.trend.title}
-          source={sourceLabel(workspace, workspace.trend.sourceEvidenceId)}
-          table={{
-            caption: `${workspace.trend.metric} over time`,
-            columns: ["Period", workspace.trend.unit ? `${workspace.trend.metric} (${workspace.trend.unit})` : workspace.trend.metric, "Note"],
-            rows: workspace.trend.points.map((p) => [p.period, p.value, p.annotation ?? ""]),
-          }}
-        >
-          <DauTrendChart points={workspace.trend.points} unit={workspace.trend.unit} metric={workspace.trend.metric} />
-        </ChartCard>
-        <ChartCard
-          title={workspace.rates.title}
-          legend={<RatesLegend primaryLabel={workspace.rates.primaryLabel} secondaryLabel={workspace.rates.secondaryLabel} />}
-          source={sourceLabel(workspace, workspace.rates.sourceEvidenceId)}
-          table={{
-            caption: `${workspace.rates.primaryLabel} and ${workspace.rates.secondaryLabel} over time`,
-            columns: ["Period", workspace.rates.primaryLabel, workspace.rates.secondaryLabel],
-            rows: workspace.rates.points.map((p) => [p.period, `${p.primary}%`, `${p.secondary}%`]),
-          }}
-        >
-          <RatesChart points={workspace.rates.points} primaryLabel={workspace.rates.primaryLabel} secondaryLabel={workspace.rates.secondaryLabel} />
-        </ChartCard>
-      </div>
-
-      <PlanSection />
-      <InvestigationMap map={workspace.map} />
-      <Brief />
-    </div>
-  );
+  return <LiveOverview live={workspace.live} tab={tab} />;
 }
 
 function sourceLabel(workspace: ReturnType<typeof useWorkspace>["workspace"], evidenceId?: string) {
@@ -187,26 +125,6 @@ function WhatWeDontKnow({ href }: { href: string }) {
   );
 }
 
-function RelatedMemory() {
-  const { workspace } = useWorkspace();
-  if (!workspace.relatedMemory.length) return null;
-  return (
-    <section className="rounded-xl border border-violet-200 bg-violet-50/40 p-4">
-      <h2 className="flex items-center gap-2 text-[13px] font-semibold text-violet-700">
-        <Brain className="h-4 w-4" /> From Business Memory
-      </h2>
-      <ul className="mt-2 space-y-2">
-        {workspace.relatedMemory.map((m) => (
-          <li key={m.id} className="text-[13px] text-ink">
-            <span className="font-medium">{m.title}.</span> <span className="text-ink-muted">{m.body}</span>{" "}
-            {m.sourceInvestigationTitle && <span className="text-xs text-ink-subtle">— {m.sourceInvestigationTitle}</span>}
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
 const methodStatus = {
   done: { label: "Done", className: "bg-confirmed-50 text-confirmed-600" },
   "in-progress": { label: "In progress", className: "bg-brand-50 text-brand-700" },
@@ -249,33 +167,6 @@ function PlanSection() {
           </ul>
         </div>
       </div>
-    </section>
-  );
-}
-
-/** How the investigation started: trigger, outcome and the answers to Veyra's questions. */
-function Brief() {
-  const { workspace } = useWorkspace();
-  const [open, setOpen] = useState(false);
-  const inv = workspace.investigation;
-  return (
-    <section className="rounded-xl border border-line bg-surface shadow-card">
-      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="flex w-full items-center justify-between gap-3 p-5 text-left">
-        <span>
-          <span className="block text-[15px] font-semibold uppercase tracking-wide">Investigation brief</span>
-          <span className="mt-0.5 block text-xs text-ink-subtle">
-            Trigger: {triggersLabel(inv.triggers)} · Outcome: {outcomesLabel(inv.outcomes)} · {workspace.questions.length} contextual questions
-          </span>
-        </span>
-        <ChevronDown className={cn("h-4 w-4 shrink-0 text-ink-subtle transition-transform", open && "rotate-180")} />
-      </button>
-      {open && (
-        <div className="space-y-3 border-t border-line p-5">
-          {workspace.questions.map((q, i) => (
-            <QuestionCard key={q.id} index={i + 1} question={q} />
-          ))}
-        </div>
-      )}
     </section>
   );
 }

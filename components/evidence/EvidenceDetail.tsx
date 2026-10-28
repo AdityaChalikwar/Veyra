@@ -1,8 +1,7 @@
 "use client";
 
-import { Check, ExternalLink, Loader2, X } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import { FindingChip } from "@/components/investigation/ArtifactChips";
-import { Button } from "@/components/ui/Button";
 import { ConfidenceBadge } from "@/components/ui/ConfidenceBadge";
 import { KindBadge } from "@/components/ui/KindBadge";
 import { RelationBadge } from "@/components/investigation/EvidenceCitation";
@@ -14,7 +13,7 @@ import { EvidenceFormatIcon } from "./EvidenceFormatIcon";
 
 /** The evidence viewer: what it is, how far to trust it, a preview, and everything that cites it. */
 export function EvidenceDetail({ id }: { id: string }) {
-  const { workspace, resolveProposal, openDetail } = useWorkspace();
+  const { workspace, openDetail } = useWorkspace();
   const item = workspace.evidence.find((e) => e.id === id);
   if (!item) return <p className="p-5 text-sm text-ink-subtle">This evidence no longer exists.</p>;
   const usedBy = workspace.findings.filter(
@@ -24,7 +23,6 @@ export function EvidenceDetail({ id }: { id: string }) {
   const supports = workspace.hypotheses.filter(
     (h) => h.supportingEvidenceIds?.includes(id) || h.contradictingEvidenceIds?.includes(id) || h.insufficientEvidenceIds?.includes(id),
   );
-  const proposals = workspace.proposals.filter((p) => p.evidenceId === id);
 
   return (
     <div className="space-y-6 p-5">
@@ -38,41 +36,10 @@ export function EvidenceDetail({ id }: { id: string }) {
         </div>
       </div>
 
-      {(item.analysis || proposals.length > 0) && (
+      {item.analysis?.summary && (
         <section className="rounded-xl border border-brand-200 bg-brand-50/40 p-4">
-          <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-brand-700">
-            Veyra&rsquo;s analysis
-          </h3>
-          {item.analysis?.status === "analysing" ? (
-            <p className="mt-2 flex items-center gap-2 text-[13px] text-ink-muted">
-              <Loader2 className="h-3.5 w-3.5 animate-spin text-brand-600" /> Analysing this evidence against the investigation…
-            </p>
-          ) : (
-            <>
-              {item.analysis?.summary && <p className="mt-2 text-[13px] leading-relaxed text-ink">{item.analysis.summary}</p>}
-              {proposals.map((p) => (
-                <div key={p.id} className="mt-3 rounded-lg border border-line bg-surface p-3">
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-faint">Suggested change</p>
-                  <p className="mt-1 text-[13px] text-ink">{p.summary}</p>
-                  {p.status === "pending" ? (
-                    <div className="mt-3 flex gap-2">
-                      <Button type="button" size="sm" onClick={() => resolveProposal(p.id, "accepted")}>
-                        <Check className="h-3.5 w-3.5" /> Accept
-                      </Button>
-                      <Button type="button" size="sm" variant="ghost" onClick={() => resolveProposal(p.id, "dismissed")}>
-                        <X className="h-3.5 w-3.5" /> Dismiss
-                      </Button>
-                    </div>
-                  ) : (
-                    <p className={p.status === "accepted" ? "mt-2 text-xs font-medium text-confirmed-600" : "mt-2 text-xs text-ink-subtle"}>
-                      {p.status === "accepted" ? "Accepted — linked to the investigation." : "Dismissed — the investigation is unchanged."}
-                    </p>
-                  )}
-                </div>
-              ))}
-              <p className="mt-3 text-[11px] text-ink-faint">Simulated in this preview. Confidence levels aren&rsquo;t changed automatically.</p>
-            </>
-          )}
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-brand-700">Veyra&rsquo;s analysis</h3>
+          <p className="mt-2 text-[13px] leading-relaxed text-ink">{item.analysis.summary}</p>
         </section>
       )}
 

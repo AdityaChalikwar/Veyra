@@ -1,61 +1,24 @@
 "use client";
 
-import { Upload } from "lucide-react";
 import Link from "next/link";
-import { useRef, useState } from "react";
 import { EvidenceFormatIcon } from "@/components/evidence/EvidenceFormatIcon";
 import { categoryAccent, categoryDescription, categoryLabel } from "@/components/evidence/evidence-categories";
-import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
 import { routes } from "@/lib/routes";
 import { formatRelative } from "@/lib/time";
-import type { EvidenceCategory, EvidenceFormat, EvidenceWithContext } from "@/lib/types";
+import type { EvidenceCategory, EvidenceWithContext } from "@/lib/types";
 
 const sections: EvidenceCategory[] = ["customer-evidence", "uploaded-research", "public-research"];
 
-function formatFromName(name: string): EvidenceFormat {
-  const ext = name.split(".").pop()?.toLowerCase();
-  if (ext === "pdf") return "pdf";
-  if (ext === "doc" || ext === "docx") return "doc";
-  if (ext === "csv") return "csv";
-  if (ext === "xlsx" || ext === "xls") return "xlsx";
-  return "text";
-}
-
 /** Research across investigations: customer research, uploaded reports and public research, kept apart. */
 export function ResearchLibrary({ initial }: { initial: EvidenceWithContext[] }) {
-  const [items, setItems] = useState(initial);
-  const fileInput = useRef<HTMLInputElement>(null);
-
-  function upload(name: string) {
-    if (!name) return;
-    setItems((list) => [
-      {
-        id: `upload-${Date.now()}`,
-        investigationId: "",
-        investigationTitle: "",
-        name,
-        category: "uploaded-research",
-        source: "Uploaded by you",
-        format: formatFromName(name),
-        addedAt: new Date().toISOString(),
-        description: "Not linked to an investigation yet.",
-      },
-      ...list,
-    ]);
-  }
-
   return (
     <>
-      <div className="mt-6 flex flex-wrap items-center gap-3">
-        <Button type="button" onClick={() => fileInput.current?.click()}>
-          <Upload className="h-4 w-4" /> Upload research
-        </Button>
-        <input ref={fileInput} type="file" className="sr-only" aria-label="Research file" onChange={(e) => upload(e.target.files?.[0]?.name ?? "")} />
-        <p className="text-xs text-ink-faint">Preview: uploads stay in this browser and aren&rsquo;t analysed.</p>
-      </div>
+      <p className="mt-6 text-[13px] text-ink-muted">
+        Research documents come from your investigations: upload them on an investigation&rsquo;s Evidence tab.
+      </p>
       {sections.map((category) => {
-        const list = items.filter((i) => i.category === category);
+        const list = initial.filter((i) => i.category === category);
         return (
           <section key={category} className="mt-8">
             <h2 className="text-[15px] font-semibold">{categoryLabel[category]}</h2>

@@ -12,21 +12,15 @@ import { ActivityTimeline } from "./ActivityTimeline";
 import { useWorkspace } from "./workspace-context";
 
 export function NotesView() {
-  const { workspace, addNote } = useWorkspace();
+  const { workspace } = useWorkspace();
   const router = useRouter();
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const live = !!workspace.live;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!text.trim()) return;
-    if (!live) {
-      addNote(text.trim());
-      setText("");
-      return;
-    }
     setBusy(true);
     setError(null);
     const r = await saveNote(workspace.investigation.id, text).catch(() => ({ error: "Couldn't reach Veyra. Try again." }));
@@ -82,16 +76,14 @@ export function NotesView() {
               <span>
                 {n.author} · {formatRelative(n.createdAt)}
               </span>
-              {live && (
-                <button type="button" aria-label="Delete note" onClick={() => remove(n.id)} className="text-ink-faint hover:text-danger-600">
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              )}
+              <button type="button" aria-label="Delete note" onClick={() => remove(n.id)} className="text-ink-faint hover:text-danger-600">
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
             </p>
           </li>
         ))}
       </ul>
-      {workspace.live && <ActivityTimeline live={workspace.live} />}
+      <ActivityTimeline live={workspace.live} />
     </div>
   );
 }

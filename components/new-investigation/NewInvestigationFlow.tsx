@@ -320,7 +320,6 @@ function EvidenceStep({ draft, update, dataSources, context }: StepProps & { dat
         <Link href={routes.dataSources} className="mt-4 inline-flex items-center gap-1 text-[13px] font-medium text-brand-600 hover:text-brand-700">
           <Plus className="h-3.5 w-3.5" /> Add data source
         </Link>
-        <p className="mt-3 text-xs text-ink-faint">Preview: connections are simulated with realistic sample data.</p>
       </section>
     </>
   );

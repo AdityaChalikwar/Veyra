@@ -995,7 +995,7 @@ export type InvestigationWorkspace = {
    * The team's own investigation: its saved record and latest completed analysis.
    * Absent on the sample, whose content is demo data.
    */
-  live?: LiveInvestigation;
+  live: LiveInvestigation;
 };
 
 export type LiveInvestigation = {
