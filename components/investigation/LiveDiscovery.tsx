@@ -16,6 +16,7 @@ import type { EvidenceLink, LiveInvestigation, OpportunityRecord } from "@/lib/t
 import { FindingChip } from "./ArtifactChips";
 import { EvidenceCitation } from "./EvidenceCitation";
 import { useWorkspace } from "./workspace-context";
+import { SUPPORTED, VERDICT_LABEL } from "@/lib/verdicts";
 
 /** Runs one of the discovery steps and refreshes the page when it's done. */
 export function RunStep({ label, busyLabel, run, variant = "primary" }: { label: string; busyLabel: string; run: () => Promise<{ ok: true } | { error: string }>; variant?: "primary" | "secondary" }) {
@@ -160,14 +161,19 @@ export function LiveProblem({ live }: { live: LiveInvestigation }) {
 
   const stale = d.runId !== live.run.id;
   const confirmed = workspace.hypotheses.filter((h) => h.status === "confirmed");
+  const likely = workspace.hypotheses.filter((h) => h.status === "likely");
+  // Defining again helps once a cause is confirmed (and the definition isn't yet), or likely (and the definition is still provisional).
+  const better = confirmed.length ? (d.causeStatus !== "validated" ? confirmed : []) : d.causeStatus === "open" ? likely : [];
   return (
     <div className="mt-6 max-w-4xl space-y-4">
       {original}
-      {d.causeStatus === "open" && confirmed.length > 0 && (
+      {better.length > 0 && (
         <div className="flex flex-col gap-3 rounded-xl border border-confirmed-200 bg-confirmed-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-[13px] text-confirmed-600">
-            <b className="font-semibold">{confirmed.map((h) => h.label).join(", ")} confirmed.</b> Define the problem again to fill in what gets in the way. It
-            stops being provisional.
+            <b className="font-semibold">
+              {better.map((h) => h.label).join(", ")} {confirmed.length ? "confirmed" : "likely"}.
+            </b>{" "}
+            Define the problem again to fill in what gets in the way. {confirmed.length ? "It stops being provisional." : "It becomes the likely cause."}
           </p>
           <RunStep label="Define again" busyLabel="Defining…" run={() => defineInvestigationProblem(workspace.investigation.id)} />
         </div>
@@ -185,6 +191,8 @@ export function LiveProblem({ live }: { live: LiveInvestigation }) {
             <Target className="h-4 w-4" /> Problem definition
             {d.causeStatus === "open" ? (
               <span className="rounded bg-uncertain-50 px-1.5 py-0.5 text-[10.5px] tracking-wide text-uncertain-600">Provisional</span>
+            ) : d.causeStatus === "likely" ? (
+              <span className="rounded bg-confirmed-50/60 px-1.5 py-0.5 text-[10.5px] tracking-wide text-confirmed-600">Likely cause</span>
             ) : (
               <span className="rounded bg-confirmed-50 px-1.5 py-0.5 text-[10.5px] tracking-wide text-confirmed-600">Cause validated</span>
             )}
@@ -197,7 +205,11 @@ export function LiveProblem({ live }: { live: LiveInvestigation }) {
         <dl className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Facet label="Who is affected" value={d.affected} />
           <Facet label="What they're trying to do" value={d.need} />
-          <Facet label={d.causeStatus === "open" ? "What gets in the way — not yet known" : "What gets in the way"} value={d.obstacle} uncertain={d.causeStatus === "open"} />
+          <Facet
+            label={d.causeStatus === "open" ? "What gets in the way — not yet known" : d.causeStatus === "likely" ? "What gets in the way — likely, not confirmed" : "What gets in the way"}
+            value={d.obstacle}
+            uncertain={d.causeStatus !== "validated"}
+          />
           <Facet label="Business impact" value={d.businessImpact} />
         </dl>
 
@@ -207,7 +219,7 @@ export function LiveProblem({ live }: { live: LiveInvestigation }) {
           <Bullets title="Unresolved assumptions" items={d.assumptions} tone="uncertain" />
           <Citations links={d.links} />
           {/* While the cause is open, hypotheses are possible explanations (named above), not what the problem rests on. */}
-          <Basis findingRefs={d.findingRefs} hypothesisRefs={d.causeStatus === "validated" ? d.hypothesisRefs : []} />
+          <Basis findingRefs={d.findingRefs} hypothesisRefs={d.causeStatus !== "open" ? d.hypothesisRefs : []} />
         </div>
       </section>
 
@@ -217,7 +229,7 @@ export function LiveProblem({ live }: { live: LiveInvestigation }) {
         </p>
         <div className="flex shrink-0 items-center gap-3">
           {/* While provisional, defining again only helps once a hypothesis is confirmed (banner above) or the analysis is newer. */}
-          {!stale && d.causeStatus === "validated" && (
+          {!stale && d.causeStatus !== "open" && !better.length && (
             <RunStep label="Define again" busyLabel="Defining…" variant="secondary" run={() => defineInvestigationProblem(workspace.investigation.id)} />
           )}
           <Link
@@ -235,7 +247,9 @@ export function LiveProblem({ live }: { live: LiveInvestigation }) {
 const HYPOTHESIS_STATE = {
   open: { label: "Not validated yet", className: "bg-slate-100 text-slate-600" },
   unclear: { label: "Unclear", className: "bg-uncertain-50 text-uncertain-600" },
+  unlikely: { label: "Unlikely", className: "bg-slate-100 text-slate-600" },
   rejected: { label: "Ruled out", className: "bg-slate-100 text-slate-500 line-through" },
+  likely: { label: "Likely", className: "bg-confirmed-50/60 text-confirmed-600" },
   confirmed: { label: "Confirmed", className: "bg-confirmed-50 text-confirmed-600" },
 } as const;
 
@@ -250,9 +264,9 @@ function WhyProvisional() {
   return (
     <div className="mt-4 rounded-lg bg-uncertain-50 px-3.5 py-3 text-[13px] text-uncertain-600">
       <p>
-        <b className="font-semibold">Provisional</b> until a hypothesis about the cause is <b className="font-semibold">confirmed</b>. It rests on findings only, so
-        what gets in the way isn&rsquo;t known yet. Once one is confirmed, a &ldquo;Define again&rdquo; button appears here and the new definition
-        includes the cause; the Provisional tag goes. An unclear or rejected result doesn&rsquo;t change it.
+        <b className="font-semibold">Provisional</b> until Veyra&rsquo;s validation finds a hypothesis about the cause <b className="font-semibold">likely</b> or{" "}
+        <b className="font-semibold">confirmed</b>. It rests on findings only, so what gets in the way isn&rsquo;t known yet. Once one is, a &ldquo;Define
+        again&rdquo; button appears above and the new definition names the cause. An unclear, unlikely or rejected result doesn&rsquo;t change it.
       </p>
       {workspace.hypotheses.length > 0 && (
         <ul className="mt-2.5 space-y-1">
@@ -346,7 +360,7 @@ function LiveOpportunityCard({ o, index }: { o: OpportunityRecord; index: number
   const { workspace } = useWorkspace();
   const router = useRouter();
   const dependencies = o.dependsOn.map((ref) => ({ ref, h: workspace.hypotheses.find((x) => x.id === ref) }));
-  const unconfirmed = dependencies.filter((d) => d.h?.status !== "confirmed");
+  const unconfirmed = dependencies.filter((d) => !SUPPORTED(d.h?.status));
   const [open, setOpen] = useState(index === 1);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -425,10 +439,10 @@ function LiveOpportunityCard({ o, index }: { o: OpportunityRecord; index: number
                     <span
                       className={cn(
                         "shrink-0 rounded px-1.5 py-0.5 text-[10.5px] font-semibold",
-                        h?.status === "confirmed" ? "bg-confirmed-50 text-confirmed-600" : "bg-uncertain-50 text-uncertain-600",
+                        SUPPORTED(h?.status) ? "bg-confirmed-50 text-confirmed-600" : "bg-uncertain-50 text-uncertain-600",
                       )}
                     >
-                      {ref} · {h?.status === "confirmed" ? "Confirmed" : h?.status === "rejected" ? "Rejected" : "Not validated"}
+                      {ref} · {h?.status && h.status !== "open" ? VERDICT_LABEL[h.status] : "Not validated"}
                     </span>
                     {h?.title ?? h?.statement ?? ""}
                   </li>

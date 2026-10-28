@@ -72,7 +72,7 @@ function describe(ws: Live, context: BusinessContext, memory: MemoryNote[]): str
     ...r.researchTasks.map((t) => `- [${t.status}] ${t.title}${t.outcome.trim() ? ` — found: ${t.outcome.trim()}` : ""}`),
     "",
     d
-      ? `Problem definition (${d.causeStatus === "open" ? "provisional: cause not validated" : "cause validated"}): ${d.statement}\nAffected: ${d.affected}\nNeed: ${d.need}\nObstacle: ${d.obstacle}\nBusiness impact: ${d.businessImpact}\nAssumptions: ${d.assumptions.join("; ")}`
+      ? `Problem definition (${{ open: "provisional: cause not validated", likely: "likely cause: supported, not confirmed", validated: "cause validated" }[d.causeStatus]}): ${d.statement}\nAffected: ${d.affected}\nNeed: ${d.need}\nObstacle: ${d.obstacle}\nBusiness impact: ${d.businessImpact}\nAssumptions: ${d.assumptions.join("; ")}`
       : "No problem definition yet.",
     "",
     "Opportunities:",

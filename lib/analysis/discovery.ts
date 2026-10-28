@@ -46,7 +46,7 @@ export const opportunitiesSchema = z.object({ opportunities: z.array(opportunity
 
 export type ProblemResult = z.infer<typeof problemSchema>;
 /** "open" until a hypothesis about the cause is validated; the definition is provisional until then. */
-export type CauseStatus = "open" | "validated";
+export type CauseStatus = "open" | "likely" | "validated";
 export type DefinedProblem = ProblemResult & { causeStatus: CauseStatus };
 export type OpportunityResult = z.infer<typeof opportunitySchema>;
 
@@ -131,8 +131,9 @@ function cleanRefs<T extends { findings: string[]; evidence: { ref: string }[] }
 
 const sum = (a: Usage, b: Usage): Usage => Object.fromEntries([...new Set([...Object.keys(a), ...Object.keys(b)])].map((k) => [k, (a[k] ?? 0) + (b[k] ?? 0)]));
 
-/** "open" unless the team has validated (confirmed) a hypothesis. */
-export const causeStatusOf = (input: DiscoveryInput): CauseStatus => (input.hypotheses.some((h) => h.status === "confirmed") ? "validated" : "open");
+/** "validated" once a hypothesis about the cause is confirmed, "likely" when one is likely, otherwise "open". */
+export const causeStatusOf = (input: DiscoveryInput): CauseStatus =>
+  input.hypotheses.some((h) => h.status === "confirmed") ? "validated" : input.hypotheses.some((h) => h.status === "likely") ? "likely" : "open";
 
 /**
  * The checks after the model answers, in code: references that exist, and while
@@ -155,6 +156,9 @@ export function settleProblem(raw: ProblemResult, input: DiscoveryInput): { data
       defined.confidence = "medium";
       notes.push("Confidence capped at medium while the cause is not validated.");
     }
+  } else if (causeStatus === "likely" && defined.confidence === "high") {
+    defined.confidence = "medium";
+    notes.push("Confidence capped at medium while the cause is likely but not confirmed.");
   }
   return { data: defined, notes };
 }
@@ -167,12 +171,15 @@ export async function defineProblem(input: DiscoveryInput): Promise<Outcome<Defi
   const client = new Anthropic();
   const context = describe(input);
   const validated = input.hypotheses.filter((h) => h.status === "confirmed");
+  const likely = input.hypotheses.filter((h) => h.status === "likely");
   const causeStatus = causeStatusOf(input);
   const step = [
     "Write the refined problem definition from this investigation. A problem, never a solution.",
     causeStatus === "validated"
       ? `Validated hypotheses: ${validated.map((h) => h.ref).join(", ")}. You may use them to explain what gets in the way.`
-      : "No hypothesis has been validated, so the cause is not known. Build the statement, who is affected, their need and the business impact from findings only. Leave the obstacle as an empty string; list the open hypotheses under assumptions.",
+      : causeStatus === "likely"
+        ? `Likely hypotheses (the tests support them, but another explanation isn't ruled out): ${likely.map((h) => h.ref).join(", ")}. Use them to explain what gets in the way, saying it is the likely cause, not a proven one.`
+        : "No hypothesis has been validated, so the cause is not known. Build the statement, who is affected, their need and the business impact from findings only. Leave the obstacle as an empty string; list the open hypotheses under assumptions.",
   ].join("\n");
   try {
     let result = await callStep(client, { system: SYSTEM, context, step }, PROBLEM_FORMAT, problemSchema, "high");

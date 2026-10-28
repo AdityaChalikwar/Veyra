@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json } from "@/lib/supabase/database.types";
+import type { Verdict } from "@/lib/types";
 import type { MemoryNote } from "@/lib/analysis/run";
 
 /**
@@ -59,17 +60,19 @@ export async function memoryNotes(supabase: Client, excludeInvestigationId?: str
 export async function rememberValidation(
   supabase: Client,
   v: { id: string; workspaceId: string; investigationId: string; title: string; statement: string },
-  outcome: "confirmed" | "rejected" | "unclear",
+  outcome: Verdict,
   reason: string,
   by: "team" | "veyra" = "team",
 ): Promise<void> {
   if (outcome === "unclear") return forget(supabase, v.investigationId, { validationId: v.id });
+  const supported = outcome === "confirmed" || outcome === "likely";
+  const word = { confirmed: "Confirmed", likely: "Likely (supported, not yet proven)", unlikely: "Unlikely (points against, not ruled out)", rejected: "Rejected" }[outcome];
   await remember(supabase, {
     workspaceId: v.workspaceId,
     investigationId: v.investigationId,
-    kind: outcome === "confirmed" ? "validated-problem" : "rejected-hypothesis",
-    title: v.title || v.statement.slice(0, 120),
-    body: `${v.statement}\n${outcome === "confirmed" ? "Confirmed" : "Rejected"}${by === "veyra" ? " by Veyra's validation" : ""} because: ${reason}`,
+    kind: supported ? "validated-problem" : "rejected-hypothesis",
+    title: `${outcome === "likely" ? "Likely: " : outcome === "unlikely" ? "Unlikely: " : ""}${v.title || v.statement.slice(0, 120)}`,
+    body: `${v.statement}\n${word}${by === "veyra" ? " by Veyra's validation" : ""} because: ${reason}`,
     source: { validationId: v.id },
   });
 }

@@ -28,17 +28,19 @@ export function suggestNext(hypotheses: Hypothesis[], live: LiveInvestigation): 
 export type Readiness = { ready: boolean; reason: string };
 
 /**
- * Enough to decide when the cause is confirmed, or when nothing likely is left
- * to test (every hypothesis still open is low confidence or already unclear).
+ * Enough to decide when a cause is confirmed or likely, or when nothing likely
+ * is left to test (every hypothesis still open is low confidence).
  */
 export function readiness(ws: Live): Readiness {
   const hs = ws.hypotheses;
   const confirmed = hs.filter((h) => h.status === "confirmed");
   if (confirmed.length) return { ready: true, reason: `${confirmed.map((h) => h.label).join(", ")} ${confirmed.length === 1 ? "is" : "are"} confirmed, so the cause is known.` };
+  const supported = hs.filter((h) => h.status === "likely");
+  if (supported.length) return { ready: true, reason: `${supported.map((h) => h.label).join(", ")} ${supported.length === 1 ? "is" : "are"} the likely cause: the tests support it, though not everything is ruled out.` };
   if (!hs.length) return { ready: false, reason: "There are no hypotheses to test yet." };
-  const untested = hs.filter((h) => h.status !== "rejected" && h.status !== "unclear");
-  const likely = untested.filter((h) => (RANK[h.confidence] ?? 0) >= 2);
-  if (!likely.length) {
+  const untested = hs.filter((h) => !h.status || h.status === "open");
+  const plausible = untested.filter((h) => (RANK[h.confidence] ?? 0) >= 2);
+  if (!plausible.length) {
     return {
       ready: true,
       reason: untested.length
@@ -46,7 +48,7 @@ export function readiness(ws: Live): Readiness {
         : "Every hypothesis has been tested.",
     };
   }
-  return { ready: false, reason: `${likely.length === 1 ? "A likely cause hasn't" : `${likely.length} likely causes haven't`} been tested yet.` };
+  return { ready: false, reason: `${plausible.length === 1 ? "A plausible cause hasn't" : `${plausible.length} plausible causes haven't`} been tested yet.` };
 }
 
 export type NextAction = {
@@ -83,8 +85,10 @@ export function nextAction(ws: Live): NextAction {
   if (ready.ready) {
     const lastSettled = r.validations.map((v) => v.settledAt ?? "").sort().at(-1) ?? "";
     const confirmed = ws.hypotheses.some((h) => h.status === "confirmed");
-    if (confirmed && r.problemDefinition?.causeStatus !== "validated") {
-      return { tone: "ready", label: "Almost there:", text: "A cause is confirmed. Define the problem again so it names the cause.", cta: "Define again", tab: "problem" };
+    const likely = ws.hypotheses.some((h) => h.status === "likely");
+    const cause = r.problemDefinition?.causeStatus ?? "open";
+    if ((confirmed && cause !== "validated") || (likely && cause === "open")) {
+      return { tone: "ready", label: "Almost there:", text: `A cause is ${confirmed ? "confirmed" : "likely"}. Define the problem again so it names the cause.`, cta: "Define again", tab: "problem" };
     }
     if (!r.brief || r.brief.createdAt < lastSettled) {
       return { tone: "ready", label: "Ready to decide.", text: `${ready.reason} Write the Decision Brief: Veyra sums up what is known and recommends what to do.`, cta: r.brief ? "Update the brief" : "Write the brief", tab: "report" };

@@ -364,7 +364,7 @@ function toDiscovery(rows: ProblemRow[]): { problemDefinition?: ProblemDefinitio
       assumptions: p.assumptions,
       findingRefs: p.finding_refs,
       hypothesisRefs: p.hypothesis_refs,
-      causeStatus: p.cause_status === "validated" ? "validated" : "open",
+      causeStatus: p.cause_status === "validated" || p.cause_status === "likely" ? p.cause_status : "open",
       links: links(p.evidence_links),
       createdAt: p.created_at,
     },
@@ -852,7 +852,7 @@ export type ProblemSummary = {
   investigationTitle: string;
   original?: string;
   refined: string;
-  status: "draft" | "refined" | "validated";
+  status: "draft" | "refined" | "likely" | "validated";
   confidence: Confidence;
 };
 
@@ -877,7 +877,7 @@ export async function listProblems(): Promise<ProblemSummary[]> {
             investigationTitle: i.title,
             original: i.problem,
             refined: d.statement,
-            status: d.cause_status === "validated" ? "validated" : "refined",
+            status: d.cause_status === "validated" ? "validated" : d.cause_status === "likely" ? "likely" : "refined",
             confidence: d.confidence as Confidence,
           }
         : { investigationId: i.id, investigationTitle: i.title, refined: i.problem, status: "draft", confidence: i.confidence };

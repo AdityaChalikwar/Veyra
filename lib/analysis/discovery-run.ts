@@ -115,7 +115,7 @@ export async function findOpportunitiesFor(investigationId: string): Promise<Res
     findings: problem.finding_refs,
     hypotheses: problem.hypothesis_refs,
     evidence: [],
-    causeStatus: problem.cause_status === "validated" ? "validated" : "open",
+    causeStatus: problem.cause_status === "validated" || problem.cause_status === "likely" ? problem.cause_status : "open",
   });
   if (!outcome.ok) return { error: outcome.failure.error };
   const saved = await saveOpportunities(supabase, investigationId, problem.id, outcome.data, loaded.input.pack);

@@ -10,7 +10,8 @@ import { getBusinessContext } from "@/lib/data";
 import { rememberValidation } from "@/lib/data/memory";
 import { createClient } from "@/lib/supabase/server";
 import type { Database, Json } from "@/lib/supabase/database.types";
-import type { DatasetProfile } from "@/lib/types";
+import type { DatasetProfile, Verdict } from "@/lib/types";
+import { AGAINST, SUPPORTED, VERDICT_LABEL, VERDICTS } from "@/lib/verdicts";
 import { challenge, designDataTests, designOtherEvidence, judge, labelTexts, searchWeb, type Background } from "./ai";
 import { loadTable } from "./data";
 import { runTest, TEST_KINDS, type Table, type TestKind } from "./tests";
@@ -297,14 +298,15 @@ class Run {
         if (ev && x.labels.length) texts.push({ id: `X${i + 1}`, needId: x.needId, evidenceId: ev.id, dataset: ev.name, textColumn: x.textColumn, question: x.question, labels: x.labels.slice(0, 6) });
       }
       web = other.data.webQueries.slice(0, 3);
-      missing = other.data.missing.slice(0, 4).map((m, i) => ({ id: `Q${i + 1}`, ...m, status: "open" as const }));
+      // Veyra doesn't wait for these: it judges with what it has and lists them as ways to make the verdict stronger.
+      missing = other.data.missing.slice(0, 2).map((m, i) => ({ id: `Q${i + 1}`, ...m, status: "skipped" as const }));
     } else {
       this.log("Couldn't plan the other evidence", other.failure.error, "warn");
     }
 
-    // Ask once. If the team already answered, don't ask again.
+    // Evidence the team already added on an earlier run carries over; otherwise what's out of reach is noted, not waited for.
     const asked = this.requests;
-    const requests = asked.length || this.row.proceed_without ? asked : missing;
+    const requests = asked.length ? asked : missing;
 
     this.set("design", { ...design, tests, texts, web, added } satisfies RunDesign);
     this.log(
@@ -315,11 +317,9 @@ class Run {
     );
     if (added.length > design.added.length) this.log("Added data from your connected sources", added.slice(design.added.length).join(", "));
 
-    if (!asked.length && requests.some((r) => r.status === "open")) {
+    if (!asked.length && requests.length) {
       this.set("requests", requests);
-      this.log("Some evidence is out of reach", `Veyra can go ahead without it, or you can add it for a stronger verdict.`, "warn");
-      this.patch.phase = "needs-input";
-      return;
+      this.log("Going ahead with the evidence available", `Would make it stronger: ${requests.map((r) => r.what).join("; ")}`);
     }
     this.patch.phase = "testing";
   }
@@ -476,16 +476,17 @@ class Run {
       this.patch.error = first.failure.error;
       return;
     }
-    this.log(`First verdict: ${first.data.outcome}`, first.data.reasoning);
-    const second = await challenge(background, text, first.data);
-    let outcome = first.data.outcome;
+    const firstOutcome = toVerdict(first.data.outcome);
+    this.log(`First verdict: ${VERDICT_LABEL[firstOutcome].toLowerCase()}`, first.data.reasoning);
+    const second = await challenge(background, text, { ...first.data, outcome: firstOutcome });
+    let outcome = firstOutcome;
     let confidence = first.data.confidence;
     let holds: RunVerdict["holds"] = "holds";
     let challenges: string[] = [];
     if (second.ok) {
       holds = second.data.holds;
       challenges = second.data.challenges.slice(0, 4);
-      outcome = second.data.outcome;
+      outcome = toVerdict(second.data.outcome);
       confidence = second.data.confidence;
       this.log(
         holds === "holds" ? "The verdict held up when challenged" : holds === "weaker" ? "The challenge weakened the verdict" : "The challenge overturned the verdict",
@@ -512,13 +513,24 @@ class Run {
     if (this.requests.some((r) => r.status === "skipped" && r.impact === "high")) cap("medium", "Capped at medium: important evidence was skipped.");
     if (!second.ok) cap("medium", "Capped at medium: the verdict couldn't be challenged.");
     const relation = (id: string) => assessments.find((a) => a.id === id)?.relation;
-    if (outcome === "confirmed" && !results.some((r) => relation(r.id) === "supports")) {
+    if (SUPPORTED(outcome) && !results.some((r) => relation(r.id) === "supports")) {
       outcome = "unclear";
       capped.push("Changed to unclear: no result supports the hypothesis.");
     }
-    if (outcome === "rejected" && !results.some((r) => relation(r.id) === "contradicts")) {
+    if (AGAINST(outcome) && !results.some((r) => relation(r.id) === "contradicts")) {
       outcome = "unclear";
       capped.push("Changed to unclear: no result contradicts the hypothesis.");
+    }
+    // Statistics lead: decisive data tests (p < 0.01) that all point one way set a floor the judgement can't drop below.
+    const decisive = (rel: "supports" | "contradicts") =>
+      results.filter((r) => r.kind === "data" && r.outcome.ok && r.outcome.p !== undefined && r.outcome.p < 0.01 && relation(r.id) === rel).length;
+    const [forIt, againstIt] = [decisive("supports"), decisive("contradicts")];
+    if (forIt >= 2 && !againstIt && !SUPPORTED(outcome)) {
+      capped.push(`Raised to likely: ${forIt} data tests support it decisively (p < 0.01) and none contradict it.`);
+      outcome = "likely";
+    } else if (againstIt >= 2 && !forIt && !AGAINST(outcome)) {
+      capped.push(`Lowered to unlikely: ${againstIt} data tests contradict it decisively (p < 0.01) and none support it.`);
+      outcome = "unlikely";
     }
 
     this.set("verdict", {
@@ -531,7 +543,7 @@ class Run {
       assessments,
       capped,
     } satisfies RunVerdict);
-    this.log(`Verdict: ${outcome}`, `${confidence} confidence${capped.length ? ` · ${capped.join(" ")}` : ""}`);
+    this.log(`Verdict: ${VERDICT_LABEL[outcome].toLowerCase()}`, `${confidence} confidence${capped.length ? ` · ${capped.join(" ")}` : ""}`);
     this.patch.phase = "settling";
   }
 
@@ -591,7 +603,7 @@ class Run {
       verdict.reasoning,
       "veyra",
     );
-    this.log(`Settled: ${verdict.outcome}`, "Saved with its evidence, and to Business Memory.");
+    this.log(`Settled: ${VERDICT_LABEL[verdict.outcome].toLowerCase()}`, "Saved with its evidence, and to Business Memory.");
 
     // What to bring up to date next.
     const [{ data: problem }, { data: opps }, { data: brief }] = await Promise.all([
@@ -599,10 +611,10 @@ class Run {
       s.from("opportunities").select("status").eq("investigation_id", this.row.investigation_id),
       s.from("decision_briefs").select("id").eq("investigation_id", this.row.investigation_id).limit(1).maybeSingle(),
     ]);
-    const confirmed = verdict.outcome === "confirmed";
+    const confirmed = SUPPORTED(verdict.outcome);
     const pursuing = (opps ?? []).some((o) => o.status === "pursuing");
     const follow: FollowThrough = {
-      // Unclear changes nothing in the problem; rejected drops a possible cause; confirmed fills in the cause.
+      // Unclear changes nothing in the problem; rejected drops a possible cause; confirmed or likely fills in the cause.
       problem: confirmed || (problem && verdict.outcome === "rejected") ? "todo" : "skipped",
       opportunities: confirmed ? (pursuing ? "skipped" : "todo") : "skipped",
       brief: brief || confirmed ? "todo" : "skipped",
@@ -634,6 +646,12 @@ class Run {
 }
 
 /** A dataset as the design step sees it: rows, period and each column's type and values, from its profile. */
+/** The judge's verdict word, as one of the five verdicts (the model is asked for one; this makes sure). */
+function toVerdict(raw: string): Verdict {
+  const v = raw.trim().toLowerCase();
+  return (VERDICTS as string[]).includes(v) ? (v as Verdict) : "unclear";
+}
+
 export function describeProfile(p: DatasetProfile | null): string {
   if (!p) return "no profile";
   const fmt = (n: number) => n.toLocaleString("en-GB", { maximumFractionDigits: 2 });

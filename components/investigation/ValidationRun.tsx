@@ -12,6 +12,8 @@ import { Spinner } from "@/components/ui/Spinner";
 import { cn } from "@/lib/cn";
 import { routes } from "@/lib/routes";
 import { formatRelative } from "@/lib/time";
+import type { Verdict as VerdictValue } from "@/lib/types";
+import { VERDICT_LABEL, VERDICT_STYLE, VERDICTS } from "@/lib/verdicts";
 import { ACTIVE_PHASES, type RunPhase, type RunRequest, type RunResult, type ValidationRunRecord } from "@/lib/validation-run/types";
 import { useWorkspace } from "./workspace-context";
 
@@ -29,11 +31,10 @@ const PHASE_LABEL: Record<RunPhase, string> = {
   failed: "Stopped",
 };
 
-const OUTCOME = {
-  confirmed: { label: "Confirmed", className: "bg-confirmed-50 text-confirmed-600 border-confirmed-200" },
-  rejected: { label: "Rejected", className: "bg-slate-100 text-slate-700 border-line" },
-  unclear: { label: "Unclear", className: "bg-uncertain-50 text-uncertain-600 border-uncertain-200" },
-} as const;
+const OUTCOME = Object.fromEntries(VERDICTS.map((v) => [v, { label: VERDICT_LABEL[v], className: VERDICT_STYLE[v] }])) as Record<
+  VerdictValue,
+  { label: string; className: string }
+>;
 
 /** What Veyra is doing, or did, to validate one hypothesis. */
 export function RunPanel({ run, onRunAgain, busyAgain }: { run: ValidationRunRecord; onRunAgain: () => void; busyAgain: boolean }) {

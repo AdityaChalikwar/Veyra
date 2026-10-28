@@ -65,7 +65,7 @@ function describe(ws: Live, context: BusinessContext): string {
     "Research tasks:",
     ...r.researchTasks.map((t) => `- [${t.status}] ${t.title}${t.outcome.trim() ? ` — found: ${t.outcome.trim()}` : ""}`),
     "",
-    d ? `Problem definition (${d.causeStatus === "open" ? "provisional" : "cause validated"}): ${d.statement} Who: ${d.affected}. In the way: ${d.obstacle}. Impact: ${d.businessImpact}` : "No problem definition yet.",
+    d ? `Problem definition (${{ open: "provisional", likely: "likely cause, not confirmed", validated: "cause validated" }[d.causeStatus]}): ${d.statement} Who: ${d.affected}. In the way: ${d.obstacle}. Impact: ${d.businessImpact}` : "No problem definition yet.",
     "",
     "Opportunities:",
     ...(r.opportunities.length ? r.opportunities.map((o) => `- [${o.status}] ${o.title}: ${o.customerProblem}`) : ["(none yet)"]),

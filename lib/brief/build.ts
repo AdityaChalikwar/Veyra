@@ -1,5 +1,6 @@
 import { coveredNeeds } from "@/lib/analysis/evidence-needs";
 import type { DecisionBrief, DecisionOutcome, InvestigationWorkspace, LiveInvestigation } from "@/lib/types";
+import { AGAINST, SUPPORTED } from "@/lib/verdicts";
 
 /**
  * The Decision Brief (Milestone 9), assembled in code from the investigation's
@@ -40,26 +41,28 @@ export function briefGates(ws: Live) {
   const earlier = record.validations.filter((v) => !linked.has(v.id) && v.status === "settled");
   const validationOf = (id?: string) => record.validations.find((v) => v.id === id);
 
-  const confirmed = [
-    ...ws.hypotheses.filter((h) => h.status === "confirmed").map((h) => ({ title: h.title ?? h.label, statement: h.statement, reason: validationOf(h.validationId)?.reason ?? "" })),
-    ...earlier.filter((v) => v.outcome === "confirmed").map((v) => ({ title: v.hypothesisTitle, statement: v.hypothesisStatement, reason: v.reason })),
+  // "Likely" counts as supported and "unlikely" as against, each labelled as such.
+  const tag = (outcome?: string) => (outcome === "likely" ? "Likely: " : outcome === "unlikely" ? "Unlikely: " : "");
+  const settledAs = (keep: (o?: string) => boolean) => [
+    ...ws.hypotheses.filter((h) => keep(h.status)).map((h) => ({ title: `${tag(h.status)}${h.title ?? h.label}`, statement: h.statement, reason: validationOf(h.validationId)?.reason ?? "" })),
+    ...earlier.filter((v) => keep(v.outcome)).map((v) => ({ title: `${tag(v.outcome)}${v.hypothesisTitle}`, statement: v.hypothesisStatement, reason: v.reason })),
   ];
-  const rejected = [
-    ...ws.hypotheses.filter((h) => h.status === "rejected").map((h) => ({ title: h.title ?? h.label, statement: h.statement, reason: validationOf(h.validationId)?.reason ?? "" })),
-    ...earlier.filter((v) => v.outcome === "rejected").map((v) => ({ title: v.hypothesisTitle, statement: v.hypothesisStatement, reason: v.reason })),
-  ];
-  const untested = ws.hypotheses.filter((h) => h.status !== "confirmed" && h.status !== "rejected");
+  const confirmed = settledAs(SUPPORTED);
+  const proven = settledAs((o) => o === "confirmed");
+  const rejected = settledAs(AGAINST);
+  const untested = ws.hypotheses.filter((h) => !SUPPORTED(h.status) && !AGAINST(h.status));
   const pursued = record.opportunities.filter((o) => o.status === "pursuing");
 
+  const word = proven.length ? "confirmed" : "likely";
   const solutionsAllowed = confirmed.length > 0 && pursued.length > 0;
   const solutionsWhy = !confirmed.length
-    ? "Not yet. No hypothesis about the cause has been confirmed, so any solution would rest on a guess."
+    ? "Not yet. No hypothesis about the cause is supported yet, so any solution would rest on a guess."
     : !pursued.length
-      ? "Not yet. The cause is confirmed, but no opportunity has been chosen to pursue."
-      : `The cause is confirmed and the team is pursuing ${pursued.map((o) => `“${o.title}”`).join(", ")}.`;
+      ? `Not yet. The cause is ${word}, but no opportunity has been chosen to pursue.`
+      : `The cause is ${word} and the team is pursuing ${pursued.map((o) => `“${o.title}”`).join(", ")}.`;
 
   const datasetLevels = ws.evidence.map((e) => e.confidence).filter((c) => !!c);
-  return { confirmed, rejected, untested, pursued, solutionsAllowed, solutionsWhy, allEvidenceWeak: datasetLevels.length > 0 && datasetLevels.every((c) => c === "low") };
+  return { confirmed, proven, rejected, untested, pursued, solutionsAllowed, solutionsWhy, allEvidenceWeak: datasetLevels.length > 0 && datasetLevels.every((c) => c === "low") };
 }
 
 /** The recommendation as code allows it: solution exploration only when the evidence supports it, and so on. */
@@ -84,7 +87,7 @@ const RANK: Record<Level, number> = { low: 0, medium: 1, high: 2 };
 
 export function settleConfidence(c: BriefJudgement["confidence"], gates: ReturnType<typeof briefGates>): DecisionBrief["confidence"] {
   if (gates.allEvidenceWeak && c.level !== "low") return { level: "low", reason: c.reason, capped: "Every dataset behind this investigation has low evidence confidence." };
-  if (!gates.confirmed.length && RANK[c.level] > RANK.medium) return { level: "medium", reason: c.reason, capped: "No hypothesis about the cause has been confirmed yet." };
+  if (!gates.proven.length && RANK[c.level] > RANK.medium) return { level: "medium", reason: c.reason, capped: "No hypothesis about the cause has been confirmed yet." };
   return c;
 }
 

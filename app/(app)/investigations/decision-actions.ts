@@ -9,6 +9,7 @@ import { writeBriefFor } from "@/lib/brief/write";
 import { getInvestigationWorkspace } from "@/lib/data";
 import { remember } from "@/lib/data/memory";
 import { COMPLETED, isCompleted } from "@/lib/investigation/completed";
+import { SUPPORTED } from "@/lib/verdicts";
 import { createClient } from "@/lib/supabase/server";
 import type { DecisionBrief, DecisionOutcome } from "@/lib/types";
 
@@ -155,8 +156,9 @@ export async function recordDecision(investigationId: string, form: DecisionForm
   const warnings: string[] = [];
   const restsOnCause = ["solution-exploration", "prioritize-opportunity", "no-intervention"].includes(form.outcome);
   if (restsOnCause && !g.confirmed.length) warnings.push("No hypothesis about the cause has been validated. This decision rests on what is still a guess.");
+  else if (restsOnCause && !g.proven.length) warnings.push("The cause is likely, not confirmed: the tests support it, but not everything is ruled out.");
   if (opportunity) {
-    const unconfirmed = opportunity.dependsOn.filter((ref) => ws.hypotheses.find((h) => h.id === ref)?.status !== "confirmed");
+    const unconfirmed = opportunity.dependsOn.filter((ref) => !SUPPORTED(ws.hypotheses.find((h) => h.id === ref)?.status));
     if (unconfirmed.length) warnings.push(`“${opportunity.title}” assumes ${unconfirmed.join(", ")}, which ${unconfirmed.length === 1 ? "isn't" : "aren't"} confirmed.`);
   }
   if (restsOnCause && record.problemDefinition?.causeStatus === "open") warnings.push("The problem definition is provisional: what gets in the way isn't known yet.");

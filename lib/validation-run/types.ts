@@ -1,4 +1,5 @@
 import type { EvidenceNeed } from "@/lib/analysis/evidence-needs";
+import type { Verdict } from "@/lib/types";
 import type { TestOutcome, TestSpec } from "./tests";
 
 /** A validation run as stored in `validation_runs`, shared by the engine and the screens. */
@@ -55,7 +56,7 @@ export type RunResult =
   | { id: string; kind: "skipped"; needId: string; what: string; reason: string };
 
 export type RunVerdict = {
-  outcome: "confirmed" | "rejected" | "unclear";
+  outcome: Verdict;
   confidence: "low" | "medium" | "high";
   reasoning: string;
   challenges: string[];

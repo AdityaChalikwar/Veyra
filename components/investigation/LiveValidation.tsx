@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { rerunWithEvidence, resumeRun, runValidation } from "@/app/(app)/investigations/run-actions";
 import Link from "next/link";
 import { readiness, suggestNext } from "@/lib/investigation/guide";
+import { AGAINST, SUPPORTED, VERDICT_LABEL, VERDICT_STYLE, VERDICTS } from "@/lib/verdicts";
 import { routes } from "@/lib/routes";
 import { ACTIVE_PHASES } from "@/lib/validation-run/types";
 import { RunPanel } from "./ValidationRun";
@@ -28,7 +29,7 @@ import { inputClass, textareaClass } from "@/components/ui/Field";
 import { Spinner } from "@/components/ui/Spinner";
 import { cn } from "@/lib/cn";
 import { formatRelative } from "@/lib/time";
-import type { Hypothesis, LiveInvestigation, ValidationRecord } from "@/lib/types";
+import type { Hypothesis, LiveInvestigation, ValidationRecord, Verdict } from "@/lib/types";
 import { useWorkspace } from "./workspace-context";
 
 type Result = { ok: true } | { error: string };
@@ -57,9 +58,7 @@ const STATUS: Record<string, { label: string; className: string }> = {
   none: { label: "Not validated", className: "bg-slate-100 text-slate-600" },
   planned: { label: "Planned", className: "bg-brand-50 text-brand-700" },
   "in-progress": { label: "Collecting evidence", className: "bg-brand-50 text-brand-700" },
-  confirmed: { label: "Confirmed", className: "bg-confirmed-50 text-confirmed-600" },
-  rejected: { label: "Rejected", className: "bg-slate-200 text-slate-700" },
-  unclear: { label: "Unclear", className: "bg-uncertain-50 text-uncertain-600" },
+  ...Object.fromEntries(VERDICTS.map((v) => [v, { label: VERDICT_LABEL[v], className: VERDICT_STYLE[v] }])),
 };
 
 const statusOf = (v?: ValidationRecord) => (!v ? "none" : v.status === "settled" ? (v.outcome ?? "unclear") : v.status);
@@ -532,13 +531,15 @@ function EvidenceSection({ v, live }: { v: ValidationRecord; live: LiveInvestiga
 
 const OUTCOME_OPTIONS = [
   { value: "confirmed", label: "Confirmed", icon: Check },
-  { value: "rejected", label: "Rejected", icon: X },
+  { value: "likely", label: "Likely", icon: CircleCheck },
   { value: "unclear", label: "Unclear", icon: CircleHelp },
+  { value: "unlikely", label: "Unlikely", icon: Circle },
+  { value: "rejected", label: "Rejected", icon: X },
 ] as const;
 
 function Settle({ v }: { v: ValidationRecord }) {
   const { busy, error, run } = useAction();
-  const [outcome, setOutcome] = useState<"confirmed" | "rejected" | "unclear" | "">("");
+  const [outcome, setOutcome] = useState<Verdict | "">("");
   const [reason, setReason] = useState("");
   const [check, setCheck] = useState<CallCheck | null>(null);
   const [checking, setChecking] = useState(false);
@@ -552,8 +553,12 @@ function Settle({ v }: { v: ValidationRecord }) {
             {STATUS[v.outcome ?? "unclear"].label} by the team{v.settledAt ? ` ${formatRelative(v.settledAt).toLowerCase()}` : ""}.
           </p>
           <p className="mt-0.5 text-ink-muted">{v.reason}</p>
-          {v.outcome === "confirmed" && <p className="mt-1 text-xs text-confirmed-600">Saved to Business Memory as a validated problem.</p>}
-          {v.outcome === "rejected" && <p className="mt-1 text-xs text-ink-subtle">Ruled out and saved to Business Memory. Veyra won&rsquo;t suggest it again.</p>}
+          {SUPPORTED(v.outcome) && <p className="mt-1 text-xs text-confirmed-600">Saved to Business Memory as {v.outcome === "likely" ? "a likely cause" : "a validated problem"}.</p>}
+          {AGAINST(v.outcome) && (
+            <p className="mt-1 text-xs text-ink-subtle">
+              {v.outcome === "rejected" ? "Ruled out and saved to Business Memory. Veyra won\u2019t suggest it again." : "Saved to Business Memory as unlikely."}
+            </p>
+          )}
         </div>
         <Button type="button" size="sm" variant="secondary" disabled={!!busy} onClick={() => run("reopen", () => reopenValidation(v.id))}>
           {busy === "reopen" ? <Spinner /> : <RotateCcw className="h-3.5 w-3.5" />} Reopen

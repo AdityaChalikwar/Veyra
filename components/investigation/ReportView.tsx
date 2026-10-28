@@ -10,6 +10,7 @@ import { formatDate } from "@/lib/time";
 import type { Hypothesis, ValidationPlan } from "@/lib/types";
 import { LiveBrief } from "./LiveBrief";
 import { useWorkspace } from "./workspace-context";
+import { VERDICT_LABEL } from "@/lib/verdicts";
 
 /**
  * The investigation summarised as a report. "Download PDF" prints only the
@@ -70,7 +71,7 @@ export function ReportView() {
   );
 }
 
-const outcomeText = { confirmed: "Confirmed", rejected: "Rejected", unclear: "Unclear" } as const;
+const outcomeText = VERDICT_LABEL;
 
 function InvestigationReport() {
   const { workspace: w, progress, choice, nextStepAcceptedAt } = useWorkspace();

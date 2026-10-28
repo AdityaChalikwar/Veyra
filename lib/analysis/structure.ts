@@ -1,4 +1,5 @@
 import type { AnalysisResult, ResearchMethodKey } from "./schema";
+import type { Verdict } from "@/lib/types";
 
 /**
  * An analysis run as evidence-engine rows: findings and hypotheses, each with
@@ -39,7 +40,7 @@ export type StructuredHypothesis = {
   assumptions: string[];
   links: StructuredLink[];
   /** The team's validation status (saved rows only). */
-  status?: "open" | "confirmed" | "rejected" | "unclear";
+  status?: "open" | Verdict;
   validationId?: string;
 };
 
