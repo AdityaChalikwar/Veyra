@@ -11,7 +11,7 @@ import type { MemoryNote } from "@/lib/analysis/run";
  * every new analysis.
  */
 
-export type MemoryKind = "validated-problem" | "rejected-hypothesis" | "customer-insight" | "decision" | "experiment" | "outcome" | "lesson";
+export type MemoryKind = "validated-problem" | "rejected-hypothesis" | "customer-insight" | "market-research" | "decision" | "experiment" | "outcome" | "lesson";
 
 /** What a memory entry came from, e.g. { validationId }. One entry per source: writing again updates it. */
 type Source = { validationId: string } | { researchTaskId: string } | { decisionId: string; part: "decision" | "outcome" } | { briefId: string; lesson: number };

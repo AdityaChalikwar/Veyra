@@ -1,9 +1,11 @@
 "use client";
 
-import { ChevronDown, CircleHelp, Compass, FlaskConical } from "lucide-react";
+import { ChevronDown, CircleHelp, Compass, FlaskConical, Globe } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { updateResearchTask } from "@/app/(app)/investigations/actions";
+import { researchTask } from "@/app/(app)/investigations/research-actions";
+import { WebResearchResult } from "./WebResearchResult";
 import { Button } from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/Spinner";
 import { cn } from "@/lib/cn";
@@ -78,7 +80,8 @@ export function LiveResearch({ tasks, questions, approach }: { tasks: ResearchTa
       <div>
         <h2 className="text-lg font-semibold">Research Needed</h2>
         <p className="mt-1 max-w-2xl text-[13px] text-ink-subtle">
-          What Veyra can&rsquo;t answer from the data yet, and how to find out. Record what you find on each task; the next analysis uses it.
+          What Veyra can&rsquo;t answer from the data yet, and how to find out. Desk research Veyra can do itself on the public web; for the
+          rest, record what you find. The next analysis uses it.
         </p>
       </div>
       {approach && <ApproachNote approach={approach} />}
@@ -158,6 +161,16 @@ function TaskCard({ task: t }: { task: ResearchTaskRecord }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [researching, setResearching] = useState(false);
+  async function research() {
+    setResearching(true);
+    setError(null);
+    const r = await researchTask(t.id).catch(() => ({ error: "Couldn't reach Veyra. Check your connection and try again." }));
+    if ("error" in r) setError(r.error);
+    router.refresh();
+    setResearching(false);
+  }
+
   async function save() {
     setSaving(true);
     setError(null);
@@ -236,12 +249,31 @@ function TaskCard({ task: t }: { task: ResearchTaskRecord }) {
       ) : (
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3">
           <span className="text-xs text-ink-muted">
-            Status: <span className="font-medium text-ink">{statusLabel[t.status]}</span>
+            Status: <span className="font-medium text-ink">{researching ? "Veyra is researching…" : statusLabel[t.status]}</span>
           </span>
-          <button type="button" onClick={() => setEditing(true)} className="inline-flex items-center gap-1 text-xs font-medium text-brand-600 hover:text-brand-700">
-            Update progress <ChevronDown className="h-3.5 w-3.5" />
-          </button>
-          {t.outcome && <p className="w-full rounded-lg bg-confirmed-50 px-3 py-2 text-[13px] text-ink">Found: {t.outcome}</p>}
+          <div className="flex flex-wrap items-center gap-3">
+            {t.method === "desk-research" && t.status !== "done" && t.status !== "dropped" && (
+              <Button type="button" size="sm" variant="secondary" disabled={researching} onClick={research}>
+                {researching ? <Spinner /> : <Globe className="h-3.5 w-3.5" />} {researching ? "Searching the web…" : "Let Veyra research this"}
+              </Button>
+            )}
+            <button type="button" onClick={() => setEditing(true)} className="inline-flex items-center gap-1 text-xs font-medium text-brand-600 hover:text-brand-700">
+              Update progress <ChevronDown className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          {researching && <p className="w-full text-xs text-ink-subtle">Veyra searches the web and reads what it finds. Usually one to two minutes.</p>}
+          {error && !editing && (
+            <p role="alert" className="w-full text-xs text-danger-600">
+              {error}
+            </p>
+          )}
+          {t.research ? (
+            <div className="w-full">
+              <WebResearchResult research={t.research} />
+            </div>
+          ) : (
+            t.outcome && <p className="w-full rounded-lg bg-confirmed-50 px-3 py-2 text-[13px] text-ink">Found: {t.outcome}</p>
+          )}
         </div>
       )}
     </article>
