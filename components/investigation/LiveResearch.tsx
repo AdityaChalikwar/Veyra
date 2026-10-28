@@ -2,7 +2,7 @@
 
 import { ChevronDown, CircleHelp, Compass, FlaskConical, Globe } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { updateResearchTask } from "@/app/(app)/investigations/actions";
 import { researchTask } from "@/app/(app)/investigations/research-actions";
 import { WebResearchResult } from "./WebResearchResult";
@@ -161,14 +161,17 @@ function TaskCard({ task: t }: { task: ResearchTaskRecord }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [researching, setResearching] = useState(false);
+  const [calling, setCalling] = useState(false);
+  // Still "researching" until the refreshed task, with its result, is on screen.
+  const [refreshing, startRefresh] = useTransition();
+  const researching = calling || refreshing;
   async function research() {
-    setResearching(true);
+    setCalling(true);
     setError(null);
     const r = await researchTask(t.id).catch(() => ({ error: "Couldn't reach Veyra. Check your connection and try again." }));
     if ("error" in r) setError(r.error);
-    router.refresh();
-    setResearching(false);
+    startRefresh(() => router.refresh());
+    setCalling(false);
   }
 
   async function save() {

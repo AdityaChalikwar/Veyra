@@ -3,7 +3,7 @@
 import { ExternalLink, Globe, MessageSquareQuote, Search, TrendingUp, Users } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { researchMarket } from "@/app/(app)/investigations/research-actions";
 import { Button } from "@/components/ui/Button";
 import { EmptyNote } from "@/components/ui/EmptyNote";
@@ -37,15 +37,18 @@ export function LiveCustomers({ live }: { live: LiveInvestigation }) {
   const desk = record.researchTasks.filter((t) => t.researchedBy === "veyra" && t.research).sort((a, b) => Number(b.title === MARKET_TITLE) - Number(a.title === MARKET_TITLE));
   const market = desk.find((t) => t.title === MARKET_TITLE);
   const router = useRouter();
-  const [busy, setBusy] = useState(false);
+  const [calling, setCalling] = useState(false);
+  // Still busy until the refreshed research is on screen.
+  const [refreshing, startRefresh] = useTransition();
+  const busy = calling || refreshing;
   const [error, setError] = useState<string | null>(null);
   async function runMarket() {
-    setBusy(true);
+    setCalling(true);
     setError(null);
     const r = await researchMarket(id).catch(() => ({ error: "Couldn't reach Veyra. Check your connection and try again." }));
     if ("error" in r) setError(r.error);
-    router.refresh();
-    setBusy(false);
+    startRefresh(() => router.refresh());
+    setCalling(false);
   }
 
   return (
