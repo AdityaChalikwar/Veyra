@@ -3,6 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { ANALYSIS_MODEL, apiFailure, callStep, formatOf, type StepFailure, type Usage } from "@/lib/analysis/run";
 import { EVIDENCE_SOURCES, type EvidenceNeed } from "@/lib/analysis/evidence-needs";
+import { webSearchStep } from "@/lib/ai/web-search";
 import { TEST_KINDS } from "./tests";
 
 /**
@@ -162,71 +163,20 @@ export type WebFinding = { needId: string; finding: string; sources: { url: stri
 
 /** Web searches with Claude's web search tool. Only URLs that came back from a search are kept. */
 export async function searchWeb(b: Background, queries: { needId: string; query: string }[]): Promise<{ ok: true; data: WebFinding[]; usage: Usage } | { ok: false; failure: StepFailure }> {
-  if (!process.env.ANTHROPIC_API_KEY) return noKey();
   if (!queries.length) return { ok: true, data: [], usage: {} };
-  const c = client();
-  const messages: Anthropic.Beta.BetaMessageParam[] = [
-    {
-      role: "user",
-      content: [
-        { type: "text", text: context(b), cache_control: { type: "ephemeral" } },
-        {
-          type: "text",
-          text: `Search the web for public evidence on this hypothesis:\n${queries.map((q) => `- ${q.needId}: ${q.query}`).join("\n")}\nReport what you find, including evidence against it. Cite only pages you found.`,
-        },
-      ],
-    },
-  ];
-  try {
-    let message: Anthropic.Beta.BetaMessage | undefined;
-    for (let turn = 0; turn < 4; turn++) {
-      message = await c.beta.messages
-        .stream({
-          model: ANALYSIS_MODEL,
-          max_tokens: 16_000,
-          thinking: { type: "adaptive" },
-          output_config: { effort: "medium", format: formatOf(webSchema) },
-          betas: ["server-side-fallback-2026-07-01"],
-          fallbacks: "default",
-          system: SYSTEM,
-          tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 6 }],
-          messages,
-        })
-        .finalMessage();
-      if (message.stop_reason !== "pause_turn") break;
-      messages.push({ role: "assistant", content: message.content });
-    }
-    if (!message) return { ok: false, failure: { status: "failed", error: "The web search didn't return." } };
-    if (message.stop_reason === "refusal") return { ok: false, failure: { status: "refused", error: "Claude declined this web search." } };
-    const found = new Map<string, string>();
-    for (const block of message.content) {
-      if (block.type === "web_search_tool_result" && Array.isArray(block.content)) {
-        for (const r of block.content) if (r.type === "web_search_result") found.set(r.url, r.title);
-      }
-    }
-    const text = message.content.flatMap((bl) => (bl.type === "text" ? [bl.text] : [])).join("");
-    const last = text.lastIndexOf('{"findings"');
-    let parsed: z.infer<typeof webSchema> | null = null;
-    for (const candidate of [text, last >= 0 ? text.slice(last) : ""]) {
-      try {
-        const r = webSchema.safeParse(JSON.parse(candidate));
-        if (r.success) {
-          parsed = r.data;
-          break;
-        }
-      } catch {
-        // next candidate
-      }
-    }
-    const usage: Usage = { inputTokens: message.usage.input_tokens, outputTokens: message.usage.output_tokens };
-    if (!parsed) return { ok: false, failure: { status: "failed", usage, error: "The web search answer wasn't in the expected form." } };
-    const data = parsed.findings
-      .map((f) => ({ needId: f.needId, finding: f.finding, sources: f.urls.filter((u) => found.has(u)).map((u) => ({ url: u, title: found.get(u)! })) }))
-      .filter((f) => f.sources.length > 0 && f.finding.trim());
-    return { ok: true, data, usage };
-  } catch (error) {
-    return { ok: false, failure: apiFailure(error) };
-  }
+  const r = await webSearchStep({
+    system: SYSTEM,
+    context: context(b),
+    instruction: `Search the web for public evidence on this hypothesis:\n${queries.map((q) => `- ${q.needId}: ${q.query}`).join("\n")}\nReport what you find, including evidence against it. Cite only pages you found.`,
+    schema: webSchema,
+    firstKey: "findings",
+    maxUses: 6,
+  });
+  if (!r.ok) return r;
+  const data = r.data.findings
+    .map((f) => ({ needId: f.needId, finding: f.finding, sources: f.urls.filter((u) => r.found.has(u)).map((u) => ({ url: u, title: r.found.get(u)! })) }))
+    .filter((f) => f.sources.length > 0 && f.finding.trim());
+  return { ok: true, data, usage: r.usage };
 }
 
 /* ── 5. Verdict, then the challenge ────────────────────────────────────── */

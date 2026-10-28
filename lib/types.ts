@@ -774,8 +774,20 @@ export type ResearchTaskRecord = {
   questionRef?: string;
   hypothesisRefs: string[];
   outcome: string;
+  /** Who did it: the team, or Veyra researching the public web. */
+  researchedBy: "team" | "veyra";
+  research?: WebResearch;
   createdAt: string;
   updatedAt: string;
+};
+
+/** Veyra's web research on a question: facts and views kept apart, each citing pages a search returned. */
+export type WebResearch = {
+  answer: string;
+  facts: { text: string; sources: number[] }[];
+  views: { text: string; sources: number[] }[];
+  unknowns: string;
+  sources: { url: string; title: string }[];
 };
 
 export type InvestigationRecord = {

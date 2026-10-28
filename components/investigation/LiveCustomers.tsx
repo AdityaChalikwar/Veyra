@@ -1,12 +1,21 @@
 "use client";
 
-import { ExternalLink, Globe, MessageSquareQuote, Users } from "lucide-react";
+import { ExternalLink, Globe, MessageSquareQuote, Search, TrendingUp, Users } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { researchMarket } from "@/app/(app)/investigations/research-actions";
+import { Button } from "@/components/ui/Button";
 import { EmptyNote } from "@/components/ui/EmptyNote";
+import { Spinner } from "@/components/ui/Spinner";
 import { routes } from "@/lib/routes";
 import type { LiveInvestigation } from "@/lib/types";
 import type { RunResult } from "@/lib/validation-run/types";
 import { useWorkspace } from "./workspace-context";
+import { WebResearchResult } from "./WebResearchResult";
+
+/** Matches the task researchMarket creates. */
+const MARKET_TITLE = "Competitors and the market";
 
 const CUSTOMER_METHODS = new Set(["customer-interviews", "survey", "feedback-analysis", "usability-testing"]);
 
@@ -24,6 +33,20 @@ export function LiveCustomers({ live }: { live: LiveInvestigation }) {
   const web = results.filter((x): x is { r: Extract<RunResult, { kind: "web" }>; about: string } => x.r.kind === "web");
   const research = record.researchTasks.filter((t) => CUSTOMER_METHODS.has(t.method) && t.status === "done" && t.outcome.trim());
   const affected = record.problemDefinition?.affected;
+  // Desk research Veyra did on the web, the market research first.
+  const desk = record.researchTasks.filter((t) => t.researchedBy === "veyra" && t.research).sort((a, b) => Number(b.title === MARKET_TITLE) - Number(a.title === MARKET_TITLE));
+  const market = desk.find((t) => t.title === MARKET_TITLE);
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  async function runMarket() {
+    setBusy(true);
+    setError(null);
+    const r = await researchMarket(id).catch(() => ({ error: "Couldn't reach Veyra. Check your connection and try again." }));
+    if ("error" in r) setError(r.error);
+    router.refresh();
+    setBusy(false);
+  }
 
   return (
     <div className="mt-6 max-w-4xl space-y-6">
@@ -89,7 +112,34 @@ export function LiveCustomers({ live }: { live: LiveInvestigation }) {
         )}
       </Section>
 
-      <Section icon={Globe} title="Outside context">
+      <Section icon={TrendingUp} title="Competitors and the market">
+        <div className="flex flex-col gap-2 rounded-xl border border-line bg-surface p-4 shadow-card sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-[13px] text-ink-muted">
+            Veyra searches the public web: how competitors and similar companies handle this problem, and news, releases or public reviews that help
+            explain it. One AI request; usually one to two minutes.
+          </p>
+          <Button type="button" size="sm" variant={market ? "secondary" : "primary"} disabled={busy} onClick={runMarket} className="shrink-0">
+            {busy ? <Spinner /> : <Search className="h-3.5 w-3.5" />} {busy ? "Searching the web…" : market ? "Research again" : "Research competitors and the market"}
+          </Button>
+        </div>
+        {error && (
+          <p role="alert" className="mt-2 text-[13px] text-danger-600">
+            {error}
+          </p>
+        )}
+        {desk.length > 0 && (
+          <ul className="mt-3 space-y-3">
+            {desk.map((t) => (
+              <li key={t.id}>
+                <p className="mb-1 text-[13.5px] font-semibold text-ink">{t.title}</p>
+                <WebResearchResult research={t.research!} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </Section>
+
+      <Section icon={Globe} title="Outside context found while validating">
         {web.length === 0 ? (
           <EmptyNote>Veyra searches the web for public evidence — release notes, reviews, outages, market news — when it validates a hypothesis. What it finds shows here with its sources.</EmptyNote>
         ) : (

@@ -794,6 +794,8 @@ export type Database = {
           status: string;
           rationale: string;
           question_ref: string | null;
+          research: Json | null;
+          researched_by: string;
           hypothesis_refs: string[];
           outcome: string;
           updated_at: string;
@@ -813,6 +815,8 @@ export type Database = {
           status?: string;
           rationale?: string;
           question_ref?: string | null;
+          research?: Json | null;
+          researched_by?: string;
           hypothesis_refs?: string[];
           outcome?: string;
           updated_at?: string;
@@ -832,6 +836,8 @@ export type Database = {
           status?: string;
           rationale?: string;
           question_ref?: string | null;
+          research?: Json | null;
+          researched_by?: string;
           hypothesis_refs?: string[];
           outcome?: string;
           updated_at?: string;
